@@ -37,6 +37,9 @@ namespace TiendaVirtual.Dominio.Modelo.SeguridadXqm
         public DateTime FechaAlta { get; set; }
         public DateTime? UltimoAcceso { get; set; }
 
+        public string? TwoFactorSecret { get; set; }
+        public bool TwoFactorEnabled { get; set; }
+
         // Relaciones
         public virtual Persona Persona { get; set; } = null!;
         public virtual ICollection<UsuarioRol> UsuarioRoles { get; set; } = new List<UsuarioRol>();

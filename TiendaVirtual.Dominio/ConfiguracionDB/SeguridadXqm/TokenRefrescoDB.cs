@@ -39,7 +39,7 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.SeguridadXqm
 
             builder.Property(e => e.DireccionIp)
                 .HasColumnName("direccion_ip")
-                .HasColumnType("inet");
+                .HasMaxLength(45);
 
             builder.Property(e => e.AgenteUsuario)
                 .HasColumnName("agente_usuario")

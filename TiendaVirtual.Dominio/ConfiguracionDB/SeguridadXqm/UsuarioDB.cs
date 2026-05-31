@@ -51,6 +51,12 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.SeguridadXqm
             builder.Property(e => e.UltimoAcceso)
                 .HasColumnName("ultimo_acceso");
 
+            builder.Property(e => e.TwoFactorSecret)
+                .HasColumnName("two_factor_secret").HasMaxLength(500);
+
+            builder.Property(e => e.TwoFactorEnabled)
+                .HasColumnName("two_factor_enabled");
+
             builder.HasIndex(e => e.Correo).IsUnique().HasDatabaseName("uq_usuario_correo");
             builder.HasIndex(e => e.PersonaId).HasDatabaseName("idx_usuario_persona");
 

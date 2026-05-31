@@ -1,12 +1,13 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using System.ComponentModel.DataAnnotations;
 using System.Text;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
-using TiendaVirtual.Intercambio;
+using TiendaVirtual.Api.Extensiones;
 using TiendaVirtual.Dominio;
 using TiendaVirtual.Dominio.Utilidad;
+using TiendaVirtual.Intercambio;
 
 namespace TiendaVirtual.Api
 {
@@ -63,6 +64,9 @@ namespace TiendaVirtual.Api
                                .AllowCredentials();
                 });
             });
+
+            // Registro de servicios de los módulos
+            builder.Services.AgregarServiciosSeguridad();
 
             // Controllers + JSON (enums como string, camelCase)
             builder.Services.AddControllers()

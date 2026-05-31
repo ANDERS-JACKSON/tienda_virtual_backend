@@ -19,10 +19,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Controllers\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\TiendaVirtual.Comun\TiendaVirtual.Comun.csproj" />
     <ProjectReference Include="..\TiendaVirtual.Dominio\TiendaVirtual.Dominio.csproj" />
     <ProjectReference Include="..\TiendaVirtual.Intercambio\TiendaVirtual.Intercambio.csproj" />
