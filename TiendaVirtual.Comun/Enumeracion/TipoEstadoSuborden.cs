@@ -11,14 +11,15 @@ namespace TiendaVirtual.Comun.Enumeracion
     {
         [Description("PENDIENTE")] 
          Pendiente = 1,
-
-        [Description("ENVIADA")] 
-         Enviada = 2,
-
+        [Description("EN_PREPARACION")] 
+         EnPreparacion = 2, 
+        [Description("EN_CAMINO")] 
+         EnCamino = 3,
         [Description("ENTREGADA")] 
-         Entregada = 3,
-
+         Entregada = 4, 
+        [Description("CANCELADA")] 
+         Cancelada = 5,
         [Description("EN_DISPUTA")] 
-         EnDisputa = 4
+         EnDisputa = 6
     }
 }

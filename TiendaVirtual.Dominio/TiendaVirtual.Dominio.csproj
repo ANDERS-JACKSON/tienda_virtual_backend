@@ -7,11 +7,22 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="ConfiguracionDB\" />
     <Folder Include="Extensiones\" />
-    <Folder Include="Modelo\" />
-    <Folder Include="Utilidad\" />
     <Folder Include="Servicios\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.16" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.16">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TiendaVirtual.Comun\TiendaVirtual.Comun.csproj" />
+    <ProjectReference Include="..\TiendaVirtual.Intercambio\TiendaVirtual.Intercambio.csproj" />
   </ItemGroup>
 
 </Project>
