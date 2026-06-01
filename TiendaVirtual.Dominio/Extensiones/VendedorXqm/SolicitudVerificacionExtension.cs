@@ -44,6 +44,8 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
 
             dto.SolicitudId = entidad.SolicitudId;
             dto.VendedorId = entidad.VendedorId;
+            dto.NombreTienda = entidad.Vendedor?.NombreTienda ?? string.Empty;
+            dto.CorreoVendedor = entidad.Vendedor?.Usuario?.Correo ?? string.Empty;
             dto.Estado = new EnumeracionDto
             {
                 Id = (int)entidad.Estado,

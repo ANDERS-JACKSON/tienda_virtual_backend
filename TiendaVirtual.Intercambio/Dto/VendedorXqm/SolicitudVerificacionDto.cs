@@ -11,6 +11,8 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
     {
         public int SolicitudId { get; set; }
         public int VendedorId { get; set; }
+        public string NombreTienda { get; set; } = null!; 
+        public string CorreoVendedor { get; set; } = null!;
         public EnumeracionDto Estado { get; set; } = null!;
         public string DocumentoFrenteUrl { get; set; } = null!;
         public string? DocumentoReversoUrl { get; set; }

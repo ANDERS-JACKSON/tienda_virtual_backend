@@ -63,5 +63,46 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
 
             return dto;
         }
+
+        public static VendedorPerfilDto ToPerfilDto(this Vendedor entidad)
+        {
+            if (entidad == null) return null!;
+            return new VendedorPerfilDto
+            {
+                VendedorId = entidad.VendedorId,
+                NombreTienda = entidad.NombreTienda,
+                SlugTienda = entidad.SlugTienda,
+                Biografia = entidad.Biografia,
+                LogoUrl = entidad.LogoUrl,
+                BannerUrl = entidad.BannerUrl,
+                NumeroYape = entidad.NumeroYape,
+                Estado = new EnumeracionDto
+                {
+                    Id = (int)entidad.Estado,
+                    Nombre = entidad.Estado.GetDescription()
+                },
+                CalificacionPromedio = entidad.CalificacionPromedio,
+                TotalVentas = entidad.TotalVentas,
+                VendePatrones = entidad.VendePatrones
+            };
+        }
+
+        public static TiendaPublicaDto ToTiendaPublicaDto(this Vendedor entidad, int totalProductos)
+        {
+            if (entidad == null) return null!;
+            return new TiendaPublicaDto
+            {
+                VendedorId = entidad.VendedorId,
+                NombreTienda = entidad.NombreTienda,
+                SlugTienda = entidad.SlugTienda,
+                Biografia = entidad.Biografia,
+                LogoUrl = entidad.LogoUrl,
+                BannerUrl = entidad.BannerUrl,
+                CalificacionPromedio = entidad.CalificacionPromedio,
+                TotalVentas = entidad.TotalVentas,
+                TotalProductos = totalProductos,
+                VendePatrones = entidad.VendePatrones
+            };
+        }
     }
 }
