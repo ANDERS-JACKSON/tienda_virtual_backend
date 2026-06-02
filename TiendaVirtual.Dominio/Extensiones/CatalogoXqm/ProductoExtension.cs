@@ -42,42 +42,45 @@ namespace TiendaVirtual.Dominio.Extensiones.CatalogoXqm
             return producto;
         }
 
-        public static ProductoDto ToDto(this Producto entidad)
+        /// <summary>
+        /// DTO completo para la vista del vendedor. Requiere navegaciones cargadas:
+        /// Categoria, Variantes(.Stock), Imagenes, Ofertas.
+        /// </summary>
+        public static ProductoDto ToDto(this Producto p)
         {
-            if (entidad == null)
-                return null!;
+            if (p == null) return null!;
+            var now = DateTime.UtcNow;
+            var ofertaVigente = p.Ofertas
+                .Where(o => o.Activa && o.FechaInicio <= now && o.FechaFin >= now)
+                .OrderByDescending(o => o.OfertaId)
+                .FirstOrDefault();
 
-            var dto = new ProductoDto();
-
-            dto.ProductoId = entidad.ProductoId;
-            dto.VendedorId = entidad.VendedorId;
-            dto.CategoriaId = entidad.CategoriaId;
-            dto.Nombre = entidad.Nombre;
-            dto.Slug = entidad.Slug;
-            dto.Descripcion = entidad.Descripcion;
-            dto.DescripcionCorta = entidad.DescripcionCorta;
-            dto.Material = entidad.Material;
-            dto.Dimensiones = entidad.Dimensiones;
-            dto.TieneVariantes = entidad.TieneVariantes;
-            dto.PrecioBase = entidad.PrecioBase;
-            dto.DiasElaboracion = entidad.DiasElaboracion;
-            dto.Estado = new EnumeracionDto
+            return new ProductoDto
             {
-                Id = (int)entidad.Estado,
-                Nombre = entidad.Estado.GetDescription()
+                ProductoId = p.ProductoId,
+                VendedorId = p.VendedorId,
+                CategoriaId = p.CategoriaId,
+                NombreCategoria = p.Categoria?.Nombre ?? string.Empty,
+                Nombre = p.Nombre,
+                Slug = p.Slug,
+                Descripcion = p.Descripcion,
+                DescripcionCorta = p.DescripcionCorta,
+                Material = p.Material,
+                Dimensiones = p.Dimensiones,
+                TieneVariantes = p.TieneVariantes,
+                PrecioBase = p.PrecioBase,
+                DiasElaboracion = p.DiasElaboracion,
+                Estado = new EnumeracionDto { Id = (int)p.Estado, Nombre = p.Estado.ToString() },
+                Tipo = new EnumeracionDto { Id = (int)p.Tipo, Nombre = p.Tipo.ToString() },
+                ArchivoPatronUrl = p.ArchivoPatronUrl,
+                Vistas = p.Vistas,
+                Ventas = p.Ventas,
+                CalificacionPromedio = p.CalificacionPromedio,
+                TotalResenas = p.TotalResenas,
+                Variantes = p.Variantes.Select(v => v.ToDto()).ToList(),
+                Imagenes = p.Imagenes.OrderBy(i => i.Orden).Select(i => i.ToDto()).ToList(),
+                OfertaVigente = ofertaVigente?.ToDto()
             };
-            dto.Tipo = new EnumeracionDto
-            {
-                Id = (int)entidad.Tipo,
-                Nombre = entidad.Tipo.GetDescription()
-            };
-            dto.ArchivoPatronUrl = entidad.ArchivoPatronUrl;
-            dto.Vistas = entidad.Vistas;
-            dto.Ventas = entidad.Ventas;
-            dto.CalificacionPromedio = entidad.CalificacionPromedio;
-            dto.TotalResenas = entidad.TotalResenas;
-
-            return dto;
         }
     }
 }

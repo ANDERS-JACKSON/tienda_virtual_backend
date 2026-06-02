@@ -10,42 +10,22 @@ namespace TiendaVirtual.Dominio.Extensiones.CatalogoXqm
 {
     public static class OfertaExtension
     {
-        public static Oferta ToEntidad(this OfertaDto dto)
+        public static OfertaDto ToDto(this Oferta o)
         {
-            if (dto == null)
-                return null!;
-
-            var oferta = new Oferta();
-
-            oferta.OfertaId = dto.OfertaId;
-            oferta.ProductoId = dto.ProductoId;
-            oferta.Nombre = dto.Nombre?.Normalizar_null();
-            oferta.PorcentajeDescuento = dto.PorcentajeDescuento;
-            oferta.PrecioOferta = dto.PrecioOferta;
-            oferta.FechaInicio = dto.FechaInicio;
-            oferta.FechaFin = dto.FechaFin;
-            oferta.Activa = dto.Activa;
-
-            return oferta;
-        }
-
-        public static OfertaDto ToDto(this Oferta entidad)
-        {
-            if (entidad == null)
-                return null!;
-
-            var dto = new OfertaDto();
-
-            dto.OfertaId = entidad.OfertaId;
-            dto.ProductoId = entidad.ProductoId;
-            dto.Nombre = entidad.Nombre;
-            dto.PorcentajeDescuento = entidad.PorcentajeDescuento;
-            dto.PrecioOferta = entidad.PrecioOferta;
-            dto.FechaInicio = entidad.FechaInicio;
-            dto.FechaFin = entidad.FechaFin;
-            dto.Activa = entidad.Activa;
-
-            return dto;
+            if (o == null) return null!;
+            var now = DateTime.UtcNow;
+            return new OfertaDto
+            {
+                OfertaId = o.OfertaId,
+                ProductoId = o.ProductoId,
+                Nombre = o.Nombre,
+                PorcentajeDescuento = o.PorcentajeDescuento,
+                PrecioOferta = o.PrecioOferta,
+                FechaInicio = o.FechaInicio,
+                FechaFin = o.FechaFin,
+                Activa = o.Activa,
+                Vigente = o.Activa && o.FechaInicio <= now && o.FechaFin >= now
+            };
         }
     }
 }

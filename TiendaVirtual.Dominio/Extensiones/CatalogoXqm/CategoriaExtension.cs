@@ -10,42 +10,36 @@ namespace TiendaVirtual.Dominio.Extensiones.CatalogoXqm
 {
     public static class CategoriaExtension
     {
-        public static Categoria ToEntidad(this CategoriaDto dto)
+        public static CategoriaDto ToDto(this Categoria c, int totalProductos = 0)
         {
-            if (dto == null)
-                return null!;
-
-            var categoria = new Categoria();
-
-            categoria.CategoriaId = dto.CategoriaId;
-            categoria.CategoriaPadreId = dto.CategoriaPadreId;
-            categoria.Nombre = dto.Nombre.Normalizar();
-            categoria.Slug = dto.Slug.Normalizar();
-            categoria.Descripcion = dto.Descripcion?.Normalizar_null();
-            categoria.ImagenUrl = dto.ImagenUrl?.Normalizar_null();
-            categoria.Orden = dto.Orden;
-            categoria.Activa = dto.Activa;
-
-            return categoria;
+            if (c == null) return null!;
+            return new CategoriaDto
+            {
+                CategoriaId = c.CategoriaId,
+                CategoriaPadreId = c.CategoriaPadreId,
+                Nombre = c.Nombre,
+                Slug = c.Slug,
+                Descripcion = c.Descripcion,
+                ImagenUrl = c.ImagenUrl,
+                Orden = c.Orden,
+                Activa = c.Activa,
+                TotalProductos = totalProductos
+            };
         }
 
-        public static CategoriaDto ToDto(this Categoria entidad)
+        public static CategoriaArbolDto ToArbolDto(this Categoria c, int totalProductos = 0)
         {
-            if (entidad == null)
-                return null!;
-
-            var dto = new CategoriaDto();
-
-            dto.CategoriaId = entidad.CategoriaId;
-            dto.CategoriaPadreId = entidad.CategoriaPadreId;
-            dto.Nombre = entidad.Nombre;
-            dto.Slug = entidad.Slug;
-            dto.Descripcion = entidad.Descripcion;
-            dto.ImagenUrl = entidad.ImagenUrl;
-            dto.Orden = entidad.Orden;
-            dto.Activa = entidad.Activa;
-
-            return dto;
+            if (c == null) return null!;
+            return new CategoriaArbolDto
+            {
+                CategoriaId = c.CategoriaId,
+                Nombre = c.Nombre,
+                Slug = c.Slug,
+                ImagenUrl = c.ImagenUrl,
+                Orden = c.Orden,
+                TotalProductos = totalProductos,
+                Subcategorias = new List<CategoriaArbolDto>()
+            };
         }
     }
 }

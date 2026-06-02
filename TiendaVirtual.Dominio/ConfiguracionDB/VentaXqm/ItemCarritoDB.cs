@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System;
 using System.Collections.Generic;
@@ -29,6 +29,13 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.VentaXqm
 
             builder.Property(e => e.Cantidad)
                 .HasColumnName("cantidad");
+
+            builder.Property(e => e.FechaAgregado)
+                .HasColumnName("fecha_agregado");
+
+            builder.HasIndex(e => new { e.CarritoId, e.VarianteId })
+                .IsUnique()
+                .HasDatabaseName("uq_item_carrito_variante");
 
             builder.HasOne(e => e.Carrito)
                 .WithMany(c => c.Items)

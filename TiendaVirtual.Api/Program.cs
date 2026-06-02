@@ -68,6 +68,8 @@ namespace TiendaVirtual.Api
             // Registro de servicios de los módulos
             builder.Services.AgregarServiciosSeguridad();
             builder.Services.AgregarServiciosVendedor();
+            builder.Services.AgregarServiciosCatalogo();
+            builder.Services.AgregarServiciosVenta();
 
             // Controllers + JSON (enums como string, camelCase)
             builder.Services.AddControllers()

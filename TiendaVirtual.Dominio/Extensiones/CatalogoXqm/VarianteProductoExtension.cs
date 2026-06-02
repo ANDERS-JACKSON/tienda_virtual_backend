@@ -10,42 +10,23 @@ namespace TiendaVirtual.Dominio.Extensiones.CatalogoXqm
 {
     public static class VarianteProductoExtension
     {
-        public static VarianteProducto ToEntidad(this VarianteProductoDto dto)
+        public static VarianteProductoDto ToDto(this VarianteProducto v)
         {
-            if (dto == null)
-                return null!;
-
-            var variante = new VarianteProducto();
-
-            variante.VarianteId = dto.VarianteId;
-            variante.ProductoId = dto.ProductoId;
-            variante.Sku = dto.Sku?.Normalizar_null();
-            variante.Nombre = dto.Nombre?.Normalizar_null();
-            variante.Precio = dto.Precio;
-            variante.PesoGramos = dto.PesoGramos;
-            variante.Atributos = dto.Atributos?.Normalizar_null();
-            variante.Activa = dto.Activa;
-
-            return variante;
-        }
-
-        public static VarianteProductoDto ToDto(this VarianteProducto entidad)
-        {
-            if (entidad == null)
-                return null!;
-
-            var dto = new VarianteProductoDto();
-
-            dto.VarianteId = entidad.VarianteId;
-            dto.ProductoId = entidad.ProductoId;
-            dto.Sku = entidad.Sku;
-            dto.Nombre = entidad.Nombre;
-            dto.Precio = entidad.Precio;
-            dto.PesoGramos = entidad.PesoGramos;
-            dto.Atributos = entidad.Atributos;
-            dto.Activa = entidad.Activa;
-
-            return dto;
+            if (v == null) return null!;
+            return new VarianteProductoDto
+            {
+                VarianteId = v.VarianteId,
+                ProductoId = v.ProductoId,
+                Sku = v.Sku,
+                Nombre = v.Nombre,
+                Precio = v.Precio,
+                PesoGramos = v.PesoGramos,
+                Atributos = v.Atributos,
+                Activa = v.Activa,
+                CantidadDisponible = v.Stock?.CantidadDisponible ?? 0,
+                CantidadReservada = v.Stock?.CantidadReservada ?? 0,
+                UmbralStockBajo = v.Stock?.UmbralStockBajo ?? 5
+            };
         }
     }
 }

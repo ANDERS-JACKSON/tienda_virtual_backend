@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -11,6 +11,7 @@ namespace TiendaVirtual.Dominio.Modelo.VentaXqm
     {
         public int CarritoId { get; set; }
         public int UsuarioId { get; set; }
+        public DateTime FechaActualizacion { get; set; }
 
         public virtual Usuario Usuario { get; set; } = null!;
         public virtual ICollection<ItemCarrito> Items { get; set; } = new List<ItemCarrito>();

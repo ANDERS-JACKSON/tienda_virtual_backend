@@ -16,5 +16,6 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
         public string? ImagenUrl { get; set; }
         public int Orden { get; set; }
         public bool Activa { get; set; }
+        public int TotalProductos { get; set; }
     }
 }

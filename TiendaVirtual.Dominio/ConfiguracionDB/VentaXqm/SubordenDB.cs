@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System;
 using System.Collections.Generic;
@@ -60,6 +60,9 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.VentaXqm
             builder.Property(e => e.FechaEntrega)
                 .HasColumnName("fecha_entrega");
 
+            builder.Property(e => e.MetodoEnvioId)
+                .HasColumnName("metodo_envio_id");
+
             builder.HasIndex(e => e.NumeroSuborden).IsUnique().HasDatabaseName("uq_suborden_numero");
             builder.HasIndex(e => new { e.VendedorId, e.Estado }).HasDatabaseName("idx_suborden_vendedor");
             builder.HasIndex(e => e.OrdenId).HasDatabaseName("idx_suborden_orden");
@@ -75,6 +78,12 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.VentaXqm
                 .HasForeignKey(e => e.VendedorId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("fk_suborden_vendedor");
+
+            builder.HasOne(e => e.MetodoEnvio)
+                .WithMany(m => m.Subordenes)
+                .HasForeignKey(e => e.MetodoEnvioId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_suborden_metodo_envio");
         }
     }
 }

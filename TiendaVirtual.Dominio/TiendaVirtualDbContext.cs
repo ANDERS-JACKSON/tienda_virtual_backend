@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -74,6 +74,7 @@ namespace TiendaVirtual.Dominio
         //----------------------------------------------------------------------
         public DbSet<Carrito> Carritos { get; set; } = null!;
         public DbSet<ItemCarrito> ItemsCarrito { get; set; } = null!;
+        public DbSet<MetodoEnvio> MetodosEnvio { get; set; } = null!;
         public DbSet<Orden> Ordenes { get; set; } = null!;
         public DbSet<Suborden> Subordenes { get; set; } = null!;
         public DbSet<ItemOrden> ItemsOrden { get; set; } = null!;
@@ -146,6 +147,7 @@ namespace TiendaVirtual.Dominio
             #region Venta
             modelBuilder.ApplyConfiguration(new CarritoDB());
             modelBuilder.ApplyConfiguration(new ItemCarritoDB());
+            modelBuilder.ApplyConfiguration(new MetodoEnvioDB());
             modelBuilder.ApplyConfiguration(new OrdenDB());
             modelBuilder.ApplyConfiguration(new SubordenDB());
             modelBuilder.ApplyConfiguration(new ItemOrdenDB());

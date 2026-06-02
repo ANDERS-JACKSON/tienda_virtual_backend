@@ -16,5 +16,6 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
         public DateTime FechaInicio { get; set; }
         public DateTime FechaFin { get; set; }
         public bool Activa { get; set; }
+        public bool Vigente { get; set; }
     }
 }

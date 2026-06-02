@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -35,8 +35,11 @@ namespace TiendaVirtual.Dominio.Modelo.VentaXqm
         public DateTime? FechaEnvio { get; set; }
         public DateTime? FechaEntrega { get; set; }
 
+        public int? MetodoEnvioId { get; set; }
+
         public virtual Orden Orden { get; set; } = null!;
         public virtual Vendedor Vendedor { get; set; } = null!;
+        public virtual MetodoEnvio? MetodoEnvio { get; set; }
         public virtual ICollection<ItemOrden> Items { get; set; } = new List<ItemOrden>();
         public virtual ICollection<Envio> Envios { get; set; } = new List<Envio>();
         public virtual ICollection<Reclamo> Reclamos { get; set; } = new List<Reclamo>();

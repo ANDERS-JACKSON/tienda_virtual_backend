@@ -16,5 +16,8 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
         public int? PesoGramos { get; set; }
         public string? Atributos { get; set; }
         public bool Activa { get; set; }
+        public int CantidadDisponible { get; set; }
+        public int CantidadReservada { get; set; }
+        public int UmbralStockBajo { get; set; }
     }
 }

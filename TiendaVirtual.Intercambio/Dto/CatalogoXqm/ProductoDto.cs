@@ -12,6 +12,7 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
         public int ProductoId { get; set; }
         public int VendedorId { get; set; }
         public int CategoriaId { get; set; }
+        public string NombreCategoria { get; set; } = null!;
         public string Nombre { get; set; } = null!;
         public string Slug { get; set; } = null!;
         public string? Descripcion { get; set; }
@@ -28,5 +29,8 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
         public int Ventas { get; set; }
         public decimal CalificacionPromedio { get; set; }
         public int TotalResenas { get; set; }
+        public List<VarianteProductoDto> Variantes { get; set; } = new();
+        public List<ImagenProductoDto> Imagenes { get; set; } = new();
+        public OfertaDto? OfertaVigente { get; set; }
     }
 }
