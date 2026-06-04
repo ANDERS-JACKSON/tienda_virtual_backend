@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -16,5 +16,11 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
         public string NombreCompleto { get; set; } = null!;
         public List<string> Roles { get; set; } = new();
         public int? VendedorId { get; set; }
+
+        /// <summary>
+        /// Si es true, el cliente debe mostrar el flujo de cambio de contraseña
+        /// antes de usar la aplicación con normalidad.
+        /// </summary>
+        public bool ForzarCambioClave { get; set; }
     }
 }

@@ -1,4 +1,6 @@
-﻿using TiendaVirtual.Dominio.Servicios.SeguridadXqm;
+using TiendaVirtual.Dominio.Servicios.ConfiguracionXqm;
+using TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion;
+using TiendaVirtual.Dominio.Servicios.SeguridadXqm;
 using TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion;
 using TiendaVirtual.Dominio.Servicios.Sistema;
 using TiendaVirtual.Dominio.Servicios.Sistema.Implementacion;
@@ -11,6 +13,7 @@ namespace TiendaVirtual.Api.Extensiones
         {
             services.AddScoped<JwtTokenService>();
             services.AddScoped<ITwoFactorService, TwoFactorService>();
+            services.AddScoped<IEmailServicio, EmailServicio>();
             services.AddScoped<IAutenticacionServicio, AutenticacionServicio>();
             return services;
         }

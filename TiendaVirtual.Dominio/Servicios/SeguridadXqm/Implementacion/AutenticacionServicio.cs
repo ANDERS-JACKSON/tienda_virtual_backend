@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
@@ -11,8 +11,10 @@ using TiendaVirtual.Dominio.Extensiones.SeguridadXqm;
 using TiendaVirtual.Dominio.Modelo.PagoXqm;
 using TiendaVirtual.Dominio.Modelo.SeguridadXqm;
 using TiendaVirtual.Dominio.Modelo.VendedorXqm;
+using TiendaVirtual.Dominio.Servicios.ConfiguracionXqm;
 using TiendaVirtual.Dominio.Servicios.Sistema;
 using TiendaVirtual.Dominio.Servicios.Sistema.Implementacion;
+using TiendaVirtual.Dominio.Utilidad;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.SeguridadXqm;
 
@@ -24,9 +26,11 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
         protected readonly JwtTokenService _jwtService;
         protected readonly ITwoFactorService _twoFactorService;
         protected readonly IConfiguration _configuration;
+        protected readonly IEmailServicio _emailServicio;
 
         private const int DURACION_TOKEN_MINUTOS = 60;
         private const int DURACION_REFRESH_DIAS = 30;
+        private const int LONGITUD_CLAVE_AUTO = 10;
 
         // Roles que exigen 2FA obligatorio
         private static readonly string[] ROLES_CON_2FA = { "ADMIN", "VERIFICADOR" };
@@ -35,12 +39,14 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             TiendaVirtualDbContext context,
             JwtTokenService jwtService,
             ITwoFactorService twoFactorService,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IEmailServicio emailServicio)
         {
             _context = context;
             _jwtService = jwtService;
             _twoFactorService = twoFactorService;
             _configuration = configuration;
+            _emailServicio = emailServicio;
         }
 
         // LOGIN (paso 1)
@@ -210,24 +216,27 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
         // ─────────────────────────────────────────────────────────────
         // REGISTRAR CLIENTE
         // ─────────────────────────────────────────────────────────────
-        public async Task<ResultadoOperacion<TokenRespuestaDto>> RegistrarClienteAsync(
+        public async Task<ResultadoOperacion<RegistroRespuestaDto>> RegistrarClienteAsync(
             RegistroClienteDto dto, string? direccionIp, string? agenteUsuario)
         {
             using var transaccion = await _context.Database.BeginTransactionAsync();
             try
             {
                 if (dto == null)
-                    return ResultadoOperacion<TokenRespuestaDto>.SetError("El DTO es nulo.");
+                    return ResultadoOperacion<RegistroRespuestaDto>.SetError("El DTO es nulo.");
 
                 var validacionComun = await ValidarRegistroComunAsync(dto.Correo, dto.Persona);
                 if (!validacionComun.Exito)
-                    return ResultadoOperacion<TokenRespuestaDto>.SetError(validacionComun.Mensaje);
+                    return ResultadoOperacion<RegistroRespuestaDto>.SetError(validacionComun.Mensaje);
 
                 var persona = dto.Persona.ToEntidad();
                 _context.Personas.Add(persona);
                 await _context.SaveChangesAsync();
 
-                var usuario = CrearUsuario(persona.PersonaId, dto.Correo, dto.Contrasena);
+                // Clave auto generada: el usuario la recibirá por correo
+                var claveAuto = GenerarClaveAleatoria(LONGITUD_CLAVE_AUTO);
+
+                var usuario = CrearUsuario(persona.PersonaId, dto.Correo, claveAuto, forzarCambioClave: true);
                 _context.Usuarios.Add(usuario);
                 await _context.SaveChangesAsync();
 
@@ -238,52 +247,58 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 });
                 await _context.SaveChangesAsync();
 
-                // Hidratar navegaciones necesarias para el token
-                usuario.Persona = persona;
-                usuario.UsuarioRoles = await _context.UsuarioRoles
-                    .Include(ur => ur.Rol)
-                    .Where(ur => ur.UsuarioId == usuario.UsuarioId)
-                    .ToListAsync();
-
-                var respuesta = await EmitirTokensAsync(usuario, direccionIp, agenteUsuario);
-                await _context.SaveChangesAsync();
-
                 await transaccion.CommitAsync();
-                return ResultadoOperacion<TokenRespuestaDto>.SetExito(respuesta);
+
+                // Envío de correo fuera de la transacción para no demorar el commit
+                var nombre = $"{persona.Nombres} {persona.ApellidoPaterno}".Trim();
+                var correoEnviado = await IntentarEnviarCreacionAsync(dto.Correo, nombre, claveAuto);
+
+                return ResultadoOperacion<RegistroRespuestaDto>.SetExito(new RegistroRespuestaDto
+                {
+                    UsuarioId = usuario.UsuarioId,
+                    Correo = usuario.Correo,
+                    NombreCompleto = nombre,
+                    CorreoEnviado = correoEnviado,
+                    Mensaje = correoEnviado
+                        ? "Tu cuenta fue creada. Te enviamos la contraseña a tu correo electrónico."
+                        : "Tu cuenta fue creada, pero no pudimos enviar el correo con la contraseña. Contacta al soporte."
+                });
             }
             catch (Exception ex)
             {
                 await transaccion.RollbackAsync();
-                return ResultadoOperacion<TokenRespuestaDto>.SetError("Error al registrar cliente: " + ex.Message);
+                return ResultadoOperacion<RegistroRespuestaDto>.SetError("Error al registrar cliente: " + ex.Message);
             }
         }
 
         // ─────────────────────────────────────────────────────────────
         // REGISTRAR VENDEDOR
         // ─────────────────────────────────────────────────────────────
-        public async Task<ResultadoOperacion<TokenRespuestaDto>> RegistrarVendedorAsync(
+        public async Task<ResultadoOperacion<RegistroRespuestaDto>> RegistrarVendedorAsync(
             RegistroVendedorDto dto, string? direccionIp, string? agenteUsuario)
         {
             using var transaccion = await _context.Database.BeginTransactionAsync();
             try
             {
                 if (dto == null)
-                    return ResultadoOperacion<TokenRespuestaDto>.SetError("El DTO es nulo.");
+                    return ResultadoOperacion<RegistroRespuestaDto>.SetError("El DTO es nulo.");
 
                 var validacionComun = await ValidarRegistroComunAsync(dto.Correo, dto.Persona);
                 if (!validacionComun.Exito)
-                    return ResultadoOperacion<TokenRespuestaDto>.SetError(validacionComun.Mensaje);
+                    return ResultadoOperacion<RegistroRespuestaDto>.SetError(validacionComun.Mensaje);
 
                 // Slug único
                 var slug = dto.SlugTienda.ToLower();
                 if (await _context.Vendedores.AnyAsync(v => v.SlugTienda == slug))
-                    return ResultadoOperacion<TokenRespuestaDto>.SetError("Ese nombre de tienda ya está en uso, prueba con otro.");
+                    return ResultadoOperacion<RegistroRespuestaDto>.SetError("Ese nombre de tienda ya está en uso, prueba con otro.");
 
                 var persona = dto.Persona.ToEntidad();
                 _context.Personas.Add(persona);
                 await _context.SaveChangesAsync();
 
-                var usuario = CrearUsuario(persona.PersonaId, dto.Correo, dto.Contrasena);
+                var claveAuto = GenerarClaveAleatoria(LONGITUD_CLAVE_AUTO);
+
+                var usuario = CrearUsuario(persona.PersonaId, dto.Correo, claveAuto, forzarCambioClave: true);
                 _context.Usuarios.Add(usuario);
                 await _context.SaveChangesAsync();
 
@@ -320,47 +335,52 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 );
                 await _context.SaveChangesAsync();
 
-                usuario.Persona = persona;
-                usuario.Vendedor = vendedor;
-                usuario.UsuarioRoles = await _context.UsuarioRoles
-                    .Include(ur => ur.Rol)
-                    .Where(ur => ur.UsuarioId == usuario.UsuarioId)
-                    .ToListAsync();
-
-                var respuesta = await EmitirTokensAsync(usuario, direccionIp, agenteUsuario);
-                await _context.SaveChangesAsync();
-
                 await transaccion.CommitAsync();
-                return ResultadoOperacion<TokenRespuestaDto>.SetExito(respuesta);
+
+                var nombre = $"{persona.Nombres} {persona.ApellidoPaterno}".Trim();
+                var correoEnviado = await IntentarEnviarCreacionAsync(dto.Correo, nombre, claveAuto);
+
+                return ResultadoOperacion<RegistroRespuestaDto>.SetExito(new RegistroRespuestaDto
+                {
+                    UsuarioId = usuario.UsuarioId,
+                    Correo = usuario.Correo,
+                    NombreCompleto = nombre,
+                    CorreoEnviado = correoEnviado,
+                    Mensaje = correoEnviado
+                        ? "Tu tienda fue creada. Te enviamos la contraseña a tu correo electrónico."
+                        : "Tu tienda fue creada, pero no pudimos enviar el correo con la contraseña. Contacta al soporte."
+                });
             }
             catch (Exception ex)
             {
                 await transaccion.RollbackAsync();
-                return ResultadoOperacion<TokenRespuestaDto>.SetError("Error al registrar vendedor: " + ex.Message);
+                return ResultadoOperacion<RegistroRespuestaDto>.SetError("Error al registrar vendedor: " + ex.Message);
             }
         }
 
         // ─────────────────────────────────────────────────────────────
         // REGISTRAR ADMINISTRADOR
         // ─────────────────────────────────────────────────────────────
-        public async Task<ResultadoOperacion<TokenRespuestaDto>> RegistrarAdministradorAsync(
+        public async Task<ResultadoOperacion<RegistroRespuestaDto>> RegistrarAdministradorAsync(
             RegistroAdministradorDto dto, string? direccionIp, string? agenteUsuario)
         {
             using var transaccion = await _context.Database.BeginTransactionAsync();
             try
             {
                 if (dto == null)
-                    return ResultadoOperacion<TokenRespuestaDto>.SetError("El DTO es nulo.");
+                    return ResultadoOperacion<RegistroRespuestaDto>.SetError("El DTO es nulo.");
 
                 var validacionComun = await ValidarRegistroComunAsync(dto.Correo, dto.Persona);
                 if (!validacionComun.Exito)
-                    return ResultadoOperacion<TokenRespuestaDto>.SetError(validacionComun.Mensaje);
+                    return ResultadoOperacion<RegistroRespuestaDto>.SetError(validacionComun.Mensaje);
 
                 var persona = dto.Persona.ToEntidad();
                 _context.Personas.Add(persona);
                 await _context.SaveChangesAsync();
 
-                var usuario = CrearUsuario(persona.PersonaId, dto.Correo, dto.Contrasena);
+                var claveAuto = GenerarClaveAleatoria(LONGITUD_CLAVE_AUTO);
+
+                var usuario = CrearUsuario(persona.PersonaId, dto.Correo, claveAuto, forzarCambioClave: true);
                 _context.Usuarios.Add(usuario);
                 await _context.SaveChangesAsync();
 
@@ -371,22 +391,176 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 });
                 await _context.SaveChangesAsync();
 
-                usuario.Persona = persona;
-                usuario.UsuarioRoles = await _context.UsuarioRoles
-                    .Include(ur => ur.Rol)
-                    .Where(ur => ur.UsuarioId == usuario.UsuarioId)
-                    .ToListAsync();
-
-                var respuesta = await EmitirTokensAsync(usuario, direccionIp, agenteUsuario);
-                await _context.SaveChangesAsync();
-
                 await transaccion.CommitAsync();
-                return ResultadoOperacion<TokenRespuestaDto>.SetExito(respuesta);
+
+                var nombre = $"{persona.Nombres} {persona.ApellidoPaterno}".Trim();
+                var correoEnviado = await IntentarEnviarCreacionAsync(dto.Correo, nombre, claveAuto);
+
+                return ResultadoOperacion<RegistroRespuestaDto>.SetExito(new RegistroRespuestaDto
+                {
+                    UsuarioId = usuario.UsuarioId,
+                    Correo = usuario.Correo,
+                    NombreCompleto = nombre,
+                    CorreoEnviado = correoEnviado,
+                    Mensaje = correoEnviado
+                        ? "Administrador creado. Se envió la contraseña al correo."
+                        : "Administrador creado, pero no pudimos enviar el correo con la contraseña."
+                });
             }
             catch (Exception ex)
             {
                 await transaccion.RollbackAsync();
-                return ResultadoOperacion<TokenRespuestaDto>.SetError("Error al registrar administrador: " + ex.Message);
+                return ResultadoOperacion<RegistroRespuestaDto>.SetError("Error al registrar administrador: " + ex.Message);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // RECUPERAR CLAVE (olvidé mi contraseña)
+        // ─────────────────────────────────────────────────────────────
+        public async Task<ResultadoOperacion<string>> RecuperarClaveAsync(string correo)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(correo))
+                    return ResultadoOperacion<string>.SetError("El correo es obligatorio.");
+
+                var correoNorm = correo.Trim().ToLower();
+
+                var usuario = await _context.Usuarios
+                    .Include(u => u.Persona)
+                    .FirstOrDefaultAsync(u => u.Correo == correoNorm);
+
+                // Mensaje genérico: NO revelamos si el correo está registrado
+                // (defensa contra enumeración de usuarios).
+                const string MENSAJE_OK =
+                    "Si el correo está registrado, te enviamos una nueva contraseña en unos segundos.";
+
+                if (usuario == null)
+                    return ResultadoOperacion<string>.SetExito(MENSAJE_OK);
+
+                if (usuario.Estado != TipoEstadoUsuario.Activo)
+                    return ResultadoOperacion<string>.SetExito(MENSAJE_OK);
+
+                var nuevaClave = GenerarClaveAleatoria(LONGITUD_CLAVE_AUTO);
+                usuario.Contrasena = BCrypt.Net.BCrypt.HashPassword(nuevaClave);
+                usuario.ForzarCambioClave = true;
+                await _context.SaveChangesAsync();
+
+                var nombre = usuario.Persona != null
+                    ? $"{usuario.Persona.Nombres} {usuario.Persona.ApellidoPaterno}".Trim()
+                    : usuario.Correo;
+
+                try
+                {
+                    await _emailServicio.EnviarCorreoRecuperacionClaveAsync(
+                        usuario.Correo, nombre, nuevaClave);
+                }
+                catch (Exception)
+                {
+                    // La clave ya fue rotada en BD. Si el envío falla, informamos
+                    // al usuario para que contacte al soporte (no es silencioso
+                    // como el caso "correo no existe").
+                    return ResultadoOperacion<string>.SetError(
+                        "Generamos una nueva contraseña pero no pudimos enviar el correo. " +
+                        "Contacta al soporte.");
+                }
+
+                return ResultadoOperacion<string>.SetExito(MENSAJE_OK);
+            }
+            catch (Exception ex)
+            {
+                return ResultadoOperacion<string>.SetError(
+                    "Error al recuperar contraseña: " + ex.Message);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // CAMBIAR CONTRASEÑA (usuario autenticado)
+        // ─────────────────────────────────────────────────────────────
+        public async Task<ResultadoOperacion<bool>> CambiarPasswordAsync(
+            int usuarioId, string contrasenaActual, string contrasenaNueva)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(contrasenaActual))
+                    return ResultadoOperacion<bool>.SetError("La contraseña actual es requerida.");
+
+                var validacionNueva = ContrasenaValidador.Validar(contrasenaNueva);
+                if (!validacionNueva.Exito)
+                    return ResultadoOperacion<bool>.SetError(validacionNueva.Mensaje);
+
+                if (contrasenaActual == contrasenaNueva)
+                    return ResultadoOperacion<bool>.SetError(
+                        "La contraseña nueva debe ser diferente a la actual.");
+
+                var usuario = await _context.Usuarios
+                    .FirstOrDefaultAsync(u => u.UsuarioId == usuarioId);
+
+                if (usuario == null)
+                    return ResultadoOperacion<bool>.SetError("Usuario no encontrado.");
+
+                if (!BCrypt.Net.BCrypt.Verify(contrasenaActual, usuario.Contrasena))
+                    return ResultadoOperacion<bool>.SetError("La contraseña actual es incorrecta.");
+
+                usuario.Contrasena = BCrypt.Net.BCrypt.HashPassword(contrasenaNueva);
+                usuario.ForzarCambioClave = false;
+                await _context.SaveChangesAsync();
+
+                return ResultadoOperacion<bool>.SetExito(true);
+            }
+            catch (Exception ex)
+            {
+                return ResultadoOperacion<bool>.SetError(
+                    "Error al cambiar la contraseña: " + ex.Message);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // ESTABLECER CONTRASEÑA INICIAL (sin sesión, tras registro)
+        // ─────────────────────────────────────────────────────────────
+        public async Task<ResultadoOperacion<bool>> EstablecerContrasenaInicialAsync(
+            string correo, string contrasenaActual, string contrasenaNueva)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(correo))
+                    return ResultadoOperacion<bool>.SetError("El correo es obligatorio.");
+
+                if (string.IsNullOrWhiteSpace(contrasenaActual))
+                    return ResultadoOperacion<bool>.SetError("La contraseña del correo es obligatoria.");
+
+                var validacionNueva = ContrasenaValidador.Validar(contrasenaNueva);
+                if (!validacionNueva.Exito)
+                    return ResultadoOperacion<bool>.SetError(validacionNueva.Mensaje);
+
+                if (contrasenaActual == contrasenaNueva)
+                    return ResultadoOperacion<bool>.SetError(
+                        "La contraseña nueva debe ser diferente a la del correo.");
+
+                var correoNorm = correo.Trim().ToLower();
+                var usuario = await _context.Usuarios
+                    .FirstOrDefaultAsync(u => u.Correo == correoNorm);
+
+                if (usuario == null)
+                    return ResultadoOperacion<bool>.SetError("Correo o contraseña incorrectos.");
+
+                if (!usuario.ForzarCambioClave)
+                    return ResultadoOperacion<bool>.SetError(
+                        "Esta cuenta ya tiene una contraseña definida. Inicia sesión y cámbiala desde tu perfil.");
+
+                if (!BCrypt.Net.BCrypt.Verify(contrasenaActual, usuario.Contrasena))
+                    return ResultadoOperacion<bool>.SetError("Correo o contraseña incorrectos.");
+
+                usuario.Contrasena = BCrypt.Net.BCrypt.HashPassword(contrasenaNueva);
+                usuario.ForzarCambioClave = false;
+                await _context.SaveChangesAsync();
+
+                return ResultadoOperacion<bool>.SetExito(true);
+            }
+            catch (Exception ex)
+            {
+                return ResultadoOperacion<bool>.SetError(
+                    "Error al establecer la contraseña: " + ex.Message);
             }
         }
 
@@ -506,7 +680,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             return ResultadoOperacion<bool>.SetExito(true);
         }
 
-        private static Usuario CrearUsuario(int personaId, string correo, string contrasena)
+        private static Usuario CrearUsuario(int personaId, string correo, string contrasena, bool forzarCambioClave = false)
         {
             return new Usuario
             {
@@ -514,10 +688,69 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 Correo = correo.ToLower(),
                 Contrasena = BCrypt.Net.BCrypt.HashPassword(contrasena),
                 CorreoConfirmado = false,
-                ForzarCambioClave = false,
+                ForzarCambioClave = forzarCambioClave,
                 Estado = TipoEstadoUsuario.Activo,
                 FechaAlta = DateTime.UtcNow
             };
+        }
+
+        /// <summary>
+        /// Genera una clave alfanumérica criptográficamente segura.
+        /// Garantiza al menos: 1 mayúscula, 1 minúscula y 1 dígito —
+        /// para cumplir las políticas habituales de "contraseña fuerte".
+        /// </summary>
+        private static string GenerarClaveAleatoria(int longitud)
+        {
+            if (longitud < 6) longitud = 6;
+
+            const string MAY = "ABCDEFGHJKLMNPQRSTUVWXYZ";   // sin I,O
+            const string MIN = "abcdefghijkmnpqrstuvwxyz";   // sin l,o
+            const string NUM = "23456789";                   // sin 0,1
+            const string TODO = MAY + MIN + NUM;
+
+            var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
+            char Pick(string set)
+            {
+                var buf = new byte[4];
+                rng.GetBytes(buf);
+                var idx = (int)(BitConverter.ToUInt32(buf, 0) % (uint)set.Length);
+                return set[idx];
+            }
+
+            var chars = new char[longitud];
+            chars[0] = Pick(MAY);
+            chars[1] = Pick(MIN);
+            chars[2] = Pick(NUM);
+            for (int i = 3; i < longitud; i++) chars[i] = Pick(TODO);
+
+            // Fisher–Yates shuffle para no exponer la posición fija
+            for (int i = chars.Length - 1; i > 0; i--)
+            {
+                var buf = new byte[4];
+                rng.GetBytes(buf);
+                var j = (int)(BitConverter.ToUInt32(buf, 0) % (uint)(i + 1));
+                (chars[i], chars[j]) = (chars[j], chars[i]);
+            }
+            return new string(chars);
+        }
+
+        /// <summary>
+        /// Envía el correo de creación de usuario y devuelve si tuvo éxito.
+        /// El registro NO se revierte si el correo falla — el admin podrá
+        /// regenerar la clave manualmente.
+        /// </summary>
+        private async Task<bool> IntentarEnviarCreacionAsync(
+            string destinatario, string nombre, string clave)
+        {
+            try
+            {
+                await _emailServicio.EnviarCorreoCreacionUsuarioAsync(destinatario, nombre, clave);
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
 
         /// <summary>
@@ -564,7 +797,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 Correo = usuario.Correo,
                 NombreCompleto = nombreCompleto,
                 Roles = roles,
-                VendedorId = vendedorId
+                VendedorId = vendedorId,
+                ForzarCambioClave = usuario.ForzarCambioClave
             };
         }
     }

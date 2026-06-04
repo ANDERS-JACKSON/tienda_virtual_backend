@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -40,6 +40,11 @@ namespace TiendaVirtual.Dominio.Modelo.SeguridadXqm
             var respuesta = EntidadValidador.ValidarCamposRequeridos(this);
             if (respuesta.Exito)
             {
+                if (string.IsNullOrWhiteSpace(ApellidoPaterno))
+                    return ResultadoOperacion<bool>.SetError("El apellido paterno es obligatorio");
+                if (string.IsNullOrWhiteSpace(ApellidoMaterno))
+                    return ResultadoOperacion<bool>.SetError("El apellido materno es obligatorio");
+
                 switch (TipoDocumento)
                 {
                     case TipoDocumentoIdentidad.DNI:
