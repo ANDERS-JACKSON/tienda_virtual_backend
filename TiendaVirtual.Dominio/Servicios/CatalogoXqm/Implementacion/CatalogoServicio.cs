@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones.CatalogoXqm;
 using TiendaVirtual.Dominio.Extensiones.VendedorXqm;
+using TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion;
 using TiendaVirtual.Dominio.Modelo.CatalogoXqm;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.CatalogoXqm;
@@ -30,6 +31,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             {
                 filtros.Pagina = Math.Max(1, filtros.Pagina);
                 filtros.TamanioPagina = Math.Clamp(filtros.TamanioPagina, 1, 48);
+                var now = DateTime.UtcNow;
 
                 var query = _context.Productos
                     .AsNoTracking()
@@ -38,7 +40,8 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     .Include(p => p.Imagenes)
                     .Include(p => p.Variantes).ThenInclude(v => v.Stock)
                     .Where(p => p.Estado == TipoEstadoProducto.Activo &&
-                                p.Vendedor.Estado == TipoEstadoVendedor.Activo);
+                                p.Vendedor.Estado == TipoEstadoVendedor.Activo)
+                    .DondeVendedorTienePlanActivo(_context, now);
 
                 // Filtro por categoría (incluye subcategorías)
                 if (filtros.CategoriaId.HasValue)
@@ -70,7 +73,6 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
                 if (filtros.SoloConOferta == true)
                 {
-                    var now = DateTime.UtcNow;
                     query = query.Where(p => p.Ofertas.Any(o =>
                         o.Activa && o.FechaInicio <= now && o.FechaFin >= now));
                 }
@@ -137,6 +139,17 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     return ResultadoOperacion<ProductoDetalleDto>.SetError("Producto no encontrado.");
 
                 if (producto.Vendedor.Estado != TipoEstadoVendedor.Activo)
+                    return ResultadoOperacion<ProductoDetalleDto>.SetError("Esta tienda no está disponible.");
+
+                var nowDetalle = DateTime.UtcNow;
+                var tiendaActiva = await _context.Suscripciones.AnyAsync(s =>
+                    s.VendedorId == producto.VendedorId &&
+                    ((s.Estado == TipoEstadoSuscripcion.EnPrueba &&
+                      s.PruebaTerminaEn.HasValue &&
+                      s.PruebaTerminaEn > nowDetalle) ||
+                     (s.Estado == TipoEstadoSuscripcion.Activa &&
+                      (!s.PeriodoFin.HasValue || s.PeriodoFin > nowDetalle))));
+                if (!tiendaActiva)
                     return ResultadoOperacion<ProductoDetalleDto>.SetError("Esta tienda no está disponible.");
 
                 // Incrementar vistas (fire-and-forget de cara al usuario; await para consistencia simple)
@@ -208,6 +221,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 if (producto == null)
                     return ResultadoOperacion<List<ProductoListadoDto>>.SetExito(new List<ProductoListadoDto>());
 
+                var nowRelacionados = DateTime.UtcNow;
                 var productos = await _context.Productos
                     .AsNoTracking()
                     .Include(p => p.Vendedor)
@@ -218,6 +232,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                                 p.ProductoId != producto.ProductoId &&
                                 p.Estado == TipoEstadoProducto.Activo &&
                                 p.Vendedor.Estado == TipoEstadoVendedor.Activo)
+                    .DondeVendedorTienePlanActivo(_context, nowRelacionados)
                     .OrderByDescending(p => p.Ventas)
                     .Take(cantidad)
                     .ToListAsync();

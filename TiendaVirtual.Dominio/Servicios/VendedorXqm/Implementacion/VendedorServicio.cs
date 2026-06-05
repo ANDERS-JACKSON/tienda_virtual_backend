@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones.VendedorXqm;
+using TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion;
 using TiendaVirtual.Dominio.Modelo.SoporteXqm;
 using TiendaVirtual.Dominio.Modelo.VendedorXqm;
 using TiendaVirtual.Intercambio;
@@ -296,10 +297,12 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             {
                 pagina = Math.Max(1, pagina);
                 tamanioPagina = Math.Clamp(tamanioPagina, 1, 30);
+                var now = DateTime.UtcNow;
 
                 var query = _context.Vendedores
                     .AsNoTracking()
-                    .Where(v => v.Estado == TipoEstadoVendedor.Activo);
+                    .Where(v => v.Estado == TipoEstadoVendedor.Activo)
+                    .ConPlanActivo(_context, now);
 
                 if (!string.IsNullOrWhiteSpace(busqueda))
                 {
@@ -349,10 +352,12 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
                 if (string.IsNullOrWhiteSpace(slug))
                     return ResultadoOperacion<TiendaPublicaDto>.SetError("Slug requerido.");
 
+                var now = DateTime.UtcNow;
                 var resultado = await _context.Vendedores
                     .AsNoTracking()
                     .Where(v => v.SlugTienda == slug.ToLower() &&
                                 v.Estado == TipoEstadoVendedor.Activo)
+                    .ConPlanActivo(_context, now)
                     .Select(v => new
                     {
                         Vendedor = v,

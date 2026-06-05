@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -9,8 +9,8 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
 {
     public class CrearImagenDto
     {
+        /// <summary>public_id de CDN (ej. tiendavirtual/abc) o URL absoluta legacy.</summary>
         [Required]
-        [Url]
         [MaxLength(500)]
         public string Url { get; set; } = null!;
 

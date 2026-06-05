@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -26,10 +26,18 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 pagina = Math.Max(1, pagina);
                 tamanioPagina = Math.Clamp(tamanioPagina, 1, 24);
 
+                var now = DateTime.UtcNow;
                 var query = _context.Favoritos
                     .AsNoTracking()
                     .Where(f => f.UsuarioId == usuarioId &&
-                                f.Producto.Estado == TipoEstadoProducto.Activo);
+                                f.Producto.Estado == TipoEstadoProducto.Activo)
+                    .Where(f => _context.Suscripciones.Any(s =>
+                        s.VendedorId == f.Producto.VendedorId &&
+                        ((s.Estado == TipoEstadoSuscripcion.EnPrueba &&
+                          s.PruebaTerminaEn.HasValue &&
+                          s.PruebaTerminaEn > now) ||
+                         (s.Estado == TipoEstadoSuscripcion.Activa &&
+                          (!s.PeriodoFin.HasValue || s.PeriodoFin > now)))));
 
                 var total = await query.CountAsync();
                 var favoritos = await query
@@ -43,7 +51,6 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     .ToListAsync();
 
                 var productosIds = favoritos.Select(f => f.ProductoId).ToList();
-                var now = DateTime.UtcNow;
                 var ofertas = await _context.Ofertas.AsNoTracking()
                     .Where(o => productosIds.Contains(o.ProductoId) &&
                                 o.Activa && o.FechaInicio <= now && o.FechaFin >= now)

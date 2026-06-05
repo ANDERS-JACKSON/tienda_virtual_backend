@@ -70,6 +70,7 @@ namespace TiendaVirtual.Api
             builder.Services.AgregarServiciosVendedor();
             builder.Services.AgregarServiciosCatalogo();
             builder.Services.AgregarServiciosVenta();
+            builder.Services.AgregarServiciosSuscripcion();
 
             // Controllers + JSON (enums como string, camelCase)
             builder.Services.AddControllers()

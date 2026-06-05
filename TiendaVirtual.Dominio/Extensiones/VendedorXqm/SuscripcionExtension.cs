@@ -1,10 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Modelo.VendedorXqm;
+using TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion;
 using TiendaVirtual.Intercambio.Dto.Sistema;
 using TiendaVirtual.Intercambio.Dto.VendedorXqm;
 
@@ -12,50 +8,46 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
 {
     public static class SuscripcionExtension
     {
-        public static Suscripcion ToEntidad(this SuscripcionDto dto)
-        {
-            if (dto == null)
-                return null!;
-
-            var suscripcion = new Suscripcion();
-
-            suscripcion.SuscripcionId = dto.SuscripcionId;
-            suscripcion.VendedorId = dto.VendedorId;
-            suscripcion.PlanId = dto.PlanId;
-            suscripcion.Estado = (TipoEstadoSuscripcion)dto.Estado.Id;
-            suscripcion.MesesGratisOtorgados = dto.MesesGratisOtorgados;
-            suscripcion.PrecioPersonalizado = dto.PrecioPersonalizado;
-            suscripcion.CuponId = dto.CuponId;
-            suscripcion.PruebaTerminaEn = dto.PruebaTerminaEn;
-            suscripcion.PeriodoInicio = dto.PeriodoInicio;
-            suscripcion.PeriodoFin = dto.PeriodoFin;
-
-            return suscripcion;
-        }
-
-        public static SuscripcionDto ToDto(this Suscripcion entidad)
+        public static SuscripcionDto ToDto(this Suscripcion entidad, string? nombreTienda = null, string? correoVendedor = null)
         {
             if (entidad == null)
                 return null!;
 
-            var dto = new SuscripcionDto();
+            var estado = entidad.Estado;
+            var precioEfectivo = entidad.PrecioPersonalizado ?? entidad.Plan.Precio;
+            var fechaReferencia = estado == TipoEstadoSuscripcion.EnPrueba
+                ? entidad.PruebaTerminaEn
+                : entidad.PeriodoFin;
+            var diasRestantes = fechaReferencia.HasValue
+                ? Math.Max(0, (int)(fechaReferencia.Value - DateTime.UtcNow).TotalDays)
+                : 0;
 
-            dto.SuscripcionId = entidad.SuscripcionId;
-            dto.VendedorId = entidad.VendedorId;
-            dto.PlanId = entidad.PlanId;
-            dto.Estado = new EnumeracionDto
+            var now = DateTime.UtcNow;
+            var puedePublicar = SuscripcionBeneficiosHelper.EsComercialmenteActiva(entidad, now);
+
+            return new SuscripcionDto
             {
-                Id = (int)entidad.Estado,
-                Nombre = entidad.Estado.GetDescription()
+                SuscripcionId = entidad.SuscripcionId,
+                VendedorId = entidad.VendedorId,
+                Plan = entidad.Plan.ToDto(),
+                Estado = new EnumeracionDto
+                {
+                    Id = (int)estado,
+                    Nombre = estado.GetDescription()
+                },
+                MesesGratisOtorgados = entidad.MesesGratisOtorgados,
+                PrecioPersonalizado = entidad.PrecioPersonalizado,
+                PrecioEfectivo = precioEfectivo,
+                Cupon = entidad.Cupon?.ToDto(),
+                PruebaTerminaEn = entidad.PruebaTerminaEn,
+                PeriodoInicio = entidad.PeriodoInicio,
+                PeriodoFin = entidad.PeriodoFin,
+                RequierePago = estado == TipoEstadoSuscripcion.PendientePago,
+                PuedePublicar = puedePublicar,
+                DiasRestantes = diasRestantes,
+                NombreTienda = nombreTienda,
+                CorreoVendedor = correoVendedor
             };
-            dto.MesesGratisOtorgados = entidad.MesesGratisOtorgados;
-            dto.PrecioPersonalizado = entidad.PrecioPersonalizado;
-            dto.CuponId = entidad.CuponId;
-            dto.PruebaTerminaEn = entidad.PruebaTerminaEn;
-            dto.PeriodoInicio = entidad.PeriodoInicio;
-            dto.PeriodoFin = entidad.PeriodoFin;
-
-            return dto;
         }
     }
 }

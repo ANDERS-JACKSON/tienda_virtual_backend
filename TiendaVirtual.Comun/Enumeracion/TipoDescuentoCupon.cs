@@ -1,18 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace TiendaVirtual.Comun.Enumeracion
 {
-    public enum TipoDescuentoCupon
+    public enum TipoDescuentoCupon : short
     {
-        [Description("PORCENTAJE")] 
-         Porcentaje = 1,
-
-        [Description("MESES_GRATIS")] 
-         MesesGratis = 2
+        [Description("PORCENTAJE")] Porcentaje = 1,
+        [Description("MONTO_FIJO")] MontoFijo = 2,
+        [Description("MESES_GRATIS")] MesesGratis = 3
     }
 }

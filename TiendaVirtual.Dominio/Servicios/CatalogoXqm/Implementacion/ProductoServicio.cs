@@ -11,6 +11,7 @@ using TiendaVirtual.Dominio.Modelo.VendedorXqm;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.CatalogoXqm;
 using TiendaVirtual.Intercambio.Dto.Sistema;
+using TiendaVirtual.Dominio.Servicios.SuscripcionXqm;
 using TiendaVirtual.Dominio.Utilidad;
 
 namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
@@ -18,8 +19,13 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
     public class ProductoServicio : IProductoServicio
     {
         protected readonly TiendaVirtualDbContext _context;
+        private readonly ISuscripcionServicio _suscripcionServicio;
 
-        public ProductoServicio(TiendaVirtualDbContext context) => _context = context;
+        public ProductoServicio(TiendaVirtualDbContext context, ISuscripcionServicio suscripcionServicio)
+        {
+            _context = context;
+            _suscripcionServicio = suscripcionServicio;
+        }
 
         // ─────────────────────────────────────────────────────
         // LISTADO Y DETALLE (vendedor)
@@ -322,6 +328,29 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
                 if (!producto.Imagenes.Any())
                     return ResultadoOperacion<bool>.SetError("Debes agregar al menos una imagen antes de publicar.");
+
+                var puedePublicar = await _suscripcionServicio.PuedeVendedorPublicarAsync(vendedor.VendedorId);
+                if (!puedePublicar)
+                    return ResultadoOperacion<bool>.SetError(
+                        "Tu plan no está activo. Completa el pago o reactiva tu suscripción en 'Planes' para publicar productos.");
+
+                var planActual = await _context.Suscripciones
+                    .Include(s => s.Plan)
+                    .Where(s => s.VendedorId == vendedor.VendedorId &&
+                                (s.Estado == TipoEstadoSuscripcion.EnPrueba ||
+                                 s.Estado == TipoEstadoSuscripcion.Activa))
+                    .Select(s => s.Plan)
+                    .FirstOrDefaultAsync();
+
+                if (planActual?.MaxProductos != null)
+                {
+                    var publicadosActuales = await _context.Productos.CountAsync(p =>
+                        p.VendedorId == vendedor.VendedorId && p.Estado == TipoEstadoProducto.Activo);
+                    if (publicadosActuales >= planActual.MaxProductos)
+                        return ResultadoOperacion<bool>.SetError(
+                            $"Alcanzaste el máximo de {planActual.MaxProductos} productos activos de tu plan {planActual.Nombre}. " +
+                            "Actualiza a un plan superior o pausa otro producto.");
+                }
 
                 if (producto.Tipo == TipoProducto.Fisico)
                 {

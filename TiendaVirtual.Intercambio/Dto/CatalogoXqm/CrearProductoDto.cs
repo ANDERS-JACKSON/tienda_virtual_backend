@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -39,7 +39,6 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
         [Required]
         public EnumeracionDto Tipo { get; set; } = null!;   // FISICO=1, PATRON=2
 
-        [Url]
         [MaxLength(500)]
         public string? ArchivoPatronUrl { get; set; }
 

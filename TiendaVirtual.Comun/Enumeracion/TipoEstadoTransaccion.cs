@@ -1,24 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace TiendaVirtual.Comun.Enumeracion
 {
-    public enum TipoEstadoTransaccion
+    public enum TipoEstadoTransaccion : short
     {
-        [Description("PENDIENTE")] 
-         Pendiente = 1,
-
-        [Description("PAGADO")] 
-         Pagado = 2,
-
-        [Description("FALLIDO")] 
-         Fallido = 3,
-
-        [Description("REEMBOLSADO")] 
-         Reembolsado = 4
+        [Description("PENDIENTE")] Pendiente = 1,
+        [Description("PROCESANDO")] Procesando = 2,
+        [Description("COMPLETADA")] Completada = 3,
+        [Description("FALLIDA")] Fallida = 4,
+        [Description("REEMBOLSADA")] Reembolsada = 5,
+        [Description("CANCELADA")] Cancelada = 6
     }
 }

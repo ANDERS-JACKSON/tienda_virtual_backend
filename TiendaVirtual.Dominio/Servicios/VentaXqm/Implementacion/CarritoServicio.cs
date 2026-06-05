@@ -56,6 +56,18 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 if (variante.Producto.Estado != TipoEstadoProducto.Activo)
                     return ResultadoOperacion<CarritoDto>.SetError("Este producto no está disponible.");
 
+                var now = DateTime.UtcNow;
+                var tiendaActiva = await _context.Suscripciones.AnyAsync(s =>
+                    s.VendedorId == variante.Producto.VendedorId &&
+                    ((s.Estado == TipoEstadoSuscripcion.EnPrueba &&
+                      s.PruebaTerminaEn.HasValue &&
+                      s.PruebaTerminaEn > now) ||
+                     (s.Estado == TipoEstadoSuscripcion.Activa &&
+                      (!s.PeriodoFin.HasValue || s.PeriodoFin > now))));
+                if (!tiendaActiva)
+                    return ResultadoOperacion<CarritoDto>.SetError(
+                        "La tienda de este producto no está disponible en este momento.");
+
                 // El vendedor no puede comprar sus propios productos.
                 var esPropio = await _context.Vendedores.AnyAsync(v =>
                     v.UsuarioId == usuarioId && v.VendedorId == variante.Producto.VendedorId);
