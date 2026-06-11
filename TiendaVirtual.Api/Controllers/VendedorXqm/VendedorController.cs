@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using TiendaVirtual.Comun.Enumeracion;
@@ -41,6 +41,20 @@ namespace TiendaVirtual.Api.Controllers.VendedorXqm
             var usuarioId = ObtenerUsuarioId();
             if (usuarioId == null) return Unauthorized();
             var r = await _servicio.ActualizarMiPerfilAsync(usuarioId.Value, dto);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
+        /// <summary>
+        /// Guarda logo y/o banner inmediatamente tras subirlos a Cloudinary.
+        /// </summary>
+        [HttpPatch("mi-perfil/imagenes")]
+        [Authorize(Roles = "VENDEDOR")]
+        public async Task<ActionResult<ResultadoOperacion<VendedorPerfilDto>>> ActualizarImagenesPerfil(
+            [FromBody] ActualizarImagenesPerfilVendedorDto dto)
+        {
+            var usuarioId = ObtenerUsuarioId();
+            if (usuarioId == null) return Unauthorized();
+            var r = await _servicio.ActualizarImagenesPerfilAsync(usuarioId.Value, dto);
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 

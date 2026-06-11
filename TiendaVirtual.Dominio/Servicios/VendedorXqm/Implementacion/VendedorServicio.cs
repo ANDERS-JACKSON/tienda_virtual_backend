@@ -61,11 +61,15 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
 
                 // NOTA: el slug NO se actualiza. Una vez asignado al registrarse, queda fijo
                 // porque cambia las URLs públicas de la tienda y rompe links externos.
-                vendedor.NombreTienda = dto.NombreTienda;
+                vendedor.NombreTienda = dto.NombreTienda?.Trim() ?? vendedor.NombreTienda;
                 vendedor.Biografia = dto.Biografia;
-                vendedor.LogoUrl = dto.LogoUrl;
-                vendedor.BannerUrl = dto.BannerUrl;
                 vendedor.NumeroYape = dto.NumeroYape;
+
+                // Solo actualizar imágenes si vienen en el body (null = no enviado, conservar valor actual).
+                if (dto.LogoUrl != null)
+                    vendedor.LogoUrl = string.IsNullOrWhiteSpace(dto.LogoUrl) ? null : dto.LogoUrl.Trim();
+                if (dto.BannerUrl != null)
+                    vendedor.BannerUrl = string.IsNullOrWhiteSpace(dto.BannerUrl) ? null : dto.BannerUrl.Trim();
 
                 await _context.SaveChangesAsync();
                 return ResultadoOperacion<VendedorPerfilDto>.SetExito(vendedor.ToPerfilDto());
@@ -73,6 +77,40 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             catch (Exception ex)
             {
                 return ResultadoOperacion<VendedorPerfilDto>.SetError("Error al actualizar el perfil: " + ex.Message);
+            }
+        }
+
+        public async Task<ResultadoOperacion<VendedorPerfilDto>> ActualizarImagenesPerfilAsync(
+            int usuarioId, ActualizarImagenesPerfilVendedorDto dto)
+        {
+            try
+            {
+                if (dto == null)
+                    return ResultadoOperacion<VendedorPerfilDto>.SetError("El DTO es nulo.");
+
+                var tieneLogo = !string.IsNullOrWhiteSpace(dto.LogoUrl);
+                var tieneBanner = !string.IsNullOrWhiteSpace(dto.BannerUrl);
+                if (!tieneLogo && !tieneBanner)
+                    return ResultadoOperacion<VendedorPerfilDto>.SetError("Indica al menos logo o banner.");
+
+                var vendedor = await _context.Vendedores
+                    .FirstOrDefaultAsync(v => v.UsuarioId == usuarioId);
+
+                if (vendedor == null)
+                    return ResultadoOperacion<VendedorPerfilDto>.SetError("No tienes un perfil de vendedor.");
+
+                if (tieneLogo)
+                    vendedor.LogoUrl = dto.LogoUrl!.Trim();
+                if (tieneBanner)
+                    vendedor.BannerUrl = dto.BannerUrl!.Trim();
+
+                await _context.SaveChangesAsync();
+                return ResultadoOperacion<VendedorPerfilDto>.SetExito(vendedor.ToPerfilDto());
+            }
+            catch (Exception ex)
+            {
+                return ResultadoOperacion<VendedorPerfilDto>.SetError(
+                    "Error al actualizar las imágenes del perfil: " + ex.Message);
             }
         }
 

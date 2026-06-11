@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -15,6 +15,7 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm
         // Perfil propio
         Task<ResultadoOperacion<VendedorPerfilDto>> ObtenerMiPerfilAsync(int usuarioId);
         Task<ResultadoOperacion<VendedorPerfilDto>> ActualizarMiPerfilAsync(int usuarioId, ActualizarPerfilVendedorDto dto);
+        Task<ResultadoOperacion<VendedorPerfilDto>> ActualizarImagenesPerfilAsync(int usuarioId, ActualizarImagenesPerfilVendedorDto dto);
 
         // Solicitud de verificación
         Task<ResultadoOperacion<SolicitudVerificacionDto>> EnviarSolicitudVerificacionAsync(int usuarioId, EnviarSolicitudVerificacionDto dto);
