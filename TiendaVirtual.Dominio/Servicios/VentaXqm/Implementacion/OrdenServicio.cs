@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Modelo.VentaXqm;
+using TiendaVirtual.Dominio.Servicios.SoporteXqm;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.Sistema;
 using TiendaVirtual.Intercambio.Dto.VentaXqm;
@@ -24,8 +25,13 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
         private const decimal COMISION_PORCENTAJE = 10m;
 
         protected readonly TiendaVirtualDbContext _context;
+        private readonly INotificacionServicio _notificacionServicio;
 
-        public OrdenServicio(TiendaVirtualDbContext context) => _context = context;
+        public OrdenServicio(TiendaVirtualDbContext context, INotificacionServicio notificacionServicio)
+        {
+            _context = context;
+            _notificacionServicio = notificacionServicio;
+        }
 
         public async Task<ResultadoOperacion<OrdenDto>> CrearAsync(int usuarioId, CrearOrdenDto dto)
         {
@@ -155,6 +161,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 // 8. Crear una suborden por cada vendedor, con sus items
                 decimal subtotalOrden = 0;
                 decimal envioTotal = 0;
+                var subordenesCreadas = new List<(long SubordenId, string NumeroSuborden, int VendedorId, decimal Subtotal)>();
 
                 foreach (var grupo in items.GroupBy(i => i.Variante.Producto.VendedorId))
                 {
@@ -217,6 +224,8 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                     suborden.MontoComision = comision;
                     suborden.MontoVendedor = subtotalSuborden - comision;
 
+                    subordenesCreadas.Add((suborden.SubordenId, suborden.NumeroSuborden, suborden.VendedorId, suborden.Subtotal));
+
                     subtotalOrden += subtotalSuborden;
                     envioTotal += metodo.MontoBase;
                 }
@@ -233,6 +242,29 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
                 await _context.SaveChangesAsync();
                 await trx.CommitAsync();
+
+                await _notificacionServicio.CrearAsync(
+                    usuarioId,
+                    TipoNotificacion.OrdenCreada,
+                    $"Pedido {orden.NumeroOrden} creado",
+                    $"Recibimos tu pedido. Total: S/ {orden.Total:N2}. Completa el pago para que los artesanos lo preparen.",
+                    new { ordenId = orden.OrdenId, numeroOrden = orden.NumeroOrden });
+
+                foreach (var sub in subordenesCreadas)
+                {
+                    var vendedorUsuarioId = await _context.Vendedores
+                        .Where(v => v.VendedorId == sub.VendedorId)
+                        .Select(v => v.UsuarioId)
+                        .FirstAsync();
+
+                    await _notificacionServicio.CrearAsync(
+                        vendedorUsuarioId,
+                        TipoNotificacion.SubordenRecibida,
+                        "Nuevo pedido recibido",
+                        $"Recibiste el pedido {sub.NumeroSuborden} por S/ {sub.Subtotal:N2}. " +
+                        "Te avisaremos cuando se confirme el pago.",
+                        new { subordenId = sub.SubordenId, numeroSuborden = sub.NumeroSuborden });
+                }
 
                 return await ObtenerMiOrdenAsync(usuarioId, orden.OrdenId);
             }

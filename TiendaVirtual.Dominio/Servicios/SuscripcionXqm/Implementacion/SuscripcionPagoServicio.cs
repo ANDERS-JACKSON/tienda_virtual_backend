@@ -3,8 +3,8 @@ using Microsoft.Extensions.Configuration;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones.PagoXqm;
 using TiendaVirtual.Dominio.Modelo.PagoXqm;
-using TiendaVirtual.Dominio.Modelo.SoporteXqm;
 using TiendaVirtual.Dominio.Modelo.VendedorXqm;
+using TiendaVirtual.Dominio.Servicios.SoporteXqm;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.PagoXqm;
 using TiendaVirtual.Intercambio.Dto.VendedorXqm;
@@ -15,11 +15,16 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
     {
         private readonly TiendaVirtualDbContext _context;
         private readonly IConfiguration _config;
+        private readonly INotificacionServicio _notificacionServicio;
 
-        public SuscripcionPagoServicio(TiendaVirtualDbContext context, IConfiguration config)
+        public SuscripcionPagoServicio(
+            TiendaVirtualDbContext context,
+            IConfiguration config,
+            INotificacionServicio notificacionServicio)
         {
             _context = context;
             _config = config;
+            _notificacionServicio = notificacionServicio;
         }
 
         public async Task<ResultadoOperacion<RespuestaInicioPagoDto>> IniciarPagoAsync(
@@ -152,11 +157,26 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                     : TipoEstadoTransaccion.Fallida;
                 transaccion.Fecha = DateTime.UtcNow;
 
+                string? tituloNotif = null;
+                string? cuerpoNotif = null;
+
                 if (dto.Exitosa && transaccion.SuscripcionId.HasValue)
-                    await ActivarSuscripcionTrasPagoAsync(transaccion.SuscripcionId.Value, transaccion.UsuarioId);
+                {
+                    (tituloNotif, cuerpoNotif) = await ActivarSuscripcionTrasPagoAsync(
+                        transaccion.SuscripcionId.Value);
+                }
 
                 await _context.SaveChangesAsync();
                 await trx.CommitAsync();
+
+                if (tituloNotif != null && cuerpoNotif != null)
+                {
+                    await _notificacionServicio.CrearAsync(
+                        transaccion.UsuarioId,
+                        TipoNotificacion.SuscripcionPagada,
+                        tituloNotif,
+                        cuerpoNotif);
+                }
 
                 return ResultadoOperacion<TransaccionDto>.SetExito(transaccion.ToDto());
             }
@@ -192,7 +212,7 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             return CuponServicio.CalcularPrecioConDescuento(precio, sus.Cupon);
         }
 
-        private async Task ActivarSuscripcionTrasPagoAsync(int suscripcionId, int usuarioId)
+        private async Task<(string Titulo, string Cuerpo)> ActivarSuscripcionTrasPagoAsync(int suscripcionId)
         {
             var sus = await _context.Suscripciones.Include(s => s.Plan)
                 .FirstAsync(s => s.SuscripcionId == suscripcionId);
@@ -205,15 +225,9 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             sus.PeriodoInicio = inicioNuevoPeriodo;
             sus.PeriodoFin = inicioNuevoPeriodo.AddMonths((int)sus.Plan.Periodo);
 
-            _context.Notificaciones.Add(new Notificacion
-            {
-                UsuarioId = usuarioId,
-                Tipo = "SUSCRIPCION_PAGADA",
-                Titulo = "¡Pago confirmado!",
-                Cuerpo = $"Tu suscripción al plan {sus.Plan.Nombre} está activa hasta {sus.PeriodoFin:dd/MM/yyyy}.",
-                Leida = false,
-                Fecha = now
-            });
+            return (
+                "¡Pago confirmado!",
+                $"Tu suscripción al plan {sus.Plan.Nombre} está activa hasta {sus.PeriodoFin:dd/MM/yyyy}.");
         }
 
         private Task<(string formToken, string publicKey)> GenerarFormTokenIzipayAsync(

@@ -6,8 +6,8 @@ using System.Text;
 using System.Threading.Tasks;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones.VendedorXqm;
+using TiendaVirtual.Dominio.Servicios.SoporteXqm;
 using TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion;
-using TiendaVirtual.Dominio.Modelo.SoporteXqm;
 using TiendaVirtual.Dominio.Modelo.VendedorXqm;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.Sistema;
@@ -18,10 +18,12 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
     public class VendedorServicio : IVendedorServicio
     {
         protected readonly TiendaVirtualDbContext _context;
+        private readonly INotificacionServicio _notificacionServicio;
 
-        public VendedorServicio(TiendaVirtualDbContext context)
+        public VendedorServicio(TiendaVirtualDbContext context, INotificacionServicio notificacionServicio)
         {
             _context = context;
+            _notificacionServicio = notificacionServicio;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -256,19 +258,15 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
 
                 solicitud.Vendedor.Estado = TipoEstadoVendedor.Activo;
 
-                // Notificación al vendedor
-                _context.Notificaciones.Add(new Notificacion
-                {
-                    UsuarioId = solicitud.Vendedor.UsuarioId,
-                    Tipo = "VERIFICACION_APROBADA",
-                    Titulo = "¡Tu cuenta fue verificada!",
-                    Cuerpo = "Ya puedes publicar productos y vender en Artesanías.",
-                    Leida = false,
-                    Fecha = DateTime.UtcNow
-                });
-
                 await _context.SaveChangesAsync();
                 await trx.CommitAsync();
+
+                await _notificacionServicio.CrearAsync(
+                    solicitud.Vendedor.UsuarioId,
+                    TipoNotificacion.VerificacionAprobada,
+                    "¡Tu cuenta fue verificada!",
+                    "Ya puedes publicar productos y vender en Artesanías.");
+
                 return ResultadoOperacion<bool>.SetExito(true);
             }
             catch (Exception ex)
@@ -305,18 +303,15 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
                 // El vendedor queda en PENDIENTE_VERIFICACION para que pueda reenviar
                 solicitud.Vendedor.Estado = TipoEstadoVendedor.PendienteVerificacion;
 
-                _context.Notificaciones.Add(new Notificacion
-                {
-                    UsuarioId = solicitud.Vendedor.UsuarioId,
-                    Tipo = "VERIFICACION_RECHAZADA",
-                    Titulo = "Tu solicitud de verificación fue rechazada",
-                    Cuerpo = $"Motivo: {dto.MotivoRechazo}. Puedes corregir y reenviar la solicitud.",
-                    Leida = false,
-                    Fecha = DateTime.UtcNow
-                });
-
                 await _context.SaveChangesAsync();
                 await trx.CommitAsync();
+
+                await _notificacionServicio.CrearAsync(
+                    solicitud.Vendedor.UsuarioId,
+                    TipoNotificacion.VerificacionRechazada,
+                    "Tu solicitud de verificación fue rechazada",
+                    $"Motivo: {dto.MotivoRechazo}. Puedes corregir y reenviar la solicitud.");
+
                 return ResultadoOperacion<bool>.SetExito(true);
             }
             catch (Exception ex)

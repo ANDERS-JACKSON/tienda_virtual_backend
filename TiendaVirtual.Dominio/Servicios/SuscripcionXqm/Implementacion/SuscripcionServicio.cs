@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones.VendedorXqm;
-using TiendaVirtual.Dominio.Modelo.SoporteXqm;
 using TiendaVirtual.Dominio.Modelo.VendedorXqm;
+using TiendaVirtual.Dominio.Servicios.SoporteXqm;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.Sistema;
 using TiendaVirtual.Intercambio.Dto.VendedorXqm;
@@ -12,8 +12,13 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
     public class SuscripcionServicio : ISuscripcionServicio
     {
         private readonly TiendaVirtualDbContext _context;
+        private readonly INotificacionServicio _notificacionServicio;
 
-        public SuscripcionServicio(TiendaVirtualDbContext context) => _context = context;
+        public SuscripcionServicio(TiendaVirtualDbContext context, INotificacionServicio notificacionServicio)
+        {
+            _context = context;
+            _notificacionServicio = notificacionServicio;
+        }
 
         public async Task<ResultadoOperacion<SuscripcionDto?>> ObtenerMiSuscripcionAsync(int usuarioId)
         {
@@ -171,18 +176,13 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
 
                 sus.PlanId = nuevoPlan.PlanId;
                 await _context.SaveChangesAsync();
-
-                _context.Notificaciones.Add(new Notificacion
-                {
-                    UsuarioId = usuarioId,
-                    Tipo = "SUSCRIPCION_PLAN_CAMBIADO",
-                    Titulo = "Cambio de plan agendado",
-                    Cuerpo = $"Tu suscripción cambiará a {nuevoPlan.Nombre} al inicio del próximo periodo.",
-                    Leida = false,
-                    Fecha = DateTime.UtcNow
-                });
-                await _context.SaveChangesAsync();
                 await trx.CommitAsync();
+
+                await _notificacionServicio.CrearAsync(
+                    usuarioId,
+                    TipoNotificacion.SuscripcionPlanCambiado,
+                    "Cambio de plan agendado",
+                    $"Tu suscripción cambiará a {nuevoPlan.Nombre} al inicio del próximo periodo.");
 
                 return await CargarSuscripcionAsync(sus.SuscripcionId);
             }
@@ -208,21 +208,12 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                 sus.Estado = TipoEstadoSuscripcion.Cancelada;
                 await _context.SaveChangesAsync();
 
-                var finAcceso = sus.PeriodoFin.HasValue
-                    ? sus.PeriodoFin.Value.ToString("dd/MM/yyyy")
-                    : "el fin de tu periodo";
-                _context.Notificaciones.Add(new Notificacion
-                {
-                    UsuarioId = usuarioId,
-                    Tipo = "SUSCRIPCION_CANCELADA",
-                    Titulo = "Suscripción cancelada",
-                    Cuerpo =
-                        $"Tu tienda y productos dejarán de mostrarse al público. " +
-                        "Para volver a vender debes reactivar el plan y pagar (sin meses gratis).",
-                    Leida = false,
-                    Fecha = DateTime.UtcNow
-                });
-                await _context.SaveChangesAsync();
+                await _notificacionServicio.CrearAsync(
+                    usuarioId,
+                    TipoNotificacion.SuscripcionCancelada,
+                    "Suscripción cancelada",
+                    "Tu tienda y productos dejarán de mostrarse al público. " +
+                    "Para volver a vender debes reactivar el plan y pagar (sin meses gratis).");
 
                 return ResultadoOperacion<bool>.SetExito(true);
             }
@@ -457,7 +448,7 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             _context.Suscripciones.Add(suscripcion);
             await _context.SaveChangesAsync();
 
-            var tipoNotif = forzarPago ? "SUSCRIPCION_REACTIVADA" : "SUSCRIPCION_INICIADA";
+            var tipoNotif = forzarPago ? TipoNotificacion.SuscripcionReactivada : TipoNotificacion.SuscripcionIniciada;
             var titulo = forzarPago
                 ? $"Plan {plan.Nombre} — reactivación"
                 : $"¡Suscripción al plan {plan.Nombre} iniciada!";
@@ -465,17 +456,9 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                 ? $"Tienes {mesesGratisTotal} mes(es) gratis hasta {pruebaTerminaEn:dd/MM/yyyy}."
                 : "Tu suscripción está pendiente de pago. Completa el pago para volver a publicar productos.";
 
-            _context.Notificaciones.Add(new Notificacion
-            {
-                UsuarioId = usuarioId,
-                Tipo = tipoNotif,
-                Titulo = titulo,
-                Cuerpo = cuerpo,
-                Leida = false,
-                Fecha = now
-            });
-            await _context.SaveChangesAsync();
             await trx.CommitAsync();
+
+            await _notificacionServicio.CrearAsync(usuarioId, tipoNotif, titulo, cuerpo);
 
             return await CargarSuscripcionAsync(suscripcion.SuscripcionId);
         }
