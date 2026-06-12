@@ -265,7 +265,18 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
                     solicitud.Vendedor.UsuarioId,
                     TipoNotificacion.VerificacionAprobada,
                     "¡Tu cuenta fue verificada!",
-                    "Ya puedes publicar productos y vender en Artesanías.");
+                    "Ya puedes publicar productos y vender en Artesanías.",
+                    null,
+                    plantillaEmail: PlantillaCorreo.VerificacionResultado,
+                    placeholdersEmail: new Dictionary<string, string>
+                    {
+                        ["vendedor"] = solicitud.Vendedor.NombreTienda,
+                        ["resultado"] = "Aprobada",
+                        ["titulo"] = "¡Tu cuenta fue verificada!",
+                        ["mensaje"] = "Felicitaciones, tu cuenta de artesano fue aprobada. " +
+                                      "Ya puedes publicar productos e iniciar tu suscripción " +
+                                      "para empezar a vender en Artesanías Perú."
+                    });
 
                 return ResultadoOperacion<bool>.SetExito(true);
             }
@@ -310,7 +321,18 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
                     solicitud.Vendedor.UsuarioId,
                     TipoNotificacion.VerificacionRechazada,
                     "Tu solicitud de verificación fue rechazada",
-                    $"Motivo: {dto.MotivoRechazo}. Puedes corregir y reenviar la solicitud.");
+                    $"Motivo: {dto.MotivoRechazo}. Puedes corregir y reenviar la solicitud.",
+                    null,
+                    plantillaEmail: PlantillaCorreo.VerificacionResultado,
+                    placeholdersEmail: new Dictionary<string, string>
+                    {
+                        ["vendedor"] = solicitud.Vendedor.NombreTienda,
+                        ["resultado"] = "Rechazada",
+                        ["titulo"] = "Tu verificación fue rechazada",
+                        ["mensaje"] = $"Motivo: {dto.MotivoRechazo}. " +
+                                      "Por favor revisa los datos enviados y vuelve a enviar tu solicitud " +
+                                      "desde tu panel de vendedor."
+                    });
 
                 return ResultadoOperacion<bool>.SetExito(true);
             }
@@ -475,6 +497,195 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             catch (Exception ex)
             {
                 return ResultadoOperacion<PaginacionRespuestaDto<PedidoVendedorDto>>.SetError("Error: " + ex.Message);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // ADMIN OVERVIEW
+        // ─────────────────────────────────────────────────────────────
+        public async Task<ResultadoOperacion<PaginacionRespuestaDto<VendedorAdminListadoDto>>> ListarAdminAsync(
+            string? busqueda, TipoEstadoVendedor? estado, bool? conSuscripcion, int pagina, int tamanioPagina)
+        {
+            try
+            {
+                pagina = Math.Max(1, pagina);
+                tamanioPagina = Math.Clamp(tamanioPagina, 1, 50);
+
+                var query = _context.Vendedores.AsNoTracking()
+                    .Include(v => v.Usuario)
+                    .AsQueryable();
+
+                if (!string.IsNullOrWhiteSpace(busqueda))
+                {
+                    var term = busqueda.Trim().ToLower();
+                    query = query.Where(v =>
+                        v.NombreTienda.ToLower().Contains(term) ||
+                        v.SlugTienda.ToLower().Contains(term) ||
+                        v.Usuario.Correo.ToLower().Contains(term));
+                }
+
+                if (estado.HasValue)
+                    query = query.Where(v => v.Estado == estado.Value);
+
+                var vendedores = await query.OrderByDescending(v => v.VendedorId).ToListAsync();
+                var vendedorIds = vendedores.Select(v => v.VendedorId).ToList();
+
+                var suscripciones = await _context.Suscripciones.AsNoTracking()
+                    .Include(s => s.Plan)
+                    .Where(s => vendedorIds.Contains(s.VendedorId))
+                    .GroupBy(s => s.VendedorId)
+                    .Select(g => g.OrderByDescending(s => s.SuscripcionId).First())
+                    .ToListAsync();
+
+                var susPorVendedor = suscripciones.ToDictionary(s => s.VendedorId);
+
+                if (conSuscripcion == true)
+                    vendedores = vendedores.Where(v => susPorVendedor.ContainsKey(v.VendedorId)).ToList();
+                else if (conSuscripcion == false)
+                    vendedores = vendedores.Where(v => !susPorVendedor.ContainsKey(v.VendedorId)).ToList();
+
+                var total = vendedores.Count;
+                var page = vendedores.Skip((pagina - 1) * tamanioPagina).Take(tamanioPagina).ToList();
+
+                var items = new List<VendedorAdminListadoDto>();
+                foreach (var v in page)
+                {
+                    susPorVendedor.TryGetValue(v.VendedorId, out var sus);
+                    var totalProductos = await _context.Productos.CountAsync(p => p.VendedorId == v.VendedorId);
+                    items.Add(new VendedorAdminListadoDto
+                    {
+                        VendedorId = v.VendedorId,
+                        NombreTienda = v.NombreTienda,
+                        SlugTienda = v.SlugTienda,
+                        CorreoUsuario = v.Usuario.Correo,
+                        Estado = new EnumeracionDto((int)v.Estado, v.Estado.ToString()),
+                        PlanActual = sus?.Plan?.Nombre,
+                        EstadoSuscripcion = sus != null
+                            ? new EnumeracionDto((int)sus.Estado, sus.Estado.ToString())
+                            : null,
+                        TotalProductos = totalProductos,
+                        TotalVentas = v.TotalVentas,
+                        CalificacionPromedio = v.CalificacionPromedio,
+                        FechaRegistro = v.Usuario?.FechaAlta ?? DateTime.UtcNow
+                    });
+                }
+
+                return ResultadoOperacion<PaginacionRespuestaDto<VendedorAdminListadoDto>>.SetExito(
+                    new PaginacionRespuestaDto<VendedorAdminListadoDto>
+                    {
+                        Items = items, Pagina = pagina, TamanioPagina = tamanioPagina,
+                        TotalRegistros = total, HayMas = pagina * tamanioPagina < total
+                    });
+            }
+            catch (Exception ex)
+            {
+                return ResultadoOperacion<PaginacionRespuestaDto<VendedorAdminListadoDto>>.SetError("Error: " + ex.Message);
+            }
+        }
+
+        public async Task<ResultadoOperacion<VendedorAdminDetalleDto>> ObtenerAdminDetalleAsync(int vendedorId)
+        {
+            try
+            {
+                var v = await _context.Vendedores.AsNoTracking()
+                    .Include(x => x.Usuario)
+                    .FirstOrDefaultAsync(x => x.VendedorId == vendedorId);
+                if (v == null) return ResultadoOperacion<VendedorAdminDetalleDto>.SetError("Vendedor no encontrado.");
+
+                var baseDto = (await ListarAdminAsync(v.NombreTienda, null, null, 1, 50)).Datos?.Items
+                    .FirstOrDefault(x => x.VendedorId == vendedorId);
+
+                var montoVendido = await _context.Subordenes
+                    .Where(s => s.VendedorId == vendedorId)
+                    .SumAsync(s => (decimal?)s.Subtotal) ?? 0;
+                var comision = await _context.Subordenes
+                    .Where(s => s.VendedorId == vendedorId)
+                    .SumAsync(s => (decimal?)s.MontoComision) ?? 0;
+                var reclamos = await _context.Reclamos
+                    .CountAsync(r => r.Suborden.VendedorId == vendedorId &&
+                        (r.Estado == TipoEstadoReclamo.Abierto || r.Estado == TipoEstadoReclamo.EnRevision));
+                var ultimaVenta = await _context.Subordenes
+                    .Where(s => s.VendedorId == vendedorId)
+                    .OrderByDescending(s => s.SubordenId)
+                    .Select(s => (DateTime?)s.Orden.Fecha)
+                    .FirstOrDefaultAsync();
+
+                return ResultadoOperacion<VendedorAdminDetalleDto>.SetExito(new VendedorAdminDetalleDto
+                {
+                    VendedorId = v.VendedorId,
+                    NombreTienda = v.NombreTienda,
+                    SlugTienda = v.SlugTienda,
+                    CorreoUsuario = v.Usuario.Correo,
+                    Estado = new EnumeracionDto((int)v.Estado, v.Estado.ToString()),
+                    PlanActual = baseDto?.PlanActual,
+                    EstadoSuscripcion = baseDto?.EstadoSuscripcion,
+                    TotalProductos = baseDto?.TotalProductos ?? 0,
+                    TotalVentas = v.TotalVentas,
+                    CalificacionPromedio = v.CalificacionPromedio,
+                    FechaRegistro = v.Usuario.FechaAlta,
+                    LogoUrl = v.LogoUrl,
+                    BannerUrl = v.BannerUrl,
+                    Biografia = v.Biografia,
+                    VendePatrones = v.VendePatrones,
+                    MontoVendidoTotal = montoVendido,
+                    ComisionGenerada = comision,
+                    ReclamosAbiertos = reclamos,
+                    FechaUltimaVenta = ultimaVenta
+                });
+            }
+            catch (Exception ex)
+            {
+                return ResultadoOperacion<VendedorAdminDetalleDto>.SetError("Error: " + ex.Message);
+            }
+        }
+
+        public async Task<ResultadoOperacion<bool>> SuspenderAdminAsync(int vendedorId, SuspenderVendedorDto dto)
+        {
+            try
+            {
+                if (dto == null || string.IsNullOrWhiteSpace(dto.Motivo) || dto.Motivo.Trim().Length < 20)
+                    return ResultadoOperacion<bool>.SetError("El motivo debe tener al menos 20 caracteres.");
+
+                var v = await _context.Vendedores
+                    .Include(x => x.Usuario)
+                    .FirstOrDefaultAsync(x => x.VendedorId == vendedorId);
+                if (v == null) return ResultadoOperacion<bool>.SetError("Vendedor no encontrado.");
+
+                v.Estado = TipoEstadoVendedor.Suspendido;
+                var productos = await _context.Productos
+                    .Where(p => p.VendedorId == vendedorId && p.Estado == TipoEstadoProducto.Activo)
+                    .ToListAsync();
+                foreach (var p in productos) p.Estado = TipoEstadoProducto.Pausado;
+
+                await _context.SaveChangesAsync();
+
+                await _notificacionServicio.CrearAsync(
+                    v.UsuarioId,
+                    TipoNotificacion.VendedorSuspendido,
+                    "Tu tienda fue suspendida",
+                    $"Motivo: {dto.Motivo.Trim()}");
+
+                return ResultadoOperacion<bool>.SetExito(true);
+            }
+            catch (Exception ex)
+            {
+                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+            }
+        }
+
+        public async Task<ResultadoOperacion<bool>> ReactivarAdminAsync(int vendedorId)
+        {
+            try
+            {
+                var v = await _context.Vendedores.FirstOrDefaultAsync(x => x.VendedorId == vendedorId);
+                if (v == null) return ResultadoOperacion<bool>.SetError("Vendedor no encontrado.");
+                v.Estado = TipoEstadoVendedor.Activo;
+                await _context.SaveChangesAsync();
+                return ResultadoOperacion<bool>.SetExito(true);
+            }
+            catch (Exception ex)
+            {
+                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
             }
         }
     }

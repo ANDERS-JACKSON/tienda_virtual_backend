@@ -18,7 +18,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
     /// (una por vendedor), reservando stock y dejando la orden en PendientePago.
     /// El pago real se hace en otro flujo (pasarela externa).
     /// </summary>
-    public class OrdenServicio : IOrdenServicio
+    public partial class OrdenServicio : IOrdenServicio
     {
         // Porcentaje fijo de comisión por ahora; cuando exista catálogo de planes
         // por vendedor, se reemplaza por la lectura del plan vigente.
@@ -40,14 +40,14 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             {
                 // 1. Datos del cliente (correo/teléfono) para snapshot
                 var cliente = await _context.Usuarios
-                    .Include(u => u.Persona)
                     .Where(u => u.UsuarioId == usuarioId)
                     .Select(u => new
                     {
                         u.UsuarioId,
                         u.Correo,
                         u.PersonaId,
-                        TelefonoPersona = u.Persona.Telefono
+                        TelefonoPersona = u.Persona.Telefono,
+                        NombreCliente = u.Persona.Nombres + " " + (u.Persona.ApellidoPaterno ?? "")
                     })
                     .FirstOrDefaultAsync();
 
@@ -252,18 +252,25 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
                 foreach (var sub in subordenesCreadas)
                 {
-                    var vendedorUsuarioId = await _context.Vendedores
+                    var datosVendedor = await _context.Vendedores
                         .Where(v => v.VendedorId == sub.VendedorId)
-                        .Select(v => v.UsuarioId)
+                        .Select(v => new { v.UsuarioId, v.NombreTienda })
                         .FirstAsync();
 
                     await _notificacionServicio.CrearAsync(
-                        vendedorUsuarioId,
+                        datosVendedor.UsuarioId,
                         TipoNotificacion.SubordenRecibida,
                         "Nuevo pedido recibido",
-                        $"Recibiste el pedido {sub.NumeroSuborden} por S/ {sub.Subtotal:N2}. " +
-                        "Te avisaremos cuando se confirme el pago.",
-                        new { subordenId = sub.SubordenId, numeroSuborden = sub.NumeroSuborden });
+                        $"Recibiste el pedido {sub.NumeroSuborden} por S/ {sub.Subtotal:N2}.",
+                        new { subordenId = sub.SubordenId, numeroSuborden = sub.NumeroSuborden },
+                        plantillaEmail: PlantillaCorreo.NuevoPedidoVendedor,
+                        placeholdersEmail: new Dictionary<string, string>
+                        {
+                            ["vendedor"] = datosVendedor.NombreTienda,
+                            ["numeroPedido"] = sub.NumeroSuborden,
+                            ["nombreCliente"] = cliente.NombreCliente.Trim(),
+                            ["totalPedido"] = sub.Subtotal.ToString("N2")
+                        });
                 }
 
                 return await ObtenerMiOrdenAsync(usuarioId, orden.OrdenId);
@@ -417,6 +424,67 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             catch (Exception ex)
             {
                 return ResultadoOperacion<OrdenDto>.SetError("Error: " + ex.Message);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────
+        // Cambio de estado de suborden (vendedor)
+        // ─────────────────────────────────────────────────────
+        public async Task<ResultadoOperacion<bool>> CambiarEstadoSubordenAsync(
+            int vendedorUsuarioId, long subordenId, TipoEstadoSuborden nuevoEstado)
+        {
+            try
+            {
+                var vendedor = await _context.Vendedores
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(v => v.UsuarioId == vendedorUsuarioId);
+                if (vendedor == null)
+                    return ResultadoOperacion<bool>.SetError("Vendedor no encontrado.");
+
+                var suborden = await _context.Subordenes
+                    .Include(s => s.Vendedor)
+                    .Include(s => s.Envios)
+                    .Include(s => s.Orden).ThenInclude(o => o.Cliente).ThenInclude(u => u.Persona)
+                    .FirstOrDefaultAsync(s => s.SubordenId == subordenId && s.VendedorId == vendedor.VendedorId);
+
+                if (suborden == null)
+                    return ResultadoOperacion<bool>.SetError("Suborden no encontrada.");
+
+                suborden.Estado = nuevoEstado;
+                if (nuevoEstado == TipoEstadoSuborden.EnCamino)
+                    suborden.FechaEnvio ??= DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                if (nuevoEstado == TipoEstadoSuborden.EnCamino)
+                {
+                    var nombreCliente = suborden.Orden.Cliente.Persona != null
+                        ? $"{suborden.Orden.Cliente.Persona.Nombres} {suborden.Orden.Cliente.Persona.ApellidoPaterno ?? ""}".Trim()
+                        : suborden.Orden.CorreoCliente;
+                    var codigoSeguimiento = suborden.Envios.FirstOrDefault()?.NumeroSeguimiento;
+
+                    await _notificacionServicio.CrearAsync(
+                        suborden.Orden.ClienteId,
+                        TipoNotificacion.SubordenEnCamino,
+                        "Tu pedido está en camino",
+                        $"El pedido {suborden.NumeroSuborden} de {suborden.Vendedor.NombreTienda} fue enviado.",
+                        new { subordenId },
+                        plantillaEmail: PlantillaCorreo.PedidoEnviadoCliente,
+                        placeholdersEmail: new Dictionary<string, string>
+                        {
+                            ["cliente"] = nombreCliente,
+                            ["numeroPedido"] = suborden.NumeroSuborden,
+                            ["nombreTienda"] = suborden.Vendedor.NombreTienda,
+                            ["codigoSeguimiento"] = string.IsNullOrEmpty(codigoSeguimiento)
+                                ? "Pendiente" : codigoSeguimiento
+                        });
+                }
+
+                return ResultadoOperacion<bool>.SetExito(true);
+            }
+            catch (Exception ex)
+            {
+                return ResultadoOperacion<bool>.SetError("Error al cambiar estado: " + ex.Message);
             }
         }
 

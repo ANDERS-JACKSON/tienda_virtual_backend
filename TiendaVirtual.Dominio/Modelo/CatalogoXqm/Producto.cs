@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -47,6 +47,7 @@ namespace TiendaVirtual.Dominio.Modelo.CatalogoXqm
         public int Ventas { get; set; }
         public decimal CalificacionPromedio { get; set; }
         public int TotalResenas { get; set; }
+        public string? MotivoPausaAdmin { get; set; }
 
         public virtual Vendedor Vendedor { get; set; } = null!;
         public virtual Categoria Categoria { get; set; } = null!;

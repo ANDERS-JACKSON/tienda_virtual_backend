@@ -5,6 +5,13 @@ namespace TiendaVirtual.Comun.Enumeracion
     /// </summary>
     public static class TipoNotificacion
     {
+        public const string CreacionUsuario = "CREACION_USUARIO";
+        public const string RecuperacionClaveSolicitada = "RECUPERACION_CLAVE_SOLICITADA";
+
+        public const string OrdenCanceladaAdmin = "ORDEN_CANCELADA_ADMIN";
+        public const string VendedorSuspendido = "VENDEDOR_SUSPENDIDO";
+        public const string ProductoOcultoAdmin = "PRODUCTO_OCULTO_ADMIN";
+
         public const string VerificacionAprobada = "VERIFICACION_APROBADA";
         public const string VerificacionRechazada = "VERIFICACION_RECHAZADA";
         public const string SolicitudVerificacionRecibida = "SOLICITUD_VERIFICACION_RECIBIDA";

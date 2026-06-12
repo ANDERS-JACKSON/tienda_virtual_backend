@@ -17,7 +17,7 @@ namespace TiendaVirtual.Api
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // PostgreSQL: conexión a la base de datos
+            // PostgreSQL: conexiï¿½n a la base de datos
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
             builder.Services.AddDbContext<TiendaVirtualDbContext>(options =>
@@ -36,7 +36,7 @@ namespace TiendaVirtual.Api
             })
             .AddJwtBearer(options =>
             {
-                options.RequireHttpsMetadata = false; // false en desarrollo, true en producción
+                options.RequireHttpsMetadata = false; // false en desarrollo, true en producciï¿½n
                 options.SaveToken = true;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -65,13 +65,15 @@ namespace TiendaVirtual.Api
                 });
             });
 
-            // Registro de servicios de los módulos
+            // Registro de servicios de los mï¿½dulos
+            builder.Services.AgregarServiciosSoporte();
+            builder.Services.AgregarServiciosConfiguracion();
             builder.Services.AgregarServiciosSeguridad();
             builder.Services.AgregarServiciosVendedor();
             builder.Services.AgregarServiciosCatalogo();
             builder.Services.AgregarServiciosVenta();
             builder.Services.AgregarServiciosSuscripcion();
-            builder.Services.AgregarServiciosSoporte();
+            builder.Services.AgregarServiciosPago();
 
             // Controllers + JSON (enums como string, camelCase)
             builder.Services.AddControllers()
@@ -84,7 +86,7 @@ namespace TiendaVirtual.Api
                         new System.Text.Json.Serialization.JsonStringEnumConverter());
                 });
 
-            // Interceptor de ModelState (errores 400 traducidos al español)
+            // Interceptor de ModelState (errores 400 traducidos al espaï¿½ol)
             builder.Services.Configure<ApiBehaviorOptions>(options =>
             {
                 options.InvalidModelStateResponseFactory = context =>

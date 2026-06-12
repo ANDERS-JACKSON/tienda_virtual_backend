@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Servicios.VendedorXqm;
+using TiendaVirtual.Dominio.Servicios.VentaXqm;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.Sistema;
 using TiendaVirtual.Intercambio.Dto.VendedorXqm;
@@ -14,11 +15,16 @@ namespace TiendaVirtual.Api.Controllers.VendedorXqm
     public class VendedorController : ControllerBase
     {
         private readonly IVendedorServicio _servicio;
+        private readonly IOrdenServicio _ordenServicio;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public VendedorController(IVendedorServicio servicio, IHttpContextAccessor httpContextAccessor)
+        public VendedorController(
+            IVendedorServicio servicio,
+            IOrdenServicio ordenServicio,
+            IHttpContextAccessor httpContextAccessor)
         {
             _servicio = servicio;
+            _ordenServicio = ordenServicio;
             _httpContextAccessor = httpContextAccessor;
         }
 
@@ -143,6 +149,56 @@ namespace TiendaVirtual.Api.Controllers.VendedorXqm
             var usuarioId = ObtenerUsuarioId();
             if (usuarioId == null) return Unauthorized();
             var r = await _servicio.ListarMisPedidosAsync(usuarioId.Value, estado, pagina, tamanioPagina);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
+        [HttpPatch("mis-pedidos/{subordenId:long}/estado")]
+        [Authorize(Roles = "VENDEDOR")]
+        public async Task<ActionResult<ResultadoOperacion<bool>>> CambiarEstadoPedido(
+            long subordenId, [FromQuery] TipoEstadoSuborden estado)
+        {
+            var usuarioId = ObtenerUsuarioId();
+            if (usuarioId == null) return Unauthorized();
+            var r = await _ordenServicio.CambiarEstadoSubordenAsync(usuarioId.Value, subordenId, estado);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
+        // ──────────────── ADMIN ────────────────
+        [HttpGet("admin")]
+        [Authorize(Roles = "ADMIN")]
+        public async Task<ActionResult<ResultadoOperacion<PaginacionRespuestaDto<VendedorAdminListadoDto>>>> ListarAdmin(
+            [FromQuery] string? busqueda = null,
+            [FromQuery] TipoEstadoVendedor? estado = null,
+            [FromQuery] bool? conSuscripcion = null,
+            [FromQuery] int pagina = 1,
+            [FromQuery] int tamanioPagina = 20)
+        {
+            var r = await _servicio.ListarAdminAsync(busqueda, estado, conSuscripcion, pagina, tamanioPagina);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
+        [HttpGet("admin/{vendedorId:int}")]
+        [Authorize(Roles = "ADMIN")]
+        public async Task<ActionResult<ResultadoOperacion<VendedorAdminDetalleDto>>> DetalleAdmin(int vendedorId)
+        {
+            var r = await _servicio.ObtenerAdminDetalleAsync(vendedorId);
+            return r.Exito ? Ok(r) : NotFound(r);
+        }
+
+        [HttpPost("admin/{vendedorId:int}/suspender")]
+        [Authorize(Roles = "ADMIN")]
+        public async Task<ActionResult<ResultadoOperacion<bool>>> Suspender(
+            int vendedorId, [FromBody] SuspenderVendedorDto dto)
+        {
+            var r = await _servicio.SuspenderAdminAsync(vendedorId, dto);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
+        [HttpPost("admin/{vendedorId:int}/reactivar")]
+        [Authorize(Roles = "ADMIN")]
+        public async Task<ActionResult<ResultadoOperacion<bool>>> Reactivar(int vendedorId)
+        {
+            var r = await _servicio.ReactivarAdminAsync(vendedorId);
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -40,5 +40,11 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm
         Task<ResultadoOperacion<OfertaDto>> CrearOfertaAsync(int usuarioId, int productoId, CrearOfertaDto dto);
         Task<ResultadoOperacion<OfertaDto>> ActualizarOfertaAsync(int usuarioId, int ofertaId, ActualizarOfertaDto dto);
         Task<ResultadoOperacion<bool>> DesactivarOfertaAsync(int usuarioId, int ofertaId);
+
+        // Moderación admin
+        Task<ResultadoOperacion<PaginacionRespuestaDto<ProductoAdminListadoDto>>> ListarAdminAsync(
+            string? busqueda, int? vendedorId, int? categoriaId, string? estado, int pagina, int tamanioPagina);
+        Task<ResultadoOperacion<bool>> OcultarAdminAsync(int productoId, OcultarProductoDto dto);
+        Task<ResultadoOperacion<bool>> RestaurarAdminAsync(int productoId);
     }
 }

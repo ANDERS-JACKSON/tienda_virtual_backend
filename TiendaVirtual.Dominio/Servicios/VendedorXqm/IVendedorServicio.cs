@@ -32,5 +32,12 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm
 
         // Pedidos del vendedor
         Task<ResultadoOperacion<PaginacionRespuestaDto<PedidoVendedorDto>>> ListarMisPedidosAsync(int usuarioId, TipoEstadoSuborden? estado, int pagina, int tamanioPagina);
+
+        // Admin overview
+        Task<ResultadoOperacion<PaginacionRespuestaDto<VendedorAdminListadoDto>>> ListarAdminAsync(
+            string? busqueda, TipoEstadoVendedor? estado, bool? conSuscripcion, int pagina, int tamanioPagina);
+        Task<ResultadoOperacion<VendedorAdminDetalleDto>> ObtenerAdminDetalleAsync(int vendedorId);
+        Task<ResultadoOperacion<bool>> SuspenderAdminAsync(int vendedorId, SuspenderVendedorDto dto);
+        Task<ResultadoOperacion<bool>> ReactivarAdminAsync(int vendedorId);
     }
 }

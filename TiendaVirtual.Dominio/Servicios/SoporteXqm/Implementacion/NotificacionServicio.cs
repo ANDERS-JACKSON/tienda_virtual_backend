@@ -1,7 +1,8 @@
-using System.Net;
+using System.Collections.Generic;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Modelo.SoporteXqm;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.Sistema;
@@ -26,7 +27,9 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
         }
 
         public async Task CrearAsync(int usuarioId, string tipo, string titulo, string cuerpo,
-            object? datos = null, bool enviarEmail = true)
+            object? datos = null,
+            PlantillaCorreo? plantillaEmail = null,
+            Dictionary<string, string>? placeholdersEmail = null)
         {
             var notificacion = new Notificacion
             {
@@ -41,10 +44,9 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             _context.Notificaciones.Add(notificacion);
             await _context.SaveChangesAsync();
 
-            if (!enviarEmail) return;
+            if (!plantillaEmail.HasValue) return;
 
             var datosUsuario = await _context.Usuarios
-                .AsNoTracking()
                 .Where(u => u.UsuarioId == usuarioId)
                 .Select(u => new
                 {
@@ -55,22 +57,29 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
                 .FirstOrDefaultAsync();
 
             if (datosUsuario == null || string.IsNullOrWhiteSpace(datosUsuario.Correo))
+            {
+                _logger.LogWarning(
+                    "Usuario {UsuarioId} sin correo. No se envía email de tipo {Tipo}.",
+                    usuarioId, tipo);
                 return;
+            }
 
             var nombreCompleto = $"{datosUsuario.Nombre} {datosUsuario.Apellido}".Trim();
-            var html = ConstruirHtml(titulo, cuerpo, nombreCompleto);
+            var placeholders = placeholdersEmail ?? new Dictionary<string, string>();
 
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    await _email.EnviarAsync(datosUsuario.Correo, nombreCompleto, titulo, html);
+                    await _email.EnviarAsync(
+                        datosUsuario.Correo, nombreCompleto,
+                        plantillaEmail.Value, placeholders);
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex,
-                        "Error en envío de email para notificación tipo {Tipo} a usuario {UsuarioId}",
-                        tipo, usuarioId);
+                        "Error enviando email de notificación tipo {Tipo} (plantilla {Plantilla}) a usuario {UsuarioId}",
+                        tipo, plantillaEmail.Value, usuarioId);
                 }
             });
         }
@@ -171,31 +180,6 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             {
                 return ResultadoOperacion<int>.SetError("Error: " + ex.Message);
             }
-        }
-
-        private static string ConstruirHtml(string titulo, string cuerpo, string nombre)
-        {
-            return $@"<!DOCTYPE html>
-<html><body style=""margin:0;padding:0;background:#f5f7fb;font-family:Arial,sans-serif;"">
-  <table width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""background:#f5f7fb;padding:24px 0;"">
-    <tr><td align=""center"">
-      <table width=""600"" cellpadding=""0"" cellspacing=""0"" style=""background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);"">
-        <tr><td style=""background:#0a2540;padding:24px;text-align:center;"">
-          <h1 style=""color:white;margin:0;font-size:24px;letter-spacing:2px;"">ARTESANÍAS</h1>
-        </td></tr>
-        <tr><td style=""padding:32px;"">
-          <h2 style=""color:#0a2540;font-size:20px;margin:0 0 16px 0;"">Hola, {WebUtility.HtmlEncode(nombre)}</h2>
-          <h3 style=""color:#0a2540;font-size:18px;margin:0 0 12px 0;"">{WebUtility.HtmlEncode(titulo)}</h3>
-          <p style=""color:#4b5563;line-height:1.6;margin:0 0 24px 0;font-size:15px;"">{WebUtility.HtmlEncode(cuerpo)}</p>
-          <p style=""color:#6b7280;font-size:13px;margin-top:24px;"">Ingresa a tu cuenta en la plataforma para ver más detalles.</p>
-        </td></tr>
-        <tr><td style=""background:#f9fafb;padding:16px;text-align:center;border-top:1px solid #e5e7eb;"">
-          <p style=""color:#9ca3af;font-size:12px;margin:0;"">Este es un correo automático del sistema Artesanías.</p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body></html>";
         }
     }
 }

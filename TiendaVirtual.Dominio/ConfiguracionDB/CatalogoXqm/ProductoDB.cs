@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System;
 using System.Collections.Generic;
@@ -87,6 +87,10 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.CatalogoXqm
 
             builder.Property(e => e.TotalResenas)
                 .HasColumnName("total_resenas");
+
+            builder.Property(e => e.MotivoPausaAdmin)
+                .HasColumnName("motivo_pausa_admin")
+                .HasMaxLength(500);
 
             builder.HasIndex(e => e.Slug).IsUnique().HasDatabaseName("uq_producto_slug");
             builder.HasIndex(e => new { e.VendedorId, e.Estado }).HasDatabaseName("idx_producto_vendedor_estado");

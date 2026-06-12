@@ -11,9 +11,9 @@ using TiendaVirtual.Dominio.Extensiones.SeguridadXqm;
 using TiendaVirtual.Dominio.Modelo.PagoXqm;
 using TiendaVirtual.Dominio.Modelo.SeguridadXqm;
 using TiendaVirtual.Dominio.Modelo.VendedorXqm;
-using TiendaVirtual.Dominio.Servicios.ConfiguracionXqm;
 using TiendaVirtual.Dominio.Servicios.Sistema;
 using TiendaVirtual.Dominio.Servicios.Sistema.Implementacion;
+using TiendaVirtual.Dominio.Servicios.SoporteXqm;
 using TiendaVirtual.Dominio.Utilidad;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.SeguridadXqm;
@@ -26,7 +26,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
         protected readonly JwtTokenService _jwtService;
         protected readonly ITwoFactorService _twoFactorService;
         protected readonly IConfiguration _configuration;
-        protected readonly IEmailServicio _emailServicio;
+        protected readonly INotificacionServicio _notificacionServicio;
 
         private const int DURACION_TOKEN_MINUTOS = 60;
         private const int DURACION_REFRESH_DIAS = 30;
@@ -40,13 +40,13 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             JwtTokenService jwtService,
             ITwoFactorService twoFactorService,
             IConfiguration configuration,
-            IEmailServicio emailServicio)
+            INotificacionServicio notificacionServicio)
         {
             _context = context;
             _jwtService = jwtService;
             _twoFactorService = twoFactorService;
             _configuration = configuration;
-            _emailServicio = emailServicio;
+            _notificacionServicio = notificacionServicio;
         }
 
         // LOGIN (paso 1)
@@ -251,7 +251,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
                 // Envío de correo fuera de la transacción para no demorar el commit
                 var nombre = $"{persona.Nombres} {persona.ApellidoPaterno}".Trim();
-                var correoEnviado = await IntentarEnviarCreacionAsync(dto.Correo, nombre, claveAuto);
+                var correoEnviado = await IntentarEnviarCreacionAsync(usuario.UsuarioId, dto.Correo, claveAuto);
 
                 return ResultadoOperacion<RegistroRespuestaDto>.SetExito(new RegistroRespuestaDto
                 {
@@ -338,7 +338,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 await transaccion.CommitAsync();
 
                 var nombre = $"{persona.Nombres} {persona.ApellidoPaterno}".Trim();
-                var correoEnviado = await IntentarEnviarCreacionAsync(dto.Correo, nombre, claveAuto);
+                var correoEnviado = await IntentarEnviarCreacionAsync(usuario.UsuarioId, dto.Correo, claveAuto);
 
                 return ResultadoOperacion<RegistroRespuestaDto>.SetExito(new RegistroRespuestaDto
                 {
@@ -394,7 +394,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 await transaccion.CommitAsync();
 
                 var nombre = $"{persona.Nombres} {persona.ApellidoPaterno}".Trim();
-                var correoEnviado = await IntentarEnviarCreacionAsync(dto.Correo, nombre, claveAuto);
+                var correoEnviado = await IntentarEnviarCreacionAsync(usuario.UsuarioId, dto.Correo, claveAuto);
 
                 return ResultadoOperacion<RegistroRespuestaDto>.SetExito(new RegistroRespuestaDto
                 {
@@ -450,20 +450,18 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                     ? $"{usuario.Persona.Nombres} {usuario.Persona.ApellidoPaterno}".Trim()
                     : usuario.Correo;
 
-                try
-                {
-                    await _emailServicio.EnviarCorreoRecuperacionClaveAsync(
-                        usuario.Correo, nombre, nuevaClave);
-                }
-                catch (Exception)
-                {
-                    // La clave ya fue rotada en BD. Si el envío falla, informamos
-                    // al usuario para que contacte al soporte (no es silencioso
-                    // como el caso "correo no existe").
-                    return ResultadoOperacion<string>.SetError(
-                        "Generamos una nueva contraseña pero no pudimos enviar el correo. " +
-                        "Contacta al soporte.");
-                }
+                await _notificacionServicio.CrearAsync(
+                    usuario.UsuarioId,
+                    TipoNotificacion.RecuperacionClaveSolicitada,
+                    "Recuperación de contraseña",
+                    "Recibimos tu solicitud para restablecer la contraseña.",
+                    null,
+                    plantillaEmail: PlantillaCorreo.RecuperacionClave,
+                    placeholdersEmail: new Dictionary<string, string>
+                    {
+                        ["usuario"] = usuario.Correo,
+                        ["clave"] = nuevaClave
+                    });
 
                 return ResultadoOperacion<string>.SetExito(MENSAJE_OK);
             }
@@ -740,11 +738,22 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
         /// regenerar la clave manualmente.
         /// </summary>
         private async Task<bool> IntentarEnviarCreacionAsync(
-            string destinatario, string nombre, string clave)
+            int usuarioId, string correo, string clave)
         {
             try
             {
-                await _emailServicio.EnviarCorreoCreacionUsuarioAsync(destinatario, nombre, clave);
+                await _notificacionServicio.CrearAsync(
+                    usuarioId,
+                    TipoNotificacion.CreacionUsuario,
+                    "¡Bienvenido a Artesanías Perú!",
+                    "Tu cuenta fue creada correctamente.",
+                    null,
+                    plantillaEmail: PlantillaCorreo.CreacionUsuario,
+                    placeholdersEmail: new Dictionary<string, string>
+                    {
+                        ["usuario"] = correo,
+                        ["clave"] = clave
+                    });
                 return true;
             }
             catch (Exception)

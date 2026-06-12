@@ -8,7 +8,7 @@ using TiendaVirtual.Intercambio.Dto.VentaXqm;
 
 namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 {
-    public class MetodoEnvioServicio : IMetodoEnvioServicio
+    public partial class MetodoEnvioServicio : IMetodoEnvioServicio
     {
         protected readonly TiendaVirtualDbContext _context;
 

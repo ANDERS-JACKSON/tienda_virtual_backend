@@ -11,20 +11,26 @@ using TiendaVirtual.Dominio.Modelo.VendedorXqm;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.CatalogoXqm;
 using TiendaVirtual.Intercambio.Dto.Sistema;
+using TiendaVirtual.Dominio.Servicios.SoporteXqm;
 using TiendaVirtual.Dominio.Servicios.SuscripcionXqm;
 using TiendaVirtual.Dominio.Utilidad;
 
 namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 {
-    public class ProductoServicio : IProductoServicio
+    public partial class ProductoServicio : IProductoServicio
     {
         protected readonly TiendaVirtualDbContext _context;
         private readonly ISuscripcionServicio _suscripcionServicio;
+        private readonly INotificacionServicio _notificacionServicio;
 
-        public ProductoServicio(TiendaVirtualDbContext context, ISuscripcionServicio suscripcionServicio)
+        public ProductoServicio(
+            TiendaVirtualDbContext context,
+            ISuscripcionServicio suscripcionServicio,
+            INotificacionServicio notificacionServicio)
         {
             _context = context;
             _suscripcionServicio = suscripcionServicio;
+            _notificacionServicio = notificacionServicio;
         }
 
         // ─────────────────────────────────────────────────────
