@@ -130,7 +130,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 var producto = await _context.Productos
                     .Include(p => p.Vendedor)
                     .Include(p => p.Categoria)
-                    .Include(p => p.Variantes.Where(v => v.Activa)).ThenInclude(v => v.Stock)
+                    .Include(p => p.Variantes).ThenInclude(v => v.Stock)
                     .Include(p => p.Imagenes)
                     .Include(p => p.Ofertas)
                     .FirstOrDefaultAsync(p => p.Slug == slug && p.Estado == TipoEstadoProducto.Activo);
@@ -191,7 +191,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
                     Categoria = producto.Categoria.ToDto(),
                     Vendedor = producto.Vendedor.ToTiendaPublicaDto(totalProductosVendedor),
-                    Variantes = producto.Variantes.Select(v => v.ToDto()).ToList(),
+                    Variantes = producto.Variantes.Where(v => v.Activa).Select(v => v.ToDto()).ToList(),
                     Imagenes = producto.Imagenes.OrderBy(i => i.Orden).Select(i => i.ToDto()).ToList(),
                     OfertaVigente = ofertaVigente?.ToDto(),
 

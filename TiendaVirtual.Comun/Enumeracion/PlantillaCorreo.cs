@@ -6,6 +6,7 @@ namespace TiendaVirtual.Comun.Enumeracion
         RecuperacionClave,
         NuevoPedidoVendedor,
         PedidoEnviadoCliente,
-        VerificacionResultado
+        VerificacionResultado,
+        NuevoMensajeContacto
     }
 }

@@ -104,6 +104,11 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
                     config.AsuntoVerificacionResultado = dto.VerificacionResultado.Asunto;
                     config.CuerpoVerificacionResultado = dto.VerificacionResultado.Cuerpo;
                 }
+                if (dto.NuevoMensajeContacto != null)
+                {
+                    config.AsuntoNuevoMensajeContacto = dto.NuevoMensajeContacto.Asunto;
+                    config.CuerpoNuevoMensajeContacto = dto.NuevoMensajeContacto.Cuerpo;
+                }
 
                 await _context.SaveChangesAsync();
                 return ResultadoOperacion<ConfiguracionCorreoDto>.SetExito(MapearDto(config));
@@ -177,6 +182,11 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
                 {
                     Asunto = c.AsuntoVerificacionResultado,
                     Cuerpo = c.CuerpoVerificacionResultado
+                },
+                NuevoMensajeContacto = new PlantillaCorreoItem
+                {
+                    Asunto = c.AsuntoNuevoMensajeContacto,
+                    Cuerpo = c.CuerpoNuevoMensajeContacto
                 }
             };
         }

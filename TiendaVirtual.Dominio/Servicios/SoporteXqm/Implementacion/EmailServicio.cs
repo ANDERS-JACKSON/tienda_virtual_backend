@@ -115,6 +115,31 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             return await EnviarMensajeAsync(config, destinatario, nombreDestinatario, asunto, cuerpo, "prueba SMTP");
         }
 
+        public async Task<bool> EnviarHtmlAsync(
+            string destinatario, string nombreDestinatario, string asunto, string cuerpoHtml)
+        {
+            Correo? config;
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<TiendaVirtualDbContext>();
+                config = await context.Correo.AsNoTracking().FirstOrDefaultAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "No se pudo leer SMTP para email HTML a {Destinatario}.", destinatario);
+                return false;
+            }
+
+            if (config == null || !EsConfigSmtpValida(config))
+            {
+                _logger.LogWarning("⚠️  SMTP incompleto. Email HTML a {Destinatario} no enviado.", destinatario);
+                return false;
+            }
+
+            return await EnviarMensajeAsync(config, destinatario, nombreDestinatario, asunto, cuerpoHtml, "HTML libre");
+        }
+
         private async Task<bool> EnviarMensajeAsync(
             Correo config, string destinatario, string nombreDestinatario,
             string asunto, string cuerpoHtml, string contextoLog)
@@ -163,6 +188,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             PlantillaCorreo.NuevoPedidoVendedor => (c.AsuntoNuevoPedidoVendedor, c.CuerpoNuevoPedidoVendedor),
             PlantillaCorreo.PedidoEnviadoCliente => (c.AsuntoPedidoEnviadoCliente, c.CuerpoPedidoEnviadoCliente),
             PlantillaCorreo.VerificacionResultado => (c.AsuntoVerificacionResultado, c.CuerpoVerificacionResultado),
+            PlantillaCorreo.NuevoMensajeContacto => (c.AsuntoNuevoMensajeContacto, c.CuerpoNuevoMensajeContacto),
             _ => (null, null)
         };
 

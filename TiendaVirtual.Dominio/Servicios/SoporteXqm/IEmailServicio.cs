@@ -24,5 +24,15 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm
         /// Envía un correo de prueba SMTP sin depender de plantillas configuradas.
         /// </summary>
         Task<bool> EnviarPruebaAsync(string destinatario, string nombreDestinatario);
+
+        /// <summary>
+        /// Envía un correo con HTML libre (sin plantilla de BD).
+        /// Retorna false si falla SMTP. NO lanza excepciones.
+        /// </summary>
+        Task<bool> EnviarHtmlAsync(
+            string destinatario,
+            string nombreDestinatario,
+            string asunto,
+            string cuerpoHtml);
     }
 }

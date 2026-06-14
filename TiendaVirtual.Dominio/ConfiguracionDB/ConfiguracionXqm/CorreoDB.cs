@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System;
 using System.Collections.Generic;
@@ -78,6 +78,14 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.ConfiguracionXqm
             builder.Property(e => e.CuerpoVerificacionResultado)
                 .HasColumnName("cuerpo_verificacion_resultado")
                 .HasColumnType("text");
+
+            builder.Property(e => e.AsuntoNuevoMensajeContacto)
+                .HasColumnName("asunto_nuevo_mensaje_contacto")
+                .HasMaxLength(1000);
+
+            builder.Property(e => e.CuerpoNuevoMensajeContacto)
+                .HasColumnName("cuerpo_nuevo_mensaje_contacto")
+                .HasMaxLength(10000);
         }
     }
 }

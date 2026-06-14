@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -99,13 +99,14 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             {
                 if (dto == null) return ResultadoOperacion<CategoriaDto>.SetError("El DTO es nulo.");
 
-                var slug = GenerarSlug(dto.Nombre);
-                if (await _context.Categorias.AnyAsync(c => c.Slug == slug))
-                    return ResultadoOperacion<CategoriaDto>.SetError("Ya existe una categoría con un nombre similar.");
+                if (dto.CategoriaPadreId.HasValue)
+                {
+                    var errorPadre = await ValidarCategoriaPadreAsync(dto.CategoriaPadreId.Value, null);
+                    if (errorPadre != null)
+                        return ResultadoOperacion<CategoriaDto>.SetError(errorPadre);
+                }
 
-                if (dto.CategoriaPadreId.HasValue &&
-                    !await _context.Categorias.AnyAsync(c => c.CategoriaId == dto.CategoriaPadreId))
-                    return ResultadoOperacion<CategoriaDto>.SetError("La categoría padre no existe.");
+                var slug = await GenerarSlugUnicoAsync(dto.Nombre, dto.CategoriaPadreId);
 
                 var categoria = new Categoria
                 {
@@ -135,11 +136,16 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 var c = await _context.Categorias.FirstOrDefaultAsync(x => x.CategoriaId == id);
                 if (c == null) return ResultadoOperacion<CategoriaDto>.SetError("Categoría no encontrada.");
 
-                var nuevoSlug = GenerarSlug(dto.Nombre);
-                if (nuevoSlug != c.Slug &&
-                    await _context.Categorias.AnyAsync(x => x.Slug == nuevoSlug && x.CategoriaId != id))
-                    return ResultadoOperacion<CategoriaDto>.SetError("Ya existe otra categoría con un nombre similar.");
+                if (dto.CategoriaPadreId.HasValue)
+                {
+                    var errorPadre = await ValidarCategoriaPadreAsync(dto.CategoriaPadreId.Value, id);
+                    if (errorPadre != null)
+                        return ResultadoOperacion<CategoriaDto>.SetError(errorPadre);
+                }
 
+                var nuevoSlug = await GenerarSlugUnicoAsync(dto.Nombre, dto.CategoriaPadreId, id);
+
+                c.CategoriaPadreId = dto.CategoriaPadreId;
                 c.Nombre = dto.Nombre.Trim();
                 c.Slug = nuevoSlug;
                 c.Descripcion = dto.Descripcion;
@@ -177,6 +183,77 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             {
                 return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
             }
+        }
+
+        private async Task<string?> ValidarCategoriaPadreAsync(int categoriaPadreId, int? categoriaIdExcluir)
+        {
+            if (categoriaIdExcluir.HasValue && categoriaPadreId == categoriaIdExcluir.Value)
+                return "Una categoría no puede ser padre de sí misma.";
+
+            var padre = await _context.Categorias.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.CategoriaId == categoriaPadreId);
+            if (padre == null)
+                return "La categoría padre no existe.";
+            if (!padre.Activa)
+                return "La categoría padre está inactiva.";
+
+            if (categoriaIdExcluir.HasValue)
+            {
+                var descendientes = await ObtenerDescendientesIdsAsync(categoriaIdExcluir.Value);
+                if (descendientes.Contains(categoriaPadreId))
+                    return "No puedes asignar una subcategoría propia como padre.";
+            }
+
+            return null;
+        }
+
+        private async Task<HashSet<int>> ObtenerDescendientesIdsAsync(int categoriaId)
+        {
+            var todas = await _context.Categorias.AsNoTracking()
+                .Select(c => new { c.CategoriaId, c.CategoriaPadreId })
+                .ToListAsync();
+
+            var descendientes = new HashSet<int>();
+            var cola = new Queue<int>();
+            cola.Enqueue(categoriaId);
+
+            while (cola.Count > 0)
+            {
+                var actual = cola.Dequeue();
+                foreach (var hijo in todas.Where(c => c.CategoriaPadreId == actual))
+                {
+                    if (descendientes.Add(hijo.CategoriaId))
+                        cola.Enqueue(hijo.CategoriaId);
+                }
+            }
+
+            return descendientes;
+        }
+
+        private async Task<string> GenerarSlugUnicoAsync(
+            string nombre, int? categoriaPadreId, int? excluirCategoriaId = null)
+        {
+            var baseSlug = GenerarSlug(nombre);
+
+            if (categoriaPadreId.HasValue)
+            {
+                var padre = await _context.Categorias.AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.CategoriaId == categoriaPadreId);
+                if (padre != null)
+                    baseSlug = $"{padre.Slug}-{baseSlug}";
+            }
+
+            var slug = baseSlug;
+            var sufijo = 2;
+            while (await _context.Categorias.AnyAsync(c =>
+                       c.Slug == slug &&
+                       (excluirCategoriaId == null || c.CategoriaId != excluirCategoriaId)))
+            {
+                slug = $"{baseSlug}-{sufijo}";
+                sufijo++;
+            }
+
+            return slug;
         }
 
         private static string GenerarSlug(string texto)

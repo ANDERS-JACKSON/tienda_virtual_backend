@@ -12,6 +12,7 @@ namespace TiendaVirtual.Api.Extensiones
             services.AddScoped<INotificacionServicio, NotificacionServicio>();
             services.AddScoped<IReclamoServicio, ReclamoServicio>();
             services.AddScoped<IResenaServicio, ResenaServicio>();
+            services.AddScoped<IMensajeContactoServicio, MensajeContactoServicio>();
             return services;
         }
     }

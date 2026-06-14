@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -25,5 +25,7 @@ namespace TiendaVirtual.Dominio.Modelo.ConfiguracionXqm
         public string? CuerpoPedidoEnviadoCliente { get; set; }
         public string? AsuntoVerificacionResultado { get; set; }
         public string? CuerpoVerificacionResultado { get; set; }
+        public string? AsuntoNuevoMensajeContacto { get; set; }
+        public string? CuerpoNuevoMensajeContacto { get; set; }
     }
 }

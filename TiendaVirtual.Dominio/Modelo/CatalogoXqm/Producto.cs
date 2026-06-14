@@ -56,6 +56,7 @@ namespace TiendaVirtual.Dominio.Modelo.CatalogoXqm
         public virtual ICollection<Oferta> Ofertas { get; set; } = new List<Oferta>();
         public virtual ICollection<Favorito> Favoritos { get; set; } = new List<Favorito>();
         public virtual ICollection<ResenaProducto> Resenas { get; set; } = new List<ResenaProducto>();
+        public virtual ProductoDestacado? Destacado { get; set; }
 
         public ResultadoOperacion<bool> Validar()
         {

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -18,7 +18,7 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
         [MaxLength(500)]
         public string? Descripcion { get; set; }
 
-        [Url]
+        /// <summary>public_id de CDN o URL absoluta legacy.</summary>
         [MaxLength(500)]
         public string? ImagenUrl { get; set; }
 

@@ -23,6 +23,7 @@ namespace TiendaVirtual.Api
             builder.Services.AddDbContext<TiendaVirtualDbContext>(options =>
                 options.UseNpgsql(connectionString));
 
+            builder.Services.AddMemoryCache();
             builder.Services.AddHttpContextAccessor();
 
             // JWT Authentication

@@ -38,5 +38,8 @@ namespace TiendaVirtual.Comun.Enumeracion
 
         public const string ResenaRecibida = "RESENA_RECIBIDA";
         public const string ResenaRespondida = "RESENA_RESPONDIDA";
+
+        public const string MensajeContactoNuevo = "MENSAJE_CONTACTO_NUEVO";
+        public const string MensajeContactoRespondido = "MENSAJE_CONTACTO_RESPONDIDO";
     }
 }

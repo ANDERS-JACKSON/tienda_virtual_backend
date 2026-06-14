@@ -65,6 +65,7 @@ namespace TiendaVirtual.Dominio
         public DbSet<Stock> Stocks { get; set; } = null!;
         public DbSet<Oferta> Ofertas { get; set; } = null!;
         public DbSet<Favorito> Favoritos { get; set; } = null!;
+        public DbSet<ProductoDestacado> ProductosDestacados { get; set; } = null!;
         //----------------------------------------------------------------------
         #endregion
 
@@ -102,6 +103,7 @@ namespace TiendaVirtual.Dominio
         public DbSet<Reclamo> Reclamos { get; set; } = null!;
         public DbSet<MensajeReclamo> MensajesReclamo { get; set; } = null!;
         public DbSet<Notificacion> Notificaciones { get; set; } = null!;
+        public DbSet<MensajeContacto> MensajesContacto { get; set; } = null!;
         //----------------------------------------------------------------------
         #endregion
 
@@ -142,6 +144,7 @@ namespace TiendaVirtual.Dominio
             modelBuilder.ApplyConfiguration(new StockDB());
             modelBuilder.ApplyConfiguration(new OfertaDB());
             modelBuilder.ApplyConfiguration(new FavoritoDB());
+            modelBuilder.ApplyConfiguration(new ProductoDestacadoDB());
             #endregion
 
             #region Venta
@@ -167,6 +170,7 @@ namespace TiendaVirtual.Dominio
             modelBuilder.ApplyConfiguration(new ReclamoDB());
             modelBuilder.ApplyConfiguration(new MensajeReclamoDB());
             modelBuilder.ApplyConfiguration(new NotificacionDB());
+            modelBuilder.ApplyConfiguration(new MensajeContactoDB());
             #endregion
 
             #region Configuracion

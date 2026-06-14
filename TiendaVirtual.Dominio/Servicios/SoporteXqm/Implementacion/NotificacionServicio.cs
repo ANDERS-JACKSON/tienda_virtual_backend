@@ -134,12 +134,17 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             try
             {
                 var count = await _context.Notificaciones
+                    .AsNoTracking()
                     .CountAsync(n => n.UsuarioId == usuarioId && !n.Leida);
+
                 return ResultadoOperacion<int>.SetExito(count);
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<int>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex,
+                    "Error contando notificaciones no leídas del usuario {UsuarioId}",
+                    usuarioId);
+                return ResultadoOperacion<int>.SetExito(0);
             }
         }
 

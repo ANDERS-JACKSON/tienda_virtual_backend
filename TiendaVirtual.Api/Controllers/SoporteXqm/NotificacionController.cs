@@ -38,7 +38,9 @@ namespace TiendaVirtual.Api.Controllers.SoporteXqm
             var uid = ObtenerUsuarioId();
             if (uid == null) return Unauthorized();
             var r = await _servicio.ContarNoLeidasAsync(uid.Value);
-            return r.Exito ? Ok(r) : BadRequest(r);
+            return r.Exito
+                ? Ok(r)
+                : StatusCode(StatusCodes.Status500InternalServerError, r);
         }
 
         [HttpPost("{id:long}/leer")]
