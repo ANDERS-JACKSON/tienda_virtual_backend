@@ -23,7 +23,7 @@ namespace TiendaVirtual.Api.Controllers.SoporteXqm
         }
 
         [HttpPost]
-        [Authorize(Roles = "CLIENTE,VENDEDOR")]
+        [Authorize(Roles = "CLIENTE,VENDEDOR,ADMIN,VERIFICADOR")]
         public async Task<IActionResult> Abrir([FromBody] AbrirReclamoDto dto)
         {
             var uid = ObtenerUsuarioId();
@@ -61,7 +61,7 @@ namespace TiendaVirtual.Api.Controllers.SoporteXqm
         }
 
         [HttpGet("mis-reclamos")]
-        [Authorize(Roles = "CLIENTE,VENDEDOR")]
+        [Authorize(Roles = "CLIENTE,VENDEDOR,ADMIN,VERIFICADOR")]
         public async Task<IActionResult> Mios([FromQuery] int pagina = 1, [FromQuery] int tamanioPagina = 20)
         {
             var uid = ObtenerUsuarioId();

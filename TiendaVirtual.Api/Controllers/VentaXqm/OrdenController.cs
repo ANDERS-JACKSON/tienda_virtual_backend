@@ -10,7 +10,7 @@ namespace TiendaVirtual.Api.Controllers.VentaXqm
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "CLIENTE,VENDEDOR")]
+    [Authorize(Roles = "CLIENTE,VENDEDOR,ADMIN,VERIFICADOR")]
     public class OrdenController : ControllerBase
     {
         private readonly IOrdenServicio _servicio;

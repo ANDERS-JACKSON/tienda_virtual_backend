@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using TiendaVirtual.Dominio.Servicios.CatalogoXqm;
@@ -10,7 +10,7 @@ namespace TiendaVirtual.Api.Controllers.CatalogoXqm
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "CLIENTE")]
+    [Authorize(Roles = "CLIENTE,VENDEDOR,ADMIN,VERIFICADOR")]
     public class FavoritoController : ControllerBase
     {
         private readonly IFavoritoServicio _servicio;

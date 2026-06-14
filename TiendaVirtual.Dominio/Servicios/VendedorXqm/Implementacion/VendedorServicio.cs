@@ -133,6 +133,9 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
                 if (vendedor == null)
                     return ResultadoOperacion<SolicitudVerificacionDto>.SetError("No tienes un perfil de vendedor.");
 
+                if (string.IsNullOrWhiteSpace(dto.DocumentoFrenteUrl))
+                    return ResultadoOperacion<SolicitudVerificacionDto>.SetError("El documento (frente) es obligatorio.");
+
                 if (vendedor.Estado == TipoEstadoVendedor.Activo)
                     return ResultadoOperacion<SolicitudVerificacionDto>.SetError("Tu cuenta ya está verificada.");
 

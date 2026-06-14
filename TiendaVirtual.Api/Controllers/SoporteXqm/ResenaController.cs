@@ -22,7 +22,7 @@ namespace TiendaVirtual.Api.Controllers.SoporteXqm
         }
 
         [HttpPost("producto")]
-        [Authorize(Roles = "CLIENTE")]
+        [Authorize(Roles = "CLIENTE,VENDEDOR,ADMIN,VERIFICADOR")]
         public async Task<IActionResult> CrearProducto([FromBody] CrearResenaProductoDto dto)
         {
             var uid = ObtenerUsuarioId();
@@ -32,7 +32,7 @@ namespace TiendaVirtual.Api.Controllers.SoporteXqm
         }
 
         [HttpPost("vendedor")]
-        [Authorize(Roles = "CLIENTE")]
+        [Authorize(Roles = "CLIENTE,VENDEDOR,ADMIN,VERIFICADOR")]
         public async Task<IActionResult> CrearVendedor([FromBody] CrearResenaVendedorDto dto)
         {
             var uid = ObtenerUsuarioId();
@@ -70,7 +70,7 @@ namespace TiendaVirtual.Api.Controllers.SoporteXqm
         }
 
         [HttpGet("mis-pendientes")]
-        [Authorize(Roles = "CLIENTE")]
+        [Authorize(Roles = "CLIENTE,VENDEDOR,ADMIN,VERIFICADOR")]
         public async Task<IActionResult> MisPendientes()
         {
             var uid = ObtenerUsuarioId();
