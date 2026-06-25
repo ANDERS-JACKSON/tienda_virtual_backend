@@ -32,6 +32,61 @@ namespace TiendaVirtual.Api.Controllers.SeguridadXqm
             return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
         }
 
+        [HttpPost("google")]
+        [AllowAnonymous]
+        public async Task<ActionResult<ResultadoOperacion<LoginRespuestaDto>>> LoginConGoogle(
+            [FromBody] GoogleLoginDto dto)
+        {
+            var (ip, agente) = ObtenerDatosCliente();
+            var resultado = await _servicio.LoginConGoogleAsync(dto, ip, agente);
+            return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
+        }
+
+        [HttpPost("google/completar-registro")]
+        [AllowAnonymous]
+        public async Task<ActionResult<ResultadoOperacion<LoginRespuestaDto>>> CompletarRegistroGoogle(
+            [FromBody] CompletarRegistroGoogleDto dto)
+        {
+            var (ip, agente) = ObtenerDatosCliente();
+            var resultado = await _servicio.CompletarRegistroGoogleAsync(dto, ip, agente);
+            return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
+        }
+
+        [HttpGet("cuenta/seguridad")]
+        [Authorize]
+        public async Task<ActionResult<ResultadoOperacion<CuentaSeguridadDto>>> ObtenerSeguridadCuenta()
+        {
+            var usuarioId = ObtenerUsuarioId();
+            if (usuarioId == null) return Unauthorized();
+
+            var resultado = await _servicio.ObtenerSeguridadCuentaAsync(usuarioId.Value);
+            return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
+        }
+
+        [HttpPost("google/vincular")]
+        [Authorize]
+        public async Task<ActionResult<ResultadoOperacion<bool>>> VincularGoogle([FromBody] GoogleLoginDto dto)
+        {
+            var usuarioId = ObtenerUsuarioId();
+            if (usuarioId == null) return Unauthorized();
+
+            var resultado = await _servicio.VincularGoogleAsync(usuarioId.Value, dto);
+            return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
+        }
+
+        [HttpPost("google/desvincular")]
+        [Authorize]
+        public async Task<ActionResult<ResultadoOperacion<bool>>> DesvincularGoogle(
+            [FromBody] DesvincularGoogleDto dto)
+        {
+            var usuarioId = ObtenerUsuarioId();
+            if (usuarioId == null) return Unauthorized();
+
+            var resultado = await _servicio.DesvincularGoogleAsync(
+                usuarioId.Value, dto?.Contrasena ?? string.Empty);
+            return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
+        }
+
         [HttpPost("login/verificar-2fa")]
         [AllowAnonymous]
         public async Task<ActionResult<ResultadoOperacion<TokenRespuestaDto>>> VerificarDosFactores(
@@ -153,6 +208,12 @@ namespace TiendaVirtual.Api.Controllers.SeguridadXqm
             var ip = http?.Connection.RemoteIpAddress?.ToString();
             var agente = http?.Request.Headers["User-Agent"].ToString();
             return (ip, agente);
+        }
+
+        private int? ObtenerUsuarioId()
+        {
+            var usuarioIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return int.TryParse(usuarioIdStr, out int usuarioId) ? usuarioId : null;
         }
     }
 }

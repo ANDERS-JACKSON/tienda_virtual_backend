@@ -38,6 +38,7 @@ namespace TiendaVirtual.Dominio
         public DbSet<UsuarioRol> UsuarioRoles { get; set; } = null!;
         public DbSet<Direccion> Direcciones { get; set; } = null!;
         public DbSet<TokenRefresco> TokensRefresco { get; set; } = null!;
+        public DbSet<UsuarioLoginExterno> UsuariosLoginExterno { get; set; } = null!;
         //----------------------------------------------------------------------
         #endregion
 
@@ -113,6 +114,7 @@ namespace TiendaVirtual.Dominio
         //----------------------------------------------------------------------
         public DbSet<Configuracion> Configuracion { get; set; } = null!;
         public DbSet<Correo> Correo { get; set; } = null!;
+        public DbSet<AvisoBanner> AvisosBanner { get; set; } = null!;
         //----------------------------------------------------------------------
         #endregion
 
@@ -125,6 +127,7 @@ namespace TiendaVirtual.Dominio
             modelBuilder.ApplyConfiguration(new UsuarioRolDB());
             modelBuilder.ApplyConfiguration(new DireccionDB());
             modelBuilder.ApplyConfiguration(new TokenRefrescoDB());
+            modelBuilder.ApplyConfiguration(new UsuarioLoginExternoDB());
             #endregion
 
             #region Vendedor
@@ -176,6 +179,7 @@ namespace TiendaVirtual.Dominio
             #region Configuracion
             modelBuilder.ApplyConfiguration(new ConfiguracionGeneralDB());
             modelBuilder.ApplyConfiguration(new CorreoDB());
+            modelBuilder.ApplyConfiguration(new AvisoBannerDB());
             #endregion
 
             base.OnModelCreating(modelBuilder);

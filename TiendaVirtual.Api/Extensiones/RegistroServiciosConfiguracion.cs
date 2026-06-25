@@ -8,6 +8,7 @@ namespace TiendaVirtual.Api.Extensiones
         public static IServiceCollection AgregarServiciosConfiguracion(this IServiceCollection services)
         {
             services.AddScoped<IConfiguracionCorreoServicio, ConfiguracionCorreoServicio>();
+            services.AddScoped<IAvisoBannerServicio, AvisoBannerServicio>();
             return services;
         }
     }

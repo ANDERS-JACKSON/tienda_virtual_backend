@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -17,7 +17,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm
         /// <summary>Detalle público del producto por slug. Incrementa el contador de vistas.</summary>
         Task<ResultadoOperacion<ProductoDetalleDto>> ObtenerPorSlugAsync(string slug);
 
-        /// <summary>Productos relacionados (misma categoría, otro producto).</summary>
+        /// <summary>Productos relacionados (misma categoría y mismo tipo: físico o patrón).</summary>
         Task<ResultadoOperacion<List<ProductoListadoDto>>> ObtenerRelacionadosAsync(string slug, int cantidad = 6);
 
         /// <summary>Productos públicos de un vendedor específico.</summary>

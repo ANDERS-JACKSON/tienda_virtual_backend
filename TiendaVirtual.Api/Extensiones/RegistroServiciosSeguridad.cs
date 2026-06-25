@@ -11,6 +11,7 @@ namespace TiendaVirtual.Api.Extensiones
         {
             services.AddScoped<JwtTokenService>();
             services.AddScoped<ITwoFactorService, TwoFactorService>();
+            services.AddScoped<IGoogleAuthServicio, GoogleAuthServicio>();
             services.AddScoped<IAutenticacionServicio, AutenticacionServicio>();
             services.AddScoped<IUsuarioAdminServicio, UsuarioAdminServicio>();
             return services;

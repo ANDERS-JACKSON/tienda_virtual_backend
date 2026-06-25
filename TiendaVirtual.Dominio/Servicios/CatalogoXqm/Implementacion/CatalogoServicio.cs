@@ -209,7 +209,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         }
 
         // ─────────────────────────────────────────────────────
-        // Productos relacionados (misma categoría)
+        // Productos relacionados (misma categoría y mismo tipo)
         // ─────────────────────────────────────────────────────
         public async Task<ResultadoOperacion<List<ProductoListadoDto>>> ObtenerRelacionadosAsync(
             string slug, int cantidad = 6)
@@ -221,6 +221,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 if (producto == null)
                     return ResultadoOperacion<List<ProductoListadoDto>>.SetExito(new List<ProductoListadoDto>());
 
+                var tipoProducto = producto.Tipo;
                 var nowRelacionados = DateTime.UtcNow;
                 var productos = await _context.Productos
                     .AsNoTracking()
@@ -229,6 +230,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     .Include(p => p.Imagenes)
                     .Include(p => p.Variantes).ThenInclude(v => v.Stock)
                     .Where(p => p.CategoriaId == producto.CategoriaId &&
+                                p.Tipo == tipoProducto &&
                                 p.ProductoId != producto.ProductoId &&
                                 p.Estado == TipoEstadoProducto.Activo &&
                                 p.Vendedor.Estado == TipoEstadoVendedor.Activo)

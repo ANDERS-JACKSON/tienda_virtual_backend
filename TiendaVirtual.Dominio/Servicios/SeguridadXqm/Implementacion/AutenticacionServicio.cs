@@ -20,13 +20,14 @@ using TiendaVirtual.Intercambio.Dto.SeguridadXqm;
 
 namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 {
-    public class AutenticacionServicio : IAutenticacionServicio
+    public partial class AutenticacionServicio : IAutenticacionServicio
     {
         protected readonly TiendaVirtualDbContext _context;
         protected readonly JwtTokenService _jwtService;
         protected readonly ITwoFactorService _twoFactorService;
         protected readonly IConfiguration _configuration;
         protected readonly INotificacionServicio _notificacionServicio;
+        protected readonly IGoogleAuthServicio _googleAuth;
 
         private const int DURACION_TOKEN_MINUTOS = 60;
         private const int DURACION_REFRESH_DIAS = 30;
@@ -40,13 +41,15 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             JwtTokenService jwtService,
             ITwoFactorService twoFactorService,
             IConfiguration configuration,
-            INotificacionServicio notificacionServicio)
+            INotificacionServicio notificacionServicio,
+            IGoogleAuthServicio googleAuth)
         {
             _context = context;
             _jwtService = jwtService;
             _twoFactorService = twoFactorService;
             _configuration = configuration;
             _notificacionServicio = notificacionServicio;
+            _googleAuth = googleAuth;
         }
 
         // LOGIN (paso 1)
@@ -70,60 +73,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 if (!BCrypt.Net.BCrypt.Verify(dto.Contrasena, usuario.Contrasena))
                     return ResultadoOperacion<LoginRespuestaDto>.SetError("Correo o contraseña incorrectos.");
 
-                if (usuario.Estado != TipoEstadoUsuario.Activo)
-                    return ResultadoOperacion<LoginRespuestaDto>.SetError(
-                        "Tu cuenta no está activa. Comunícate con el administrador.");
-
-                var roles = usuario.UsuarioRoles.Select(ur => ur.Rol.Nombre).ToList();
-                var requiere2Fa = roles.Any(r => ROLES_CON_2FA.Contains(r));
-
-                // ── Caso: roles sin 2FA (cliente, vendedor) → login completo
-                if (!requiere2Fa)
-                {
-                    usuario.UltimoAcceso = DateTime.UtcNow;
-                    var token = await EmitirTokensAsync(usuario, direccionIp, agenteUsuario);
-                    await _context.SaveChangesAsync();
-                    return ResultadoOperacion<LoginRespuestaDto>.SetExito(new LoginRespuestaDto
-                    {
-                        Requiere2Fa = false,
-                        Token = token
-                    });
-                }
-
-                // ── Caso: roles con 2FA obligatorio
-                var clave = _configuration["TwoFactor:ClaveCifrado"]!;
-                var emisor = _configuration["TwoFactor:Emisor"] ?? "TiendaVirtual";
-
-                // ¿Primera vez? El usuario aún no tiene secreto en BD.
-                if (!usuario.TwoFactorEnabled || string.IsNullOrEmpty(usuario.TwoFactorSecret))
-                {
-                    var secretoNuevo = _twoFactorService.GenerarSecreto();
-                    var secretoCifrado = _twoFactorService.CifrarSecreto(secretoNuevo, clave);
-
-                    // El secreto cifrado viaja DENTRO del token temporal (no se guarda hasta confirmar)
-                    var tokenTemporalSetup = _jwtService.GenerarTokenTemporal2Fa(
-                        usuario.UsuarioId, secretoCifrado);
-
-                    return ResultadoOperacion<LoginRespuestaDto>.SetExito(new LoginRespuestaDto
-                    {
-                        Requiere2Fa = true,
-                        DebeConfigurar = true,
-                        TokenTemporal = tokenTemporalSetup,
-                        QrBase64 = _twoFactorService.GenerarQrComoBase64(secretoNuevo, usuario.Correo, emisor),
-                        SecretoManual = secretoNuevo,
-                        Mensaje = "Escanea el código QR con tu app autenticadora (Google Authenticator, Authy, etc.) e ingresa el código de 6 dígitos."
-                    });
-                }
-
-                // 2FA ya configurado → solo pedir código
-                var tokenTemporal = _jwtService.GenerarTokenTemporal2Fa(usuario.UsuarioId);
-                return ResultadoOperacion<LoginRespuestaDto>.SetExito(new LoginRespuestaDto
-                {
-                    Requiere2Fa = true,
-                    DebeConfigurar = false,
-                    TokenTemporal = tokenTemporal,
-                    Mensaje = "Ingresa el código de 6 dígitos de tu app autenticadora."
-                });
+                return await ProcesarAccesoUsuarioAsync(usuario, direccionIp, agenteUsuario);
             }
             catch (Exception ex)
             {
@@ -767,7 +717,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
         /// y devuelve el DTO con todo lo que el cliente necesita para renderizar.
         /// </summary>
         private async Task<TokenRespuestaDto> EmitirTokensAsync(
-            Usuario usuario, string? direccionIp, string? agenteUsuario)
+            Usuario usuario, string? direccionIp, string? agenteUsuario,
+            bool omitirForzarCambioClave = false)
         {
             var roles = usuario.UsuarioRoles.Select(ur => ur.Rol.Nombre).ToList();
             var vendedorId = usuario.Vendedor?.VendedorId;
@@ -807,8 +758,79 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 NombreCompleto = nombreCompleto,
                 Roles = roles,
                 VendedorId = vendedorId,
-                ForzarCambioClave = usuario.ForzarCambioClave
+                ForzarCambioClave = omitirForzarCambioClave ? false : usuario.ForzarCambioClave
             };
         }
+
+        private async Task<ResultadoOperacion<LoginRespuestaDto>> ProcesarAccesoUsuarioAsync(
+            Usuario usuario,
+            string? direccionIp,
+            string? agenteUsuario,
+            bool esLoginExterno = false)
+        {
+            if (usuario.Estado != TipoEstadoUsuario.Activo)
+                return ResultadoOperacion<LoginRespuestaDto>.SetError(
+                    "Tu cuenta no está activa. Comunícate con el administrador.");
+
+            var roles = usuario.UsuarioRoles.Select(ur => ur.Rol.Nombre).ToList();
+            var requiere2Fa = roles.Any(r => ROLES_CON_2FA.Contains(r));
+
+            if (!requiere2Fa)
+            {
+                usuario.UltimoAcceso = DateTime.UtcNow;
+                var token = await EmitirTokensAsync(
+                    usuario, direccionIp, agenteUsuario, omitirForzarCambioClave: esLoginExterno);
+                await _context.SaveChangesAsync();
+                return ResultadoOperacion<LoginRespuestaDto>.SetExito(new LoginRespuestaDto
+                {
+                    Requiere2Fa = false,
+                    Token = token
+                });
+            }
+
+            var clave = _configuration["TwoFactor:ClaveCifrado"]!;
+            var emisor = _configuration["TwoFactor:Emisor"] ?? "TiendaVirtual";
+
+            if (!usuario.TwoFactorEnabled || string.IsNullOrEmpty(usuario.TwoFactorSecret))
+            {
+                var secretoNuevo = _twoFactorService.GenerarSecreto();
+                var secretoCifrado = _twoFactorService.CifrarSecreto(secretoNuevo, clave);
+                var tokenTemporalSetup = _jwtService.GenerarTokenTemporal2Fa(
+                    usuario.UsuarioId, secretoCifrado);
+
+                return ResultadoOperacion<LoginRespuestaDto>.SetExito(new LoginRespuestaDto
+                {
+                    Requiere2Fa = true,
+                    DebeConfigurar = true,
+                    TokenTemporal = tokenTemporalSetup,
+                    QrBase64 = _twoFactorService.GenerarQrComoBase64(secretoNuevo, usuario.Correo, emisor),
+                    SecretoManual = secretoNuevo,
+                    Mensaje = "Escanea el código QR con tu app autenticadora (Google Authenticator, Authy, etc.) e ingresa el código de 6 dígitos."
+                });
+            }
+
+            var tokenTemporal = _jwtService.GenerarTokenTemporal2Fa(usuario.UsuarioId);
+            return ResultadoOperacion<LoginRespuestaDto>.SetExito(new LoginRespuestaDto
+            {
+                Requiere2Fa = true,
+                DebeConfigurar = false,
+                TokenTemporal = tokenTemporal,
+                Mensaje = "Ingresa el código de 6 dígitos de tu app autenticadora."
+            });
+        }
+
+        private async Task<ResultadoOperacion<GoogleTokenPayload>> ValidarTokenGoogleAsync(string idToken)
+        {
+            if (string.IsNullOrWhiteSpace(idToken))
+                return ResultadoOperacion<GoogleTokenPayload>.SetError("Token de Google inválido.");
+
+            return await _googleAuth.ValidarIdTokenAsync(idToken);
+        }
+
+        private IQueryable<Usuario> QueryUsuarioConRelaciones() =>
+            _context.Usuarios
+                .Include(u => u.Persona)
+                .Include(u => u.UsuarioRoles).ThenInclude(ur => ur.Rol)
+                .Include(u => u.Vendedor);
     }
 }

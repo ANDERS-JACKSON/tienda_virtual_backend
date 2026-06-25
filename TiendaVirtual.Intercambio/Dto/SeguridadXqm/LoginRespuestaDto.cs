@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,5 +19,9 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
         public string? QrBase64 { get; set; }
         public string? SecretoManual { get; set; }
         public string? Mensaje { get; set; }
+
+        /// <summary>Usuario nuevo en Google: debe completar DNI y datos de persona.</summary>
+        public bool RequiereCompletarRegistro { get; set; }
+        public RegistroGooglePendienteDto? RegistroPendiente { get; set; }
     }
 }
