@@ -758,7 +758,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 NombreCompleto = nombreCompleto,
                 Roles = roles,
                 VendedorId = vendedorId,
-                ForzarCambioClave = omitirForzarCambioClave ? false : usuario.ForzarCambioClave
+                ForzarCambioClave = omitirForzarCambioClave ? false : usuario.ForzarCambioClave,
+                Persona = usuario.Persona.ToDto()
             };
         }
 

@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones.CatalogoXqm;
 using TiendaVirtual.Dominio.Extensiones.VendedorXqm;
+using TiendaVirtual.Dominio.Servicios.VendedorXqm;
 using TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion;
 using TiendaVirtual.Dominio.Modelo.CatalogoXqm;
 using TiendaVirtual.Intercambio;
@@ -170,6 +171,8 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
                 var totalProductosVendedor = await _context.Productos.CountAsync(p =>
                     p.VendedorId == producto.VendedorId && p.Estado == TipoEstadoProducto.Activo);
+                var totalVentasVendedor = await VendedorMetricasHelper.ContarVentasEntregadasAsync(
+                    _context, producto.VendedorId);
 
                 var detalle = new ProductoDetalleDto
                 {
@@ -190,7 +193,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     TotalResenas = producto.TotalResenas,
 
                     Categoria = producto.Categoria.ToDto(),
-                    Vendedor = producto.Vendedor.ToTiendaPublicaDto(totalProductosVendedor),
+                    Vendedor = producto.Vendedor.ToTiendaPublicaDto(totalProductosVendedor, totalVentasVendedor),
                     Variantes = producto.Variantes.Where(v => v.Activa).Select(v => v.ToDto()).ToList(),
                     Imagenes = producto.Imagenes.OrderBy(i => i.Orden).Select(i => i.ToDto()).ToList(),
                     OfertaVigente = ofertaVigente?.ToDto(),

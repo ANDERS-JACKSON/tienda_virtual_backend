@@ -14,6 +14,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm
         Task<ResultadoOperacion<OrdenDto>> ObtenerMiOrdenAsync(int usuarioId, long ordenId);
         Task<ResultadoOperacion<bool>> CambiarEstadoSubordenAsync(
             int vendedorUsuarioId, long subordenId, TipoEstadoSuborden nuevoEstado);
+        Task<ResultadoOperacion<EnvioDto>> RegistrarEnvioSubordenAsync(
+            int vendedorUsuarioId, long subordenId, RegistrarEnvioSubordenDto dto);
+        Task<ResultadoOperacion<bool>> MarcarListoParaRecogerAsync(
+            int vendedorUsuarioId, long subordenId, MarcarListoParaRecogerDto? dto);
 
         // Admin
         Task<ResultadoOperacion<PaginacionRespuestaDto<OrdenAdminListadoDto>>> ListarAdminAsync(

@@ -1,22 +1,28 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations;
 
 namespace TiendaVirtual.Intercambio.Dto.VentaXqm
 {
-    public class EnvioDto
+    public class RegistrarEnvioSubordenDto
     {
-        public long EnvioId { get; set; }
-        public long SubordenId { get; set; }
+        [Required, MaxLength(50)]
         public string Transportista { get; set; } = null!;
+
+        [MaxLength(50)]
         public string? CodigoOrdenAgencia { get; set; }
+
+        [MaxLength(100)]
         public string? NumeroSeguimiento { get; set; }
+
+        [MaxLength(50)]
         public string? ClaveRecojo { get; set; }
+
+        [MaxLength(500)]
         public string? Detalles { get; set; }
-        public string? ComprobanteUrl { get; set; }
+
+        [Required, MaxLength(500)]
+        public string ComprobanteUrl { get; set; } = null!;
+
+        [Range(0, 999999.99)]
         public decimal? MontoComprobante { get; set; }
-        public DateOnly? FechaEntregaReal { get; set; }
     }
 }

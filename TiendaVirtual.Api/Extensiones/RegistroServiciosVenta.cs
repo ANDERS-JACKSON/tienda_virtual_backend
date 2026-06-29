@@ -11,6 +11,7 @@ namespace TiendaVirtual.Api.Extensiones
             services.AddScoped<IMetodoEnvioServicio, MetodoEnvioServicio>();
             services.AddScoped<ICarritoServicio, CarritoServicio>();
             services.AddScoped<IOrdenServicio, OrdenServicio>();
+            services.AddScoped<IOrdenPagoServicio, OrdenPagoServicio>();
             return services;
         }
     }

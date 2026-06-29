@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using TiendaVirtual.Comun.Enumeracion;
+using TiendaVirtual.Dominio.Extensiones.VentaXqm;
 using TiendaVirtual.Dominio.Modelo.VentaXqm;
 using TiendaVirtual.Dominio.Servicios.SoporteXqm;
 using TiendaVirtual.Intercambio;
@@ -397,6 +398,11 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                             FechaEnvio = s.FechaEnvio,
                             FechaEntrega = s.FechaEntrega,
                             CodigoSeguimiento = s.Envios.FirstOrDefault()?.NumeroSeguimiento,
+                            CodigoOrdenAgencia = s.Envios.FirstOrDefault()?.CodigoOrdenAgencia,
+                            ClaveRecojo = s.Envios.FirstOrDefault()?.ClaveRecojo,
+                            DetallesEnvio = s.Envios.FirstOrDefault()?.Detalles,
+                            TransportistaEnvio = s.Envios.FirstOrDefault()?.Transportista,
+                            ComprobanteEnvioUrl = s.Envios.FirstOrDefault()?.ComprobanteUrl,
                             Items = s.Items
                                 .OrderBy(i => i.ItemOrdenId)
                                 .Select(i => new ItemOrdenDto
@@ -428,6 +434,199 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
         }
 
         // ─────────────────────────────────────────────────────
+        // Registro de envío (vendedor)
+        // ─────────────────────────────────────────────────────
+        public async Task<ResultadoOperacion<EnvioDto>> RegistrarEnvioSubordenAsync(
+            int vendedorUsuarioId, long subordenId, RegistrarEnvioSubordenDto dto)
+        {
+            try
+            {
+                if (dto == null)
+                    return ResultadoOperacion<EnvioDto>.SetError("Datos de envío requeridos.");
+
+                var transportista = dto.Transportista?.Trim();
+                var comprobante = dto.ComprobanteUrl?.Trim();
+                if (string.IsNullOrWhiteSpace(transportista))
+                    return ResultadoOperacion<EnvioDto>.SetError("Indica el transportista o courier.");
+                if (string.IsNullOrWhiteSpace(comprobante))
+                    return ResultadoOperacion<EnvioDto>.SetError("Sube el comprobante de envío.");
+
+                var vendedor = await _context.Vendedores
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(v => v.UsuarioId == vendedorUsuarioId);
+                if (vendedor == null)
+                    return ResultadoOperacion<EnvioDto>.SetError("Vendedor no encontrado.");
+
+                var suborden = await _context.Subordenes
+                    .Include(s => s.Vendedor)
+                    .Include(s => s.MetodoEnvio)
+                    .Include(s => s.Envios)
+                    .Include(s => s.Orden).ThenInclude(o => o.Cliente).ThenInclude(u => u.Persona)
+                    .FirstOrDefaultAsync(s => s.SubordenId == subordenId && s.VendedorId == vendedor.VendedorId);
+
+                if (suborden == null)
+                    return ResultadoOperacion<EnvioDto>.SetError("Suborden no encontrada.");
+
+                if (suborden.Estado != TipoEstadoSuborden.EnPreparacion)
+                {
+                    return ResultadoOperacion<EnvioDto>.SetError(
+                        suborden.Estado == TipoEstadoSuborden.Pendiente
+                            ? "El pedido aún no está pagado. Espera a que el cliente complete el pago."
+                            : "Solo puedes registrar envío de pedidos en preparación.");
+                }
+
+                if (suborden.Envios.Any())
+                    return ResultadoOperacion<EnvioDto>.SetError("Este pedido ya tiene un envío registrado.");
+
+                if (string.Equals(suborden.MetodoEnvio?.Codigo, "RECOJO", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ResultadoOperacion<EnvioDto>.SetError(
+                        "Este pedido es recojo en tienda. Márcalo como listo para recoger, sin registrar envío.");
+                }
+
+                var metodoCodigo = suborden.MetodoEnvio?.Codigo?.Trim().ToUpperInvariant();
+                var codigoOrdenAgencia = dto.CodigoOrdenAgencia?.Trim();
+                var numeroSeguimiento = dto.NumeroSeguimiento?.Trim();
+                var claveRecojo = dto.ClaveRecojo?.Trim();
+                var detalles = dto.Detalles?.Trim();
+
+                if (metodoCodigo == "SHALOM")
+                {
+                    if (string.IsNullOrWhiteSpace(numeroSeguimiento))
+                        return ResultadoOperacion<EnvioDto>.SetError("Indica el número de seguimiento.");
+                    if (string.IsNullOrWhiteSpace(codigoOrdenAgencia))
+                        return ResultadoOperacion<EnvioDto>.SetError("Indica el código de orden de la agencia.");
+                    if (string.IsNullOrWhiteSpace(claveRecojo))
+                        return ResultadoOperacion<EnvioDto>.SetError("Indica la clave de recojo para el cliente.");
+                }
+
+                var envio = new Envio
+                {
+                    SubordenId = suborden.SubordenId,
+                    Transportista = transportista,
+                    CodigoOrdenAgencia = string.IsNullOrWhiteSpace(codigoOrdenAgencia)
+                        ? null
+                        : codigoOrdenAgencia,
+                    NumeroSeguimiento = string.IsNullOrWhiteSpace(numeroSeguimiento)
+                        ? null
+                        : numeroSeguimiento,
+                    ClaveRecojo = string.IsNullOrWhiteSpace(claveRecojo)
+                        ? null
+                        : claveRecojo,
+                    Detalles = string.IsNullOrWhiteSpace(detalles)
+                        ? null
+                        : detalles,
+                    ComprobanteUrl = comprobante,
+                    MontoComprobante = dto.MontoComprobante
+                };
+
+                _context.Envios.Add(envio);
+                suborden.Estado = TipoEstadoSuborden.EnCamino;
+                suborden.FechaEnvio = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                var nombreCliente = suborden.Orden.Cliente.Persona != null
+                    ? $"{suborden.Orden.Cliente.Persona.Nombres} {suborden.Orden.Cliente.Persona.ApellidoPaterno ?? ""}".Trim()
+                    : suborden.Orden.CorreoCliente;
+
+                await _notificacionServicio.CrearAsync(
+                    suborden.Orden.ClienteId,
+                    TipoNotificacion.SubordenEnCamino,
+                    "Tu pedido está en camino",
+                    $"El pedido {suborden.NumeroSuborden} de {suborden.Vendedor.NombreTienda} fue enviado.",
+                    new { subordenId },
+                    plantillaEmail: PlantillaCorreo.PedidoEnviadoCliente,
+                    placeholdersEmail: new Dictionary<string, string>
+                    {
+                        ["cliente"] = nombreCliente,
+                        ["numeroPedido"] = suborden.NumeroSuborden,
+                        ["nombreTienda"] = suborden.Vendedor.NombreTienda,
+                        ["codigoSeguimiento"] = string.IsNullOrEmpty(envio.NumeroSeguimiento)
+                            ? "Pendiente"
+                            : envio.NumeroSeguimiento,
+                        ["codigoOrdenAgencia"] = envio.CodigoOrdenAgencia ?? "",
+                        ["claveRecojo"] = envio.ClaveRecojo ?? "",
+                        ["detallesEnvio"] = envio.Detalles ?? ""
+                    });
+
+                return ResultadoOperacion<EnvioDto>.SetExito(envio.ToDto());
+            }
+            catch (Exception ex)
+            {
+                return ResultadoOperacion<EnvioDto>.SetError("Error al registrar envío: " + ex.Message);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────
+        // Listo para recoger (recojo en tienda)
+        // ─────────────────────────────────────────────────────
+        public async Task<ResultadoOperacion<bool>> MarcarListoParaRecogerAsync(
+            int vendedorUsuarioId, long subordenId, MarcarListoParaRecogerDto? dto)
+        {
+            try
+            {
+                var vendedor = await _context.Vendedores
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(v => v.UsuarioId == vendedorUsuarioId);
+                if (vendedor == null)
+                    return ResultadoOperacion<bool>.SetError("Vendedor no encontrado.");
+
+                var suborden = await _context.Subordenes
+                    .Include(s => s.Vendedor)
+                    .Include(s => s.MetodoEnvio)
+                    .Include(s => s.Envios)
+                    .Include(s => s.Orden).ThenInclude(o => o.Cliente).ThenInclude(u => u.Persona)
+                    .FirstOrDefaultAsync(s => s.SubordenId == subordenId && s.VendedorId == vendedor.VendedorId);
+
+                if (suborden == null)
+                    return ResultadoOperacion<bool>.SetError("Suborden no encontrada.");
+
+                if (!string.Equals(suborden.MetodoEnvio?.Codigo, "RECOJO", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ResultadoOperacion<bool>.SetError(
+                        "Solo aplica a pedidos con recojo en tienda.");
+                }
+
+                if (suborden.Estado != TipoEstadoSuborden.EnPreparacion)
+                {
+                    return ResultadoOperacion<bool>.SetError(
+                        suborden.Estado == TipoEstadoSuborden.Pendiente
+                            ? "El pedido aún no está pagado."
+                            : "Solo puedes marcar listo para recoger pedidos en preparación.");
+                }
+
+                var detalles = dto?.Detalles?.Trim();
+
+                suborden.Estado = TipoEstadoSuborden.EnCamino;
+                suborden.FechaEnvio = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                var nombreCliente = suborden.Orden.Cliente.Persona != null
+                    ? $"{suborden.Orden.Cliente.Persona.Nombres} {suborden.Orden.Cliente.Persona.ApellidoPaterno ?? ""}".Trim()
+                    : suborden.Orden.CorreoCliente;
+
+                var mensajeDetalle = string.IsNullOrWhiteSpace(detalles)
+                    ? $"Tu pedido {suborden.NumeroSuborden} de {suborden.Vendedor.NombreTienda} está listo para recoger en tienda."
+                    : $"Tu pedido {suborden.NumeroSuborden} de {suborden.Vendedor.NombreTienda} está listo para recoger. {detalles}";
+
+                await _notificacionServicio.CrearAsync(
+                    suborden.Orden.ClienteId,
+                    TipoNotificacion.SubordenEnCamino,
+                    "Tu pedido está listo para recoger",
+                    mensajeDetalle,
+                    new { subordenId, recojoEnTienda = true, detalles });
+
+                return ResultadoOperacion<bool>.SetExito(true);
+            }
+            catch (Exception ex)
+            {
+                return ResultadoOperacion<bool>.SetError("Error al marcar listo para recoger: " + ex.Message);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────
         // Cambio de estado de suborden (vendedor)
         // ─────────────────────────────────────────────────────
         public async Task<ResultadoOperacion<bool>> CambiarEstadoSubordenAsync(
@@ -450,35 +649,38 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 if (suborden == null)
                     return ResultadoOperacion<bool>.SetError("Suborden no encontrada.");
 
-                suborden.Estado = nuevoEstado;
-                if (nuevoEstado == TipoEstadoSuborden.EnCamino)
-                    suborden.FechaEnvio ??= DateTime.UtcNow;
-
-                await _context.SaveChangesAsync();
+                var estadoAnterior = suborden.Estado;
 
                 if (nuevoEstado == TipoEstadoSuborden.EnCamino)
                 {
-                    var nombreCliente = suborden.Orden.Cliente.Persona != null
-                        ? $"{suborden.Orden.Cliente.Persona.Nombres} {suborden.Orden.Cliente.Persona.ApellidoPaterno ?? ""}".Trim()
-                        : suborden.Orden.CorreoCliente;
-                    var codigoSeguimiento = suborden.Envios.FirstOrDefault()?.NumeroSeguimiento;
-
-                    await _notificacionServicio.CrearAsync(
-                        suborden.Orden.ClienteId,
-                        TipoNotificacion.SubordenEnCamino,
-                        "Tu pedido está en camino",
-                        $"El pedido {suborden.NumeroSuborden} de {suborden.Vendedor.NombreTienda} fue enviado.",
-                        new { subordenId },
-                        plantillaEmail: PlantillaCorreo.PedidoEnviadoCliente,
-                        placeholdersEmail: new Dictionary<string, string>
-                        {
-                            ["cliente"] = nombreCliente,
-                            ["numeroPedido"] = suborden.NumeroSuborden,
-                            ["nombreTienda"] = suborden.Vendedor.NombreTienda,
-                            ["codigoSeguimiento"] = string.IsNullOrEmpty(codigoSeguimiento)
-                                ? "Pendiente" : codigoSeguimiento
-                        });
+                    return ResultadoOperacion<bool>.SetError(
+                        "Registra el envío con el comprobante para marcar el pedido en camino.");
                 }
+
+                if (nuevoEstado == TipoEstadoSuborden.Entregada)
+                {
+                    if (estadoAnterior != TipoEstadoSuborden.EnCamino)
+                        return ResultadoOperacion<bool>.SetError(
+                            estadoAnterior == TipoEstadoSuborden.EnPreparacion
+                                ? "Primero registra el envío o marca el pedido como listo para recoger."
+                                : "Solo puedes marcar como entregado un pedido que ya está en camino o listo para recoger.");
+                }
+                else
+                {
+                    return ResultadoOperacion<bool>.SetError("Cambio de estado no permitido.");
+                }
+
+                suborden.Estado = nuevoEstado;
+                suborden.FechaEntrega = DateTime.UtcNow;
+
+                if (estadoAnterior != TipoEstadoSuborden.Entregada)
+                {
+                    var vendedorEntidad = await _context.Vendedores
+                        .FirstAsync(v => v.VendedorId == suborden.VendedorId);
+                    vendedorEntidad.TotalVentas++;
+                }
+
+                await _context.SaveChangesAsync();
 
                 return ResultadoOperacion<bool>.SetExito(true);
             }

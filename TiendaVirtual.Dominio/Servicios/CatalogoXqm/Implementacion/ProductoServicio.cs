@@ -119,6 +119,11 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     return ResultadoOperacion<ProductoDto>.SetError(
                         "Tu cuenta de vendedor aún no está verificada. Envía tus documentos primero.");
 
+                var planActivo = await _suscripcionServicio.PuedeVendedorPublicarAsync(vendedor.VendedorId);
+                if (!planActivo)
+                    return ResultadoOperacion<ProductoDto>.SetError(
+                        "Necesitas un plan activo para crear productos. Contrata o reactiva tu suscripción en la sección de planes.");
+
                 if (!await _context.Categorias.AnyAsync(c => c.CategoriaId == dto.CategoriaId && c.Activa))
                     return ResultadoOperacion<ProductoDto>.SetError("La categoría no existe o está inactiva.");
 

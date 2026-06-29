@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,5 +19,7 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
         public EnumeracionDto Estado { get; set; } = null!;
         public DateTime Fecha { get; set; }
         public int TotalItems { get; set; }
+        public string? MetodoEnvio { get; set; }
+        public string? CodigoSeguimiento { get; set; }
     }
 }

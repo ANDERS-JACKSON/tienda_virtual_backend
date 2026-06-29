@@ -21,6 +21,11 @@ namespace TiendaVirtual.Intercambio.Dto.VentaXqm
         public DateTime? FechaEnvio { get; set; }
         public DateTime? FechaEntrega { get; set; }
         public string? CodigoSeguimiento { get; set; }
+        public string? CodigoOrdenAgencia { get; set; }
+        public string? ClaveRecojo { get; set; }
+        public string? DetallesEnvio { get; set; }
+        public string? TransportistaEnvio { get; set; }
+        public string? ComprobanteEnvioUrl { get; set; }
         public List<ItemOrdenDto> Items { get; set; } = new();
     }
 }

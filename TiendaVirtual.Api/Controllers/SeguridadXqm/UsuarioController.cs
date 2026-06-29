@@ -13,14 +13,42 @@ namespace TiendaVirtual.Api.Controllers.SeguridadXqm
     public class UsuarioController : ControllerBase
     {
         private readonly IUsuarioAdminServicio _servicio;
+        private readonly IUsuarioPerfilServicio _perfilServicio;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public UsuarioController(IUsuarioAdminServicio servicio, IHttpContextAccessor httpContextAccessor)
+        public UsuarioController(
+            IUsuarioAdminServicio servicio,
+            IUsuarioPerfilServicio perfilServicio,
+            IHttpContextAccessor httpContextAccessor)
         {
             _servicio = servicio;
+            _perfilServicio = perfilServicio;
             _httpContextAccessor = httpContextAccessor;
         }
 
+        // ──────────────── PERFIL PROPIO ────────────────
+        [HttpGet("mi-perfil")]
+        [Authorize]
+        public async Task<ActionResult<ResultadoOperacion<UsuarioPerfilDto>>> ObtenerMiPerfil()
+        {
+            var usuarioId = ObtenerUsuarioId();
+            if (usuarioId == null) return Unauthorized();
+            var r = await _perfilServicio.ObtenerMiPerfilAsync(usuarioId.Value);
+            return r.Exito ? Ok(r) : NotFound(r);
+        }
+
+        [HttpPut("mi-perfil")]
+        [Authorize]
+        public async Task<ActionResult<ResultadoOperacion<UsuarioPerfilDto>>> ActualizarMiPerfil(
+            [FromBody] ActualizarMisDatosPersonalesDto dto)
+        {
+            var usuarioId = ObtenerUsuarioId();
+            if (usuarioId == null) return Unauthorized();
+            var r = await _perfilServicio.ActualizarMisDatosAsync(usuarioId.Value, dto);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
+        // ──────────────── ADMIN ────────────────
         [HttpGet("admin")]
         [Authorize(Roles = "ADMIN")]
         public async Task<ActionResult<ResultadoOperacion<PaginacionRespuestaDto<UsuarioAdminListadoDto>>>> Listar(

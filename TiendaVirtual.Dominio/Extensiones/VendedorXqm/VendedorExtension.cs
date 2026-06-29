@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TiendaVirtual.Comun.Enumeracion;
+using TiendaVirtual.Comun.Utilidades;
 using TiendaVirtual.Dominio.Modelo.VendedorXqm;
 using TiendaVirtual.Intercambio.Dto.Sistema;
 using TiendaVirtual.Intercambio.Dto.VendedorXqm;
@@ -83,11 +84,12 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
                 },
                 CalificacionPromedio = entidad.CalificacionPromedio,
                 TotalVentas = entidad.TotalVentas,
+                TotalProductos = 0,
                 VendePatrones = entidad.VendePatrones
             };
         }
 
-        public static TiendaPublicaDto ToTiendaPublicaDto(this Vendedor entidad, int totalProductos)
+        public static TiendaPublicaDto ToTiendaPublicaDto(this Vendedor entidad, int totalProductos, int totalVentas)
         {
             if (entidad == null) return null!;
             return new TiendaPublicaDto
@@ -99,9 +101,53 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
                 LogoUrl = entidad.LogoUrl,
                 BannerUrl = entidad.BannerUrl,
                 CalificacionPromedio = entidad.CalificacionPromedio,
-                TotalVentas = entidad.TotalVentas,
+                TotalVentas = totalVentas,
                 TotalProductos = totalProductos,
                 VendePatrones = entidad.VendePatrones
+            };
+        }
+
+        public static HistoriaPublicaListadoDto ToHistoriaPublicaListadoDto(
+            this Vendedor entidad,
+            string? categoriaPrincipal)
+        {
+            if (entidad == null) return null!;
+
+            var (resumen, fueTruncado) = TextoResumenHelper.CrearResumen(entidad.Biografia);
+
+            return new HistoriaPublicaListadoDto
+            {
+                VendedorId = entidad.VendedorId,
+                NombreTienda = entidad.NombreTienda,
+                SlugTienda = entidad.SlugTienda,
+                BiografiaResumen = resumen,
+                TieneTextoCompleto = fueTruncado,
+                ImagenUrl = entidad.BannerUrl ?? entidad.LogoUrl,
+                CategoriaPrincipal = categoriaPrincipal
+            };
+        }
+
+        public static HistoriaPublicaDetalleDto ToHistoriaPublicaDetalleDto(
+            this Vendedor entidad,
+            int totalProductos,
+            int totalVentas,
+            string? categoriaPrincipal)
+        {
+            if (entidad == null) return null!;
+
+            return new HistoriaPublicaDetalleDto
+            {
+                VendedorId = entidad.VendedorId,
+                NombreTienda = entidad.NombreTienda,
+                SlugTienda = entidad.SlugTienda,
+                Biografia = entidad.Biografia!.Trim(),
+                LogoUrl = entidad.LogoUrl,
+                BannerUrl = entidad.BannerUrl,
+                CalificacionPromedio = entidad.CalificacionPromedio,
+                TotalVentas = totalVentas,
+                TotalProductos = totalProductos,
+                VendePatrones = entidad.VendePatrones,
+                CategoriaPrincipal = categoriaPrincipal
             };
         }
     }

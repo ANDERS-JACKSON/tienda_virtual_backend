@@ -14,6 +14,8 @@ namespace TiendaVirtual.Api.Extensiones
             services.AddScoped<IGoogleAuthServicio, GoogleAuthServicio>();
             services.AddScoped<IAutenticacionServicio, AutenticacionServicio>();
             services.AddScoped<IUsuarioAdminServicio, UsuarioAdminServicio>();
+            services.AddScoped<IUsuarioPerfilServicio, UsuarioPerfilServicio>();
+            services.AddScoped<IEnumeracionServicio, EnumeracionServicio>();
             return services;
         }
     }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -17,7 +17,10 @@ namespace TiendaVirtual.Dominio.Modelo.VentaXqm
         [Required]
         public string Transportista { get; set; } = null!;
 
+        public string? CodigoOrdenAgencia { get; set; }
         public string? NumeroSeguimiento { get; set; }
+        public string? ClaveRecojo { get; set; }
+        public string? Detalles { get; set; }
         public string? ComprobanteUrl { get; set; }
         public decimal? MontoComprobante { get; set; }
         public DateOnly? FechaEntregaReal { get; set; }

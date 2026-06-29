@@ -17,6 +17,8 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm
         Task<ResultadoOperacion<VendedorPerfilDto>> ActualizarMiPerfilAsync(int usuarioId, ActualizarPerfilVendedorDto dto);
         Task<ResultadoOperacion<VendedorPerfilDto>> ActualizarImagenesPerfilAsync(int usuarioId, ActualizarImagenesPerfilVendedorDto dto);
 
+        Task<ResultadoOperacion<ElegibilidadCreacionProductoDto>> ObtenerElegibilidadCreacionProductoAsync(int usuarioId);
+
         // Solicitud de verificación
         Task<ResultadoOperacion<SolicitudVerificacionDto>> EnviarSolicitudVerificacionAsync(int usuarioId, EnviarSolicitudVerificacionDto dto);
         Task<ResultadoOperacion<SolicitudVerificacionDto?>> ObtenerMiSolicitudActualAsync(int usuarioId);
@@ -30,8 +32,13 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm
         Task<ResultadoOperacion<PaginacionRespuestaDto<TiendaPublicaDto>>> ListarTiendasPublicasAsync(int pagina, int tamanioPagina, string? busqueda);
         Task<ResultadoOperacion<TiendaPublicaDto>> ObtenerTiendaPorSlugAsync(string slug);
 
+        // Historias públicas (biografías de vendedores)
+        Task<ResultadoOperacion<PaginacionRespuestaDto<HistoriaPublicaListadoDto>>> ListarHistoriasPublicasAsync(int pagina, int tamanioPagina, string? busqueda);
+        Task<ResultadoOperacion<HistoriaPublicaDetalleDto>> ObtenerHistoriaPorSlugAsync(string slug);
+
         // Pedidos del vendedor
         Task<ResultadoOperacion<PaginacionRespuestaDto<PedidoVendedorDto>>> ListarMisPedidosAsync(int usuarioId, TipoEstadoSuborden? estado, int pagina, int tamanioPagina);
+        Task<ResultadoOperacion<PedidoVendedorDetalleDto>> ObtenerMisPedidoDetalleAsync(int usuarioId, long subordenId);
 
         // Admin overview
         Task<ResultadoOperacion<PaginacionRespuestaDto<VendedorAdminListadoDto>>> ListarAdminAsync(

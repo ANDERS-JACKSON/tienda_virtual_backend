@@ -7,6 +7,7 @@ using TiendaVirtual.Dominio.Servicios.VentaXqm;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.Sistema;
 using TiendaVirtual.Intercambio.Dto.VendedorXqm;
+using TiendaVirtual.Intercambio.Dto.VentaXqm;
 
 namespace TiendaVirtual.Api.Controllers.VendedorXqm
 {
@@ -61,6 +62,17 @@ namespace TiendaVirtual.Api.Controllers.VendedorXqm
             var usuarioId = ObtenerUsuarioId();
             if (usuarioId == null) return Unauthorized();
             var r = await _servicio.ActualizarImagenesPerfilAsync(usuarioId.Value, dto);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
+        /// <summary>Indica si el vendedor puede iniciar el flujo de creación de productos.</summary>
+        [HttpGet("elegibilidad-creacion-producto")]
+        [Authorize(Roles = "VENDEDOR")]
+        public async Task<ActionResult<ResultadoOperacion<ElegibilidadCreacionProductoDto>>> ObtenerElegibilidadCreacionProducto()
+        {
+            var usuarioId = ObtenerUsuarioId();
+            if (usuarioId == null) return Unauthorized();
+            var r = await _servicio.ObtenerElegibilidadCreacionProductoAsync(usuarioId.Value);
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
@@ -138,6 +150,26 @@ namespace TiendaVirtual.Api.Controllers.VendedorXqm
             return r.Exito ? Ok(r) : NotFound(r);
         }
 
+        // ──────────────── HISTORIAS PÚBLICAS (BIOGRAFÍAS) ────────────────
+        [HttpGet("historias")]
+        [AllowAnonymous]
+        public async Task<ActionResult<ResultadoOperacion<PaginacionRespuestaDto<HistoriaPublicaListadoDto>>>> ListarHistorias(
+            [FromQuery] int pagina = 1,
+            [FromQuery] int tamanioPagina = 12,
+            [FromQuery] string? busqueda = null)
+        {
+            var r = await _servicio.ListarHistoriasPublicasAsync(pagina, tamanioPagina, busqueda);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
+        [HttpGet("historias/{slug}")]
+        [AllowAnonymous]
+        public async Task<ActionResult<ResultadoOperacion<HistoriaPublicaDetalleDto>>> ObtenerHistoriaPorSlug(string slug)
+        {
+            var r = await _servicio.ObtenerHistoriaPorSlugAsync(slug);
+            return r.Exito ? Ok(r) : NotFound(r);
+        }
+
         // ──────────────── PEDIDOS DEL VENDEDOR ────────────────
         [HttpGet("mis-pedidos")]
         [Authorize(Roles = "VENDEDOR")]
@@ -149,6 +181,40 @@ namespace TiendaVirtual.Api.Controllers.VendedorXqm
             var usuarioId = ObtenerUsuarioId();
             if (usuarioId == null) return Unauthorized();
             var r = await _servicio.ListarMisPedidosAsync(usuarioId.Value, estado, pagina, tamanioPagina);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
+        [HttpGet("mis-pedidos/{subordenId:long}")]
+        [Authorize(Roles = "VENDEDOR")]
+        public async Task<ActionResult<ResultadoOperacion<PedidoVendedorDetalleDto>>> ObtenerMisPedido(long subordenId)
+        {
+            var usuarioId = ObtenerUsuarioId();
+            if (usuarioId == null) return Unauthorized();
+            var r = await _servicio.ObtenerMisPedidoDetalleAsync(usuarioId.Value, subordenId);
+            if (!r.Exito)
+                return r.Mensaje == "Pedido no encontrado" ? NotFound(r) : BadRequest(r);
+            return Ok(r);
+        }
+
+        [HttpPost("mis-pedidos/{subordenId:long}/envio")]
+        [Authorize(Roles = "VENDEDOR")]
+        public async Task<ActionResult<ResultadoOperacion<EnvioDto>>> RegistrarEnvio(
+            long subordenId, [FromBody] RegistrarEnvioSubordenDto dto)
+        {
+            var usuarioId = ObtenerUsuarioId();
+            if (usuarioId == null) return Unauthorized();
+            var r = await _ordenServicio.RegistrarEnvioSubordenAsync(usuarioId.Value, subordenId, dto);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
+        [HttpPost("mis-pedidos/{subordenId:long}/listo-recoger")]
+        [Authorize(Roles = "VENDEDOR")]
+        public async Task<ActionResult<ResultadoOperacion<bool>>> MarcarListoParaRecoger(
+            long subordenId, [FromBody] MarcarListoParaRecogerDto? dto)
+        {
+            var usuarioId = ObtenerUsuarioId();
+            if (usuarioId == null) return Unauthorized();
+            var r = await _ordenServicio.MarcarListoParaRecogerAsync(usuarioId.Value, subordenId, dto);
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 

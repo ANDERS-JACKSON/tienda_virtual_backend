@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones.VendedorXqm;
 using TiendaVirtual.Dominio.Modelo.VendedorXqm;
+using TiendaVirtual.Dominio.Utilidad;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.VendedorXqm;
 
@@ -47,14 +48,18 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                     TipoDescuento = tipo,
                     ValorDescuento = dto.ValorDescuento,
                     MesesGratis = (short)dto.MesesGratis,
-                    UsosMaximos = dto.UsosMaximos,
+                    UsosMaximos = NormalizarUsosMaximos(dto.UsosMaximos),
                     UsosRealizados = 0,
-                    ValidoHasta = dto.ValidoHasta,
+                    ValidoHasta = NormalizarValidoHasta(dto.ValidoHasta),
                     Activo = true
                 };
                 _context.Cupones.Add(cupon);
                 await _context.SaveChangesAsync();
                 return ResultadoOperacion<CuponDto>.SetExito(cupon.ToDto());
+            }
+            catch (DbUpdateException ex)
+            {
+                return ResultadoOperacion<CuponDto>.SetError(ObtenerMensajeDb(ex));
             }
             catch (Exception ex)
             {
@@ -66,18 +71,34 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
         {
             try
             {
+                if (dto == null)
+                    return ResultadoOperacion<CuponDto>.SetError("Datos requeridos.");
+
                 var cupon = await _context.Cupones.FirstOrDefaultAsync(x => x.CuponId == id);
                 if (cupon == null)
                     return ResultadoOperacion<CuponDto>.SetError("Cupón no encontrado.");
 
+                var errorTipo = ValidarCoherenciaTipo(cupon.TipoDescuento, dto.ValorDescuento, dto.MesesGratis);
+                if (errorTipo != null)
+                    return ResultadoOperacion<CuponDto>.SetError(errorTipo);
+
+                var usosMaximos = NormalizarUsosMaximos(dto.UsosMaximos);
+                if (usosMaximos.HasValue && usosMaximos.Value < cupon.UsosRealizados)
+                    return ResultadoOperacion<CuponDto>.SetError(
+                        $"Los usos máximos no pueden ser menores a los usos ya realizados ({cupon.UsosRealizados}).");
+
                 cupon.ValorDescuento = dto.ValorDescuento;
                 cupon.MesesGratis = (short)dto.MesesGratis;
-                cupon.UsosMaximos = dto.UsosMaximos;
-                cupon.ValidoHasta = dto.ValidoHasta;
+                cupon.UsosMaximos = usosMaximos;
+                cupon.ValidoHasta = NormalizarValidoHasta(dto.ValidoHasta);
                 cupon.Activo = dto.Activo;
 
                 await _context.SaveChangesAsync();
                 return ResultadoOperacion<CuponDto>.SetExito(cupon.ToDto());
+            }
+            catch (DbUpdateException ex)
+            {
+                return ResultadoOperacion<CuponDto>.SetError(ObtenerMensajeDb(ex));
             }
             catch (Exception ex)
             {
@@ -189,5 +210,14 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                 TipoDescuentoCupon.MontoFijo => Math.Max(0, precio - (cupon.ValorDescuento ?? 0)),
                 _ => precio
             };
+
+        private static DateTime? NormalizarValidoHasta(DateTime? fecha) =>
+            fecha.HasValue ? FechaHoraUtil.AUtc(fecha.Value) : null;
+
+        private static int? NormalizarUsosMaximos(int? usosMaximos) =>
+            usosMaximos is null or <= 0 ? null : usosMaximos;
+
+        private static string ObtenerMensajeDb(DbUpdateException ex) =>
+            ex.InnerException?.Message ?? ex.Message;
     }
 }

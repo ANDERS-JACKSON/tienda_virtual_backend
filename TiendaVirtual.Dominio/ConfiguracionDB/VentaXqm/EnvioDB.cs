@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System;
 using System.Collections.Generic;
@@ -28,9 +28,21 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.VentaXqm
                 .HasMaxLength(50)
                 .IsRequired();
 
+            builder.Property(e => e.CodigoOrdenAgencia)
+                .HasColumnName("codigo_orden_agencia")
+                .HasMaxLength(50);
+
             builder.Property(e => e.NumeroSeguimiento)
                 .HasColumnName("numero_seguimiento")
                 .HasMaxLength(100);
+
+            builder.Property(e => e.ClaveRecojo)
+                .HasColumnName("clave_recojo")
+                .HasMaxLength(50);
+
+            builder.Property(e => e.Detalles)
+                .HasColumnName("detalles")
+                .HasMaxLength(500);
 
             builder.Property(e => e.ComprobanteUrl)
                 .HasColumnName("comprobante_url")

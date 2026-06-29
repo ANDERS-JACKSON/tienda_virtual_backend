@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,6 +19,7 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
         public EnumeracionDto Estado { get; set; } = null!;
         public decimal CalificacionPromedio { get; set; }
         public int TotalVentas { get; set; }
+        public int TotalProductos { get; set; }
         public bool VendePatrones { get; set; }
     }
 }
