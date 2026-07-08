@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Modelo.SeguridadXqm;
@@ -12,10 +13,12 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
     public class ReclamoServicio : IReclamoServicio
     {
         private readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<ReclamoServicio> _logger;
         private readonly INotificacionServicio _notif;
 
-        public ReclamoServicio(TiendaVirtualDbContext context, INotificacionServicio notif)
+        public ReclamoServicio(TiendaVirtualDbContext context, INotificacionServicio notif, ILogger<ReclamoServicio> logger)
         {
+            _logger = logger;
             _context = context;
             _notif = notif;
         }
@@ -81,15 +84,19 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<ReclamoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ReclamoServicio.AbrirAsync");
+                return ResultadoOperacion<ReclamoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<ReclamoDto>> ObtenerDetalleAsync(int usuarioId, long reclamoId)
         {
             try
             {
-                var reclamo = await _context.Reclamos.AsNoTracking()
+                var reclamo = await _context.Reclamos
+                    .AsSplitQuery()
+                    .AsNoTracking()
                     .Include(r => r.Suborden).ThenInclude(s => s.Vendedor)
                     .Include(r => r.AbiertoPorUsuario).ThenInclude(u => u.Persona)
                     .Include(r => r.Mensajes).ThenInclude(m => m.Remitente).ThenInclude(u => u.Persona)
@@ -106,8 +113,10 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<ReclamoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ReclamoServicio.ObtenerDetalleAsync");
+                return ResultadoOperacion<ReclamoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<MensajeReclamoDto>> AgregarMensajeAsync(
@@ -175,8 +184,10 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<MensajeReclamoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ReclamoServicio.AgregarMensajeAsync");
+                return ResultadoOperacion<MensajeReclamoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> ResolverAsync(
@@ -233,45 +244,74 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ReclamoServicio.ResolverAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
+
+        }
+
+        public async Task<ResultadoOperacion<PaginacionRespuestaDto<ReclamoListadoDto>>> ListarMisAsync(
+            int usuarioId, int pagina, int tamanioPagina)
+        {
+            try
+            {
+                pagina = Math.Max(1, pagina);
+                tamanioPagina = Math.Clamp(tamanioPagina, 1, 50);
+
+                var query = _context.Reclamos.AsNoTracking()
+                    .Where(r => r.AbiertoPor == usuarioId);
+
+                return await ListarPaginadoAsync(query, pagina, tamanioPagina, esCliente: true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en ReclamoServicio.ListarMisAsync");
+                return ResultadoOperacion<PaginacionRespuestaDto<ReclamoListadoDto>>.SetError(
+                    "Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
-        public Task<ResultadoOperacion<PaginacionRespuestaDto<ReclamoListadoDto>>> ListarMisAsync(
+        public async Task<ResultadoOperacion<PaginacionRespuestaDto<ReclamoListadoDto>>> ListarRecibidosAsync(
             int usuarioId, int pagina, int tamanioPagina)
         {
-            pagina = Math.Max(1, pagina);
-            tamanioPagina = Math.Clamp(tamanioPagina, 1, 50);
+            try
+            {
+                pagina = Math.Max(1, pagina);
+                tamanioPagina = Math.Clamp(tamanioPagina, 1, 50);
 
-            var query = _context.Reclamos.AsNoTracking()
-                .Where(r => r.AbiertoPor == usuarioId);
+                var query = _context.Reclamos.AsNoTracking()
+                    .Where(r => r.Suborden.Vendedor.UsuarioId == usuarioId);
 
-            return ListarPaginadoAsync(query, pagina, tamanioPagina, esCliente: true);
+                return await ListarPaginadoAsync(query, pagina, tamanioPagina, esCliente: false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en ReclamoServicio.ListarRecibidosAsync");
+                return ResultadoOperacion<PaginacionRespuestaDto<ReclamoListadoDto>>.SetError(
+                    "Ocurrió un error inesperado. Intente nuevamente.");
+            }
         }
 
-        public Task<ResultadoOperacion<PaginacionRespuestaDto<ReclamoListadoDto>>> ListarRecibidosAsync(
-            int usuarioId, int pagina, int tamanioPagina)
-        {
-            pagina = Math.Max(1, pagina);
-            tamanioPagina = Math.Clamp(tamanioPagina, 1, 50);
-
-            var query = _context.Reclamos.AsNoTracking()
-                .Where(r => r.Suborden.Vendedor.UsuarioId == usuarioId);
-
-            return ListarPaginadoAsync(query, pagina, tamanioPagina, esCliente: false);
-        }
-
-        public Task<ResultadoOperacion<PaginacionRespuestaDto<ReclamoListadoDto>>> ListarAdminAsync(
+        public async Task<ResultadoOperacion<PaginacionRespuestaDto<ReclamoListadoDto>>> ListarAdminAsync(
             int? estado, int pagina, int tamanioPagina)
         {
-            pagina = Math.Max(1, pagina);
-            tamanioPagina = Math.Clamp(tamanioPagina, 1, 50);
+            try
+            {
+                pagina = Math.Max(1, pagina);
+                tamanioPagina = Math.Clamp(tamanioPagina, 1, 50);
 
-            var query = _context.Reclamos.AsNoTracking().AsQueryable();
-            if (estado.HasValue)
-                query = query.Where(r => r.Estado == (TipoEstadoReclamo)estado.Value);
+                var query = _context.Reclamos.AsNoTracking().AsQueryable();
+                if (estado.HasValue)
+                    query = query.Where(r => r.Estado == (TipoEstadoReclamo)estado.Value);
 
-            return ListarPaginadoAsync(query, pagina, tamanioPagina, esCliente: null);
+                return await ListarPaginadoAsync(query, pagina, tamanioPagina, esCliente: null);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en ReclamoServicio.ListarAdminAsync");
+                return ResultadoOperacion<PaginacionRespuestaDto<ReclamoListadoDto>>.SetError(
+                    "Ocurrió un error inesperado. Intente nuevamente.");
+            }
         }
 
         private async Task<ResultadoOperacion<PaginacionRespuestaDto<ReclamoListadoDto>>> ListarPaginadoAsync(
@@ -315,7 +355,8 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PaginacionRespuestaDto<ReclamoListadoDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ReclamoServicio.ListarAsync");
+                return ResultadoOperacion<PaginacionRespuestaDto<ReclamoListadoDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 

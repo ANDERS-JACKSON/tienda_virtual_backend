@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TiendaVirtual.Dominio.Modelo.VentaXqm;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.VentaXqm;
@@ -17,8 +18,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<List<MetodoEnvioAdminDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en MetodoEnvioServicio.ListarTodosAdminAsync");
+                return ResultadoOperacion<List<MetodoEnvioAdminDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<MetodoEnvioAdminDto>> CrearAsync(CrearMetodoEnvioDto dto)
@@ -46,8 +49,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<MetodoEnvioAdminDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en MetodoEnvioServicio.CrearAsync");
+                return ResultadoOperacion<MetodoEnvioAdminDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<MetodoEnvioAdminDto>> ActualizarAsync(int id, ActualizarMetodoEnvioDto dto)
@@ -79,8 +84,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<MetodoEnvioAdminDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en MetodoEnvioServicio.ActualizarAsync");
+                return ResultadoOperacion<MetodoEnvioAdminDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> ActivarAsync(int id)
@@ -95,8 +102,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en MetodoEnvioServicio.ActivarAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> DesactivarAsync(int id)
@@ -115,7 +124,8 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en MetodoEnvioServicio.DesactivarAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 

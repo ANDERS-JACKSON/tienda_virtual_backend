@@ -38,8 +38,11 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm
 
         // Ofertas
         Task<ResultadoOperacion<OfertaDto>> CrearOfertaAsync(int usuarioId, int productoId, CrearOfertaDto dto);
+        Task<ResultadoOperacion<List<OfertaDto>>> ListarOfertasAsync(int usuarioId, int productoId);
         Task<ResultadoOperacion<OfertaDto>> ActualizarOfertaAsync(int usuarioId, int ofertaId, ActualizarOfertaDto dto);
+        Task<ResultadoOperacion<bool>> ActivarOfertaAsync(int usuarioId, int ofertaId);
         Task<ResultadoOperacion<bool>> DesactivarOfertaAsync(int usuarioId, int ofertaId);
+        Task<ResultadoOperacion<bool>> EliminarOfertaAsync(int usuarioId, int ofertaId);
 
         // Moderación admin
         Task<ResultadoOperacion<PaginacionRespuestaDto<ProductoAdminListadoDto>>> ListarAdminAsync(

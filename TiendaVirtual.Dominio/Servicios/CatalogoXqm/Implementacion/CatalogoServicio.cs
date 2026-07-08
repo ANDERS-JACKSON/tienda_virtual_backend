@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,6 +12,7 @@ using TiendaVirtual.Dominio.Extensiones.VendedorXqm;
 using TiendaVirtual.Dominio.Servicios.VendedorXqm;
 using TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion;
 using TiendaVirtual.Dominio.Modelo.CatalogoXqm;
+using TiendaVirtual.Dominio.Utilidad;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.CatalogoXqm;
 using TiendaVirtual.Intercambio.Dto.Sistema;
@@ -19,8 +22,18 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
     public class CatalogoServicio : ICatalogoServicio
     {
         protected readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<CatalogoServicio> _logger;
+        private readonly IMemoryCache _cache;
 
-        public CatalogoServicio(TiendaVirtualDbContext context) => _context = context;
+        public CatalogoServicio(
+            TiendaVirtualDbContext context,
+            ILogger<CatalogoServicio> logger,
+            IMemoryCache cache)
+        {
+            _context = context;
+            _logger = logger;
+            _cache = cache;
+        }
 
         // ─────────────────────────────────────────────────────
         // Listado público con filtros y paginación "cargar más"
@@ -35,6 +48,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 var now = DateTime.UtcNow;
 
                 var query = _context.Productos
+                    .AsSplitQuery()
                     .AsNoTracking()
                     .Include(p => p.Vendedor)
                     .Include(p => p.Categoria)
@@ -64,10 +78,22 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 }
 
                 if (filtros.PrecioMin.HasValue)
-                    query = query.Where(p => p.PrecioBase >= filtros.PrecioMin);
+                {
+                    var min = filtros.PrecioMin.Value;
+                    query = query.Where(p =>
+                        (p.Variantes.Any(v => v.Activa)
+                            ? p.Variantes.Where(v => v.Activa).Min(v => v.Precio)
+                            : (p.PrecioBase ?? 0)) >= min);
+                }
 
                 if (filtros.PrecioMax.HasValue)
-                    query = query.Where(p => p.PrecioBase <= filtros.PrecioMax);
+                {
+                    var max = filtros.PrecioMax.Value;
+                    query = query.Where(p =>
+                        (p.Variantes.Any(v => v.Activa)
+                            ? p.Variantes.Where(v => v.Activa).Min(v => v.Precio)
+                            : (p.PrecioBase ?? 0)) <= max);
+                }
 
                 if (filtros.TipoProducto.HasValue)
                     query = query.Where(p => (int)p.Tipo == filtros.TipoProducto);
@@ -114,7 +140,8 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PaginacionRespuestaDto<ProductoListadoDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en CatalogoServicio.ListarAsync");
+                return ResultadoOperacion<PaginacionRespuestaDto<ProductoListadoDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -129,6 +156,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     return ResultadoOperacion<ProductoDetalleDto>.SetError("Slug requerido.");
 
                 var producto = await _context.Productos
+                    .AsSplitQuery()
                     .Include(p => p.Vendedor)
                     .Include(p => p.Categoria)
                     .Include(p => p.Variantes).ThenInclude(v => v.Stock)
@@ -153,9 +181,9 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 if (!tiendaActiva)
                     return ResultadoOperacion<ProductoDetalleDto>.SetError("Esta tienda no está disponible.");
 
-                // Incrementar vistas (fire-and-forget de cara al usuario; await para consistencia simple)
-                producto.Vistas++;
-                await _context.SaveChangesAsync();
+                await _context.Productos
+                    .Where(p => p.ProductoId == producto.ProductoId)
+                    .ExecuteUpdateAsync(s => s.SetProperty(p => p.Vistas, p => p.Vistas + 1));
 
                 var now = DateTime.UtcNow;
                 var ofertaVigente = producto.Ofertas
@@ -166,8 +194,16 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 var tieneStock = producto.Tipo == TipoProducto.Patron ||
                                  producto.Variantes.Any(v => v.Stock != null && v.Stock.CantidadDisponible > 0);
 
-                var precioActual = ofertaVigente?.PrecioOferta ?? producto.PrecioBase ?? 0;
-                decimal? precioAnterior = ofertaVigente != null ? producto.PrecioBase : null;
+                // Detalle: usa la variante por defecto (primera creada) para el precio mostrado
+                // al cargar. El frontend recalcula al cambiar de variante.
+                var variantePorDefecto = producto.ObtenerVariantePorDefecto();
+                var precioVariantePorDefecto = variantePorDefecto?.Precio ?? producto.PrecioBase ?? 0;
+                var esProductoSinVariantesReales = !producto.Variantes.Any(v => v.Activa)
+                    || producto.Variantes.Count(v => v.Activa) == 1;
+                var precioCalc = PrecioOfertaUtil.Calcular(
+                    precioVariantePorDefecto, ofertaVigente, esProductoSinVariantesReales);
+                var precioActual = precioCalc.PrecioActual;
+                decimal? precioAnterior = precioCalc.TieneDescuento ? precioCalc.PrecioOriginal : null;
 
                 var totalProductosVendedor = await _context.Productos.CountAsync(p =>
                     p.VendedorId == producto.VendedorId && p.Estado == TipoEstadoProducto.Activo);
@@ -183,7 +219,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     DescripcionCorta = producto.DescripcionCorta,
                     Material = producto.Material,
                     Dimensiones = producto.Dimensiones,
-                    TieneVariantes = producto.TieneVariantes,
+                    TieneVariantes = producto.TieneVariantesComprables(),
                     PrecioBase = producto.PrecioBase,
                     DiasElaboracion = producto.DiasElaboracion,
                     Tipo = new EnumeracionDto { Id = (int)producto.Tipo, Nombre = producto.Tipo.ToString() },
@@ -194,12 +230,16 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
                     Categoria = producto.Categoria.ToDto(),
                     Vendedor = producto.Vendedor.ToTiendaPublicaDto(totalProductosVendedor, totalVentasVendedor),
-                    Variantes = producto.Variantes.Where(v => v.Activa).Select(v => v.ToDto()).ToList(),
+                    // Público: sin exponer cantidad de stock ni datos internos.
+                    Variantes = producto.Variantes.Where(v => v.Activa)
+                        .Select(v => v.ToPublicDto(producto.Tipo))
+                        .ToList(),
                     Imagenes = producto.Imagenes.OrderBy(i => i.Orden).Select(i => i.ToDto()).ToList(),
                     OfertaVigente = ofertaVigente?.ToDto(),
 
                     PrecioActual = precioActual,
                     PrecioAnterior = precioAnterior,
+                    VarianteIdDefecto = variantePorDefecto?.VarianteId,
                     TieneStock = tieneStock
                 };
 
@@ -207,7 +247,8 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<ProductoDetalleDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en CatalogoServicio.ObtenerPorSlugAsync");
+                return ResultadoOperacion<ProductoDetalleDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -219,6 +260,8 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         {
             try
             {
+                cantidad = Math.Clamp(cantidad, 1, 24);
+
                 var producto = await _context.Productos.AsNoTracking()
                     .FirstOrDefaultAsync(p => p.Slug == slug);
                 if (producto == null)
@@ -227,6 +270,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 var tipoProducto = producto.Tipo;
                 var nowRelacionados = DateTime.UtcNow;
                 var productos = await _context.Productos
+                    .AsSplitQuery()
                     .AsNoTracking()
                     .Include(p => p.Vendedor)
                     .Include(p => p.Categoria)
@@ -250,7 +294,8 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<List<ProductoListadoDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en CatalogoServicio.ObtenerRelacionadosAsync");
+                return ResultadoOperacion<List<ProductoListadoDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -274,9 +319,14 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         // ─────────────────────────────────────────────────────
         private async Task<List<int>> ObtenerCategoriaConDescendientesAsync(int categoriaId)
         {
-            var todas = await _context.Categorias.AsNoTracking()
-                .Select(c => new { c.CategoriaId, c.CategoriaPadreId })
-                .ToListAsync();
+            const string cacheKey = "todas_categorias_jerarquia";
+            var todas = await _cache.GetOrCreateAsync(cacheKey, async entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10);
+                return await _context.Categorias.AsNoTracking()
+                    .Select(c => new { c.CategoriaId, c.CategoriaPadreId })
+                    .ToListAsync();
+            });
 
             var resultado = new List<int> { categoriaId };
             var pendientes = new Queue<int>(new[] { categoriaId });
@@ -318,6 +368,13 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             var tieneStock = p.Tipo == TipoProducto.Patron ||
                              p.Variantes.Any(v => v.Stock != null && v.Stock.CantidadDisponible > 0);
 
+            // Precio de la variante por defecto (primera creada).
+            var variantePorDefecto = p.ObtenerVariantePorDefecto();
+            var precioVariantePorDefecto = variantePorDefecto?.Precio ?? p.PrecioBase ?? 0;
+            var soloUnaVariante = p.Variantes.Count(v => v.Activa) <= 1;
+            var precioCalc = PrecioOfertaUtil.Calcular(
+                precioVariantePorDefecto, oferta, soloUnaVariante);
+
             return new ProductoListadoDto
             {
                 ProductoId = p.ProductoId,
@@ -330,10 +387,14 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 SlugTienda = p.Vendedor.SlugTienda,
                 CategoriaId = p.CategoriaId,
                 NombreCategoria = p.Categoria.Nombre,
-                PrecioBase = p.PrecioBase ?? 0,
-                PrecioOferta = oferta?.PrecioOferta,
-                PorcentajeDescuento = oferta?.PorcentajeDescuento,
-                TieneOferta = oferta != null,
+                // PrecioBase = precio de la variante por defecto (para tachado si hay oferta).
+                PrecioBase = precioVariantePorDefecto,
+                TieneVariantes = p.TieneVariantesComprables(),
+                VarianteIdDefecto = variantePorDefecto?.VarianteId,
+                // PrecioOferta = precio final aplicando el % a la variante por defecto.
+                PrecioOferta = precioCalc.TieneDescuento ? precioCalc.PrecioActual : (decimal?)null,
+                PorcentajeDescuento = precioCalc.PorcentajeDescuento,
+                TieneOferta = precioCalc.TieneDescuento,
                 Tipo = new EnumeracionDto { Id = (int)p.Tipo, Nombre = p.Tipo.ToString() },
                 CalificacionPromedio = p.CalificacionPromedio,
                 TotalResenas = p.TotalResenas,

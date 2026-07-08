@@ -10,6 +10,10 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
         [Required, MaxLength(200)]
         public string NombreReceptor { get; set; } = null!;
 
+        /// <summary>DNI (u otro documento) del receptor. Requerido para envíos por agencia.</summary>
+        [Required, MaxLength(20), MinLength(8)]
+        public string DniReceptor { get; set; } = null!;
+
         [MaxLength(20)]
         public string? Telefono { get; set; }
 

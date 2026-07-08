@@ -12,6 +12,8 @@ namespace TiendaVirtual.Intercambio.Dto.VentaXqm
     {
         public string? Etiqueta { get; set; }
         public string NombreReceptor { get; set; } = string.Empty;
+        /// <summary>DNI (u otro documento) del receptor; requerido por Shalom u otras agencias.</summary>
+        public string? DniReceptor { get; set; }
         public string? Telefono { get; set; }
         public string Departamento { get; set; } = string.Empty;
         public string Provincia { get; set; } = string.Empty;

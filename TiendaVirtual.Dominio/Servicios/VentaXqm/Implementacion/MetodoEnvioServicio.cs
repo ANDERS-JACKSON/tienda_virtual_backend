@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -11,8 +12,13 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
     public partial class MetodoEnvioServicio : IMetodoEnvioServicio
     {
         protected readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<MetodoEnvioServicio> _logger;
 
-        public MetodoEnvioServicio(TiendaVirtualDbContext context) => _context = context;
+        public MetodoEnvioServicio(TiendaVirtualDbContext context, ILogger<MetodoEnvioServicio> logger)
+        {
+            _context = context;
+            _logger = logger;
+        }
 
         public async Task<ResultadoOperacion<List<MetodoEnvioDto>>> ListarActivosAsync()
         {
@@ -38,7 +44,8 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<List<MetodoEnvioDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en MetodoEnvioServicio.ListarActivosAsync");
+                return ResultadoOperacion<List<MetodoEnvioDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
     }

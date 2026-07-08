@@ -51,6 +51,14 @@ namespace TiendaVirtual.Api.Controllers.SoporteXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
+        [HttpGet("producto/{productoId:int}/resumen")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResumenProducto(int productoId)
+        {
+            var r = await _servicio.ObtenerResumenProductoAsync(productoId);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
         [HttpGet("producto/{productoId:int}")]
         [AllowAnonymous]
         public async Task<IActionResult> ListarPorProducto(

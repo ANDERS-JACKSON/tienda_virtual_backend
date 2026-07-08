@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -8,6 +9,7 @@ using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones.VentaXqm;
 using TiendaVirtual.Dominio.Modelo.VentaXqm;
 using TiendaVirtual.Dominio.Servicios.SoporteXqm;
+using TiendaVirtual.Dominio.Utilidad;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.Sistema;
 using TiendaVirtual.Intercambio.Dto.VentaXqm;
@@ -26,10 +28,12 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
         private const decimal COMISION_PORCENTAJE = 10m;
 
         protected readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<OrdenServicio> _logger;
         private readonly INotificacionServicio _notificacionServicio;
 
-        public OrdenServicio(TiendaVirtualDbContext context, INotificacionServicio notificacionServicio)
+        public OrdenServicio(TiendaVirtualDbContext context, INotificacionServicio notificacionServicio, ILogger<OrdenServicio> logger)
         {
+            _logger = logger;
             _context = context;
             _notificacionServicio = notificacionServicio;
         }
@@ -77,17 +81,44 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 if (items.Count == 0)
                     return ResultadoOperacion<OrdenDto>.SetError("Tu carrito está vacío.");
 
-                // 4. Validar métodos de envío: uno por cada vendedor del carrito
+                // 4. Resolver método de envío por vendedor.
+                //    Regla de negocio: por defecto todos los pedidos se envían con SHALOM
+                //    y el comprador paga el costo directamente al recoger en la agencia.
+                //    Por eso `MetodoEnvio` en la orden es solo un dato informativo
+                //    (MontoEnvio siempre = 0). El cliente ya NO elige método en el checkout,
+                //    pero mantenemos compatibilidad si en el futuro llega un DTO con
+                //    métodos personalizados por vendedor.
                 var vendedoresEnCarrito = items.Select(i => i.Variante.Producto.VendedorId).Distinct().ToList();
-                var metodosPorVendedor = dto.MetodosEnvio
+                var metodosPorVendedor = dto.MetodosEnvio?
                     .GroupBy(m => m.VendedorId)
-                    .ToDictionary(g => g.Key, g => g.First().MetodoEnvioId);
+                    .ToDictionary(g => g.Key, g => g.First().MetodoEnvioId)
+                    ?? new Dictionary<int, int>();
+
+                // Fallback: cualquier vendedor sin método explícito usa el método por
+                // defecto (código SHALOM). Si SHALOM no está activo, tomamos el primer
+                // método activo disponible.
+                int? metodoDefectoId = await _context.MetodosEnvio
+                    .Where(m => m.Activo && m.Codigo == "SHALOM")
+                    .Select(m => (int?)m.MetodoEnvioId)
+                    .FirstOrDefaultAsync();
+
+                if (metodoDefectoId == null)
+                {
+                    metodoDefectoId = await _context.MetodosEnvio
+                        .Where(m => m.Activo)
+                        .OrderBy(m => m.Orden)
+                        .Select(m => (int?)m.MetodoEnvioId)
+                        .FirstOrDefaultAsync();
+                }
+
+                if (metodoDefectoId == null)
+                    return ResultadoOperacion<OrdenDto>.SetError(
+                        "No hay métodos de envío configurados en el sistema.");
 
                 foreach (var vId in vendedoresEnCarrito)
                 {
                     if (!metodosPorVendedor.ContainsKey(vId))
-                        return ResultadoOperacion<OrdenDto>.SetError(
-                            "Falta seleccionar el método de envío para uno de los vendedores.");
+                        metodosPorVendedor[vId] = metodoDefectoId.Value;
                 }
 
                 var idsMetodos = metodosPorVendedor.Values.Distinct().ToList();
@@ -114,7 +145,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                         var disponible = i.Variante.Stock?.CantidadDisponible ?? 0;
                         if (disponible < i.Cantidad)
                             return ResultadoOperacion<OrdenDto>.SetError(
-                                $"Stock insuficiente para '{p.Nombre}'. Disponible: {disponible}, pediste: {i.Cantidad}.");
+                                $"No hay stock suficiente para '{p.Nombre}'. Reduce la cantidad e intenta de nuevo.");
                     }
                 }
 
@@ -128,12 +159,25 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                                 && o.FechaFin >= now)
                     .ToListAsync();
 
-                // 7. Crear orden (cabecera)
+                // Conteo de variantes activas por producto: sirve para decidir si la
+                // oferta puede usar `PrecioOferta` (precio fijo) como fallback cuando
+                // no hay porcentaje. Solo aplica si el producto tiene UNA variante
+                // real; con múltiples variantes la única forma consistente es aplicar
+                // el porcentaje al precio de cada variante.
+                var conteoVariantesActivas = await _context.VariantesProducto.AsNoTracking()
+                    .Where(v => productosIds.Contains(v.ProductoId) && v.Activa)
+                    .GroupBy(v => v.ProductoId)
+                    .Select(g => new { ProductoId = g.Key, Total = g.Count() })
+                    .ToDictionaryAsync(x => x.ProductoId, x => x.Total);
+
+                // 7. Crear orden (cabecera). Snapshot COMPLETO de la dirección de envío
+                //    con DNI del receptor (imprescindible para envíos por agencia).
                 var numeroOrden = GenerarNumero("ORD");
                 var direccionJson = JsonSerializer.Serialize(new
                 {
                     direccion.Etiqueta,
                     direccion.NombreReceptor,
+                    direccion.DniReceptor,
                     direccion.Telefono,
                     direccion.Departamento,
                     direccion.Provincia,
@@ -159,23 +203,25 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 _context.Ordenes.Add(orden);
                 await _context.SaveChangesAsync();
 
-                // 8. Crear una suborden por cada vendedor, con sus items
+                // 8. Crear una suborden por cada vendedor, con sus items.
+                //    El envío no suma al total: se paga aparte al momento del retiro.
                 decimal subtotalOrden = 0;
-                decimal envioTotal = 0;
+                decimal descuentoOrden = 0;
                 var subordenesCreadas = new List<(long SubordenId, string NumeroSuborden, int VendedorId, decimal Subtotal)>();
 
                 foreach (var grupo in items.GroupBy(i => i.Variante.Producto.VendedorId))
                 {
                     var metodoId = metodosPorVendedor[grupo.Key];
-                    var metodo = metodosEnvio.First(m => m.MetodoEnvioId == metodoId);
 
+                    // El envío lo paga el comprador directamente en la agencia
+                    // (Shalom / similar). NO se cobra en la orden.
                     var suborden = new Suborden
                     {
                         NumeroSuborden = GenerarNumero("SUB"),
                         OrdenId = orden.OrdenId,
                         VendedorId = grupo.Key,
                         MetodoEnvioId = metodoId,
-                        MontoEnvio = metodo.MontoBase,
+                        MontoEnvio = 0m,
                         Estado = TipoEstadoSuborden.Pendiente,
                         Subtotal = 0,
                         MontoComision = 0,
@@ -190,10 +236,28 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                         var p = i.Variante.Producto;
                         var oferta = ofertas.FirstOrDefault(o => o.ProductoId == p.ProductoId);
 
-                        var precioBase = i.Variante.Precio;
-                        var precioFinal = oferta?.PrecioOferta ?? precioBase;
+                        // El precio del item se calcula SIEMPRE con la misma fórmula
+                        // que usan el carrito y el catálogo (PrecioOfertaUtil): así
+                        // el precio que el comprador vio al agregar al carrito es el
+                        // que se guarda en la orden. Con varias variantes se aplica
+                        // el porcentaje al precio de la variante; sin variantes reales
+                        // (una sola activa) se permite usar el `PrecioOferta` fijo
+                        // como fallback.
+                        var totalActivas = conteoVariantesActivas.TryGetValue(p.ProductoId, out var c) ? c : 0;
+                        var soloUnaVariante = totalActivas <= 1;
+                        var precioCalc = PrecioOfertaUtil.Calcular(
+                            i.Variante.Precio, oferta, soloUnaVariante);
+
+                        var precioFinal = precioCalc.PrecioActual;
                         var totalLinea = Math.Round(precioFinal * i.Cantidad, 2);
                         subtotalSuborden += totalLinea;
+
+                        // Descuento por línea (para totalizar en la orden).
+                        if (precioCalc.TieneDescuento && precioCalc.PrecioOriginal.HasValue)
+                        {
+                            descuentoOrden += Math.Round(
+                                (precioCalc.PrecioOriginal.Value - precioFinal) * i.Cantidad, 2);
+                        }
 
                         var imagen = p.Imagenes.FirstOrDefault(im => im.EsPrincipal)?.Url
                                      ?? p.Imagenes.OrderBy(im => im.Orden).FirstOrDefault()?.Url;
@@ -205,6 +269,12 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                             NombreProducto = p.Nombre,
                             NombreVariante = i.Variante.Nombre,
                             PrecioUnitario = precioFinal,
+                            // Se guarda solo si hubo descuento efectivo, para poder
+                            // pintar el precio tachado en el histórico sin depender
+                            // de la oferta actual (que puede vencer o cambiar).
+                            PrecioOriginal = precioCalc.TieneDescuento
+                                ? precioCalc.PrecioOriginal
+                                : null,
                             Cantidad = i.Cantidad,
                             TotalLinea = totalLinea,
                             ImagenUrl = imagen,
@@ -228,14 +298,16 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                     subordenesCreadas.Add((suborden.SubordenId, suborden.NumeroSuborden, suborden.VendedorId, suborden.Subtotal));
 
                     subtotalOrden += subtotalSuborden;
-                    envioTotal += metodo.MontoBase;
                 }
 
-                // 9. Totales de la orden
+                // 9. Totales de la orden (envío no forma parte del cobro).
+                //    `Subtotal` en la orden refleja el TOTAL COBRADO (ya con descuento
+                //    aplicado), consistente con la vista del carrito. `TotalDescuento`
+                //    guarda cuánto se ahorró el comprador para trazabilidad.
                 orden.Subtotal = subtotalOrden;
-                orden.TotalEnvio = envioTotal;
-                orden.TotalDescuento = 0;
-                orden.Total = subtotalOrden + envioTotal;
+                orden.TotalEnvio = 0m;
+                orden.TotalDescuento = descuentoOrden;
+                orden.Total = subtotalOrden;
 
                 // 10. Vaciar carrito
                 _context.ItemsCarrito.RemoveRange(items);
@@ -279,8 +351,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<OrdenDto>.SetError("Error al crear la orden: " + ex.Message);
+                _logger.LogError(ex, "Error en OrdenServicio.CrearAsync");
+                return ResultadoOperacion<OrdenDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<PaginacionRespuestaDto<OrdenListadoDto>>> ListarMisOrdenesAsync(
@@ -340,16 +414,18 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PaginacionRespuestaDto<OrdenListadoDto>>.SetError(
-                    "Error: " + ex.Message);
+                _logger.LogError(ex, "Error en OrdenServicio.ListarMisOrdenesAsync");
+                return ResultadoOperacion<PaginacionRespuestaDto<OrdenListadoDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<OrdenDto>> ObtenerMiOrdenAsync(int usuarioId, long ordenId)
         {
             try
             {
-                var orden = await _context.Ordenes.AsNoTracking()
+                var orden = await _context.Ordenes.AsSplitQuery()
+                    .AsNoTracking()
                     .Include(o => o.Subordenes).ThenInclude(s => s.Vendedor)
                     .Include(o => o.Subordenes).ThenInclude(s => s.MetodoEnvio)
                     .Include(o => o.Subordenes).ThenInclude(s => s.Items)
@@ -416,6 +492,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                                     NombreVariante = i.NombreVariante,
                                     ImagenUrl = i.ImagenUrl,
                                     PrecioUnitario = i.PrecioUnitario,
+                                    PrecioOriginal = i.PrecioOriginal,
                                     Cantidad = i.Cantidad,
                                     TotalLinea = i.TotalLinea,
                                     TipoProducto = new EnumeracionDto(
@@ -429,7 +506,8 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<OrdenDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en OrdenServicio.ObtenerMiOrdenAsync");
+                return ResultadoOperacion<OrdenDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -554,7 +632,8 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<EnvioDto>.SetError("Error al registrar envío: " + ex.Message);
+                _logger.LogError(ex, "Error en OrdenServicio.RegistrarEnvioSubordenAsync");
+                return ResultadoOperacion<EnvioDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -622,7 +701,8 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error al marcar listo para recoger: " + ex.Message);
+                _logger.LogError(ex, "Error en OrdenServicio.MarcarListoParaRecogerAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -675,9 +755,9 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
                 if (estadoAnterior != TipoEstadoSuborden.Entregada)
                 {
-                    var vendedorEntidad = await _context.Vendedores
-                        .FirstAsync(v => v.VendedorId == suborden.VendedorId);
-                    vendedorEntidad.TotalVentas++;
+                    await _context.Vendedores
+                        .Where(v => v.VendedorId == suborden.VendedorId)
+                        .ExecuteUpdateAsync(s => s.SetProperty(v => v.TotalVentas, v => v.TotalVentas + 1));
                 }
 
                 await _context.SaveChangesAsync();
@@ -686,7 +766,8 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error al cambiar estado: " + ex.Message);
+                _logger.LogError(ex, "Error en OrdenServicio.CambiarEstadoSubordenAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 

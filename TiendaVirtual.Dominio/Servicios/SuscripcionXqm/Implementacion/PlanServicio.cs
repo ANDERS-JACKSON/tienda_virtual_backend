@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones.VendedorXqm;
 using TiendaVirtual.Dominio.Modelo.VendedorXqm;
@@ -10,8 +11,13 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
     public class PlanServicio : IPlanServicio
     {
         private readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<PlanServicio> _logger;
 
-        public PlanServicio(TiendaVirtualDbContext context) => _context = context;
+        public PlanServicio(TiendaVirtualDbContext context, ILogger<PlanServicio> logger)
+        {
+            _context = context;
+            _logger = logger;
+        }
 
         public async Task<ResultadoOperacion<List<PlanDto>>> ListarActivosAsync()
         {
@@ -25,8 +31,10 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<List<PlanDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en PlanServicio.ListarActivosAsync");
+                return ResultadoOperacion<List<PlanDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<List<PlanDto>>> ListarTodosAsync()
@@ -38,16 +46,26 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<List<PlanDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en PlanServicio.ListarTodosAsync");
+                return ResultadoOperacion<List<PlanDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<PlanDto>> ObtenerPorIdAsync(int id)
         {
-            var plan = await _context.Planes.AsNoTracking().FirstOrDefaultAsync(p => p.PlanId == id);
-            if (plan == null)
-                return ResultadoOperacion<PlanDto>.SetError("Plan no encontrado.");
-            return ResultadoOperacion<PlanDto>.SetExito(plan.ToDto());
+            try
+            {
+                var plan = await _context.Planes.AsNoTracking().FirstOrDefaultAsync(p => p.PlanId == id);
+                if (plan == null)
+                    return ResultadoOperacion<PlanDto>.SetError("Plan no encontrado.");
+                return ResultadoOperacion<PlanDto>.SetExito(plan.ToDto());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en PlanServicio.ObtenerPorIdAsync");
+                return ResultadoOperacion<PlanDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
         }
 
         public async Task<ResultadoOperacion<PlanDto>> CrearAsync(CrearPlanDto dto)
@@ -75,8 +93,10 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PlanDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en PlanServicio.CrearAsync");
+                return ResultadoOperacion<PlanDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<PlanDto>> ActualizarAsync(int id, ActualizarPlanDto dto)
@@ -106,8 +126,10 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PlanDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en PlanServicio.ActualizarAsync");
+                return ResultadoOperacion<PlanDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> CambiarEstadoAsync(int id, bool activo)
@@ -135,7 +157,8 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en PlanServicio.CambiarEstadoAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
     }

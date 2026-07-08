@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -23,7 +23,19 @@ namespace TiendaVirtual.Dominio.Modelo.VentaXqm
         public string NombreProducto { get; set; } = null!;
 
         public string? NombreVariante { get; set; }
+
+        /// <summary>Precio final cobrado por unidad (después del descuento si aplicó).</summary>
         public decimal PrecioUnitario { get; set; }
+
+        /// <summary>
+        /// Precio original por unidad ANTES del descuento. Se guarda solo cuando
+        /// hubo oferta aplicada; queda en <c>null</c> si el item se cobró a precio
+        /// pleno. Permite mostrar el precio tachado y el ahorro real en el
+        /// histórico de pedidos (comprador y vendedor) sin depender de la oferta
+        /// actual (que podría haber terminado o cambiado).
+        /// </summary>
+        public decimal? PrecioOriginal { get; set; }
+
         public int Cantidad { get; set; }
         public decimal TotalLinea { get; set; }
         public string? ImagenUrl { get; set; }

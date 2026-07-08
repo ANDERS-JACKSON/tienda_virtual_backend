@@ -160,6 +160,15 @@ namespace TiendaVirtual.Api.Controllers.CatalogoXqm
         }
 
         // ─────────────── OFERTAS ───────────────
+        [HttpGet("mis-productos/{productoId:int}/ofertas")]
+        public async Task<ActionResult<ResultadoOperacion<List<OfertaDto>>>> ListarOfertas(int productoId)
+        {
+            var uid = ObtenerUsuarioId();
+            if (uid == null) return Unauthorized();
+            var r = await _servicio.ListarOfertasAsync(uid.Value, productoId);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
         [HttpPost("{productoId:int}/ofertas")]
         public async Task<ActionResult<ResultadoOperacion<OfertaDto>>> CrearOferta(
             int productoId, [FromBody] CrearOfertaDto dto)
@@ -180,12 +189,30 @@ namespace TiendaVirtual.Api.Controllers.CatalogoXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
+        [HttpPost("ofertas/{ofertaId:int}/activar")]
+        public async Task<ActionResult<ResultadoOperacion<bool>>> ActivarOferta(int ofertaId)
+        {
+            var uid = ObtenerUsuarioId();
+            if (uid == null) return Unauthorized();
+            var r = await _servicio.ActivarOfertaAsync(uid.Value, ofertaId);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
         [HttpPost("ofertas/{ofertaId:int}/desactivar")]
         public async Task<ActionResult<ResultadoOperacion<bool>>> DesactivarOferta(int ofertaId)
         {
             var uid = ObtenerUsuarioId();
             if (uid == null) return Unauthorized();
             var r = await _servicio.DesactivarOfertaAsync(uid.Value, ofertaId);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
+        [HttpDelete("ofertas/{ofertaId:int}")]
+        public async Task<ActionResult<ResultadoOperacion<bool>>> EliminarOferta(int ofertaId)
+        {
+            var uid = ObtenerUsuarioId();
+            if (uid == null) return Unauthorized();
+            var r = await _servicio.EliminarOfertaAsync(uid.Value, ofertaId);
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 

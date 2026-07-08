@@ -75,9 +75,18 @@ namespace TiendaVirtual.Api
             builder.Services.AgregarServiciosVenta();
             builder.Services.AgregarServiciosSuscripcion();
             builder.Services.AgregarServiciosPago();
+            builder.Services.AgregarServiciosReporte();
 
             // Controllers + JSON (enums como string, camelCase)
-            builder.Services.AddControllers()
+            builder.Services.AddControllers(mvc =>
+            {
+                // Con <Nullable>enable</Nullable> en los DTOs, ASP.NET marca
+                // implícitamente como requeridas todas las propiedades no
+                // anotadas con "?". Preferimos controlar la obligatoriedad
+                // sólo con [Required] o el tipo (T vs T?), para evitar
+                // sorpresas al hacer campos opcionales.
+                mvc.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+            })
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;

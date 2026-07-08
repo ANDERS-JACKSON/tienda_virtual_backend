@@ -13,6 +13,8 @@ namespace TiendaVirtual.Intercambio.Dto.VentaXqm
         public string? NombreVariante { get; set; }
         public string? ImagenUrl { get; set; }
         public decimal PrecioUnitario { get; set; }
+        /// <summary>Precio antes del descuento. Solo se serializa cuando hubo oferta.</summary>
+        public decimal? PrecioOriginal { get; set; }
         public int Cantidad { get; set; }
         public decimal TotalLinea { get; set; }
         public EnumeracionDto TipoProducto { get; set; } = null!;

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -21,6 +21,10 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
         public int CategoriaId { get; set; }
         public string NombreCategoria { get; set; } = null!;
         public decimal PrecioBase { get; set; }
+        /// <summary>True cuando hay más de una variante activa o el producto fue creado con variantes.</summary>
+        public bool TieneVariantes { get; set; }
+        /// <summary>Id de la variante mostrada por defecto (para pre-seleccionarla en el detalle).</summary>
+        public int? VarianteIdDefecto { get; set; }
         public decimal? PrecioOferta { get; set; }
         public decimal? PorcentajeDescuento { get; set; }
         public bool TieneOferta { get; set; }

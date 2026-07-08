@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System;
 using System.Collections.Generic;
@@ -31,6 +31,10 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.SeguridadXqm
                 .HasColumnName("nombre_receptor")
                 .HasMaxLength(200)
                 .IsRequired();
+
+            builder.Property(e => e.DniReceptor)
+                .HasColumnName("dni_receptor")
+                .HasMaxLength(20);
 
             builder.Property(e => e.Telefono)
                 .HasColumnName("telefono")

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TiendaVirtual.Dominio.Modelo.ConfiguracionXqm;
 using TiendaVirtual.Dominio.Servicios.SoporteXqm;
 using SoporteEmail = TiendaVirtual.Dominio.Servicios.SoporteXqm.IEmailServicio;
@@ -10,10 +11,12 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
     public class ConfiguracionCorreoServicio : IConfiguracionCorreoServicio
     {
         private readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<ConfiguracionCorreoServicio> _logger;
         private readonly SoporteEmail _email;
 
-        public ConfiguracionCorreoServicio(TiendaVirtualDbContext context, SoporteEmail email)
+        public ConfiguracionCorreoServicio(TiendaVirtualDbContext context, SoporteEmail email, ILogger<ConfiguracionCorreoServicio> logger)
         {
+            _logger = logger;
             _context = context;
             _email = email;
         }
@@ -27,8 +30,10 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<ConfiguracionCorreoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ConfiguracionCorreoServicio.ObtenerAsync");
+                return ResultadoOperacion<ConfiguracionCorreoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<ConfiguracionCorreoDto>> ActualizarSmtpAsync(ActualizarSmtpDto dto)
@@ -61,8 +66,10 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<ConfiguracionCorreoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ConfiguracionCorreoServicio.ActualizarSmtpAsync");
+                return ResultadoOperacion<ConfiguracionCorreoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<ConfiguracionCorreoDto>> ActualizarPlantillasAsync(ActualizarPlantillasDto dto)
@@ -115,8 +122,10 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<ConfiguracionCorreoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ConfiguracionCorreoServicio.ActualizarPlantillasAsync");
+                return ResultadoOperacion<ConfiguracionCorreoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> EnviarPruebaAsync(int adminUsuarioId)
@@ -141,7 +150,8 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ConfiguracionCorreoServicio.EnviarPruebaAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 

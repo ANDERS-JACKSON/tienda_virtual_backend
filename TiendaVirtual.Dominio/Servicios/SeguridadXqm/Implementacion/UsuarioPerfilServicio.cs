@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TiendaVirtual.Dominio.Extensiones;
 using TiendaVirtual.Dominio.Extensiones.SeguridadXqm;
 using TiendaVirtual.Intercambio;
@@ -9,9 +10,11 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
     public class UsuarioPerfilServicio : IUsuarioPerfilServicio
     {
         private readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<UsuarioPerfilServicio> _logger;
 
-        public UsuarioPerfilServicio(TiendaVirtualDbContext context)
+        public UsuarioPerfilServicio(TiendaVirtualDbContext context, ILogger<UsuarioPerfilServicio> logger)
         {
+            _logger = logger;
             _context = context;
         }
 
@@ -31,8 +34,10 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<UsuarioPerfilDto>.SetError("Error al obtener el perfil: " + ex.Message);
+                _logger.LogError(ex, "Error en UsuarioPerfilServicio.ObtenerMiPerfilAsync");
+                return ResultadoOperacion<UsuarioPerfilDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<UsuarioPerfilDto>> ActualizarMisDatosAsync(
@@ -67,7 +72,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<UsuarioPerfilDto>.SetError("Error al actualizar el perfil: " + ex.Message);
+                _logger.LogError(ex, "Error en UsuarioPerfilServicio.ActualizarMisDatosAsync");
+                return ResultadoOperacion<UsuarioPerfilDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 

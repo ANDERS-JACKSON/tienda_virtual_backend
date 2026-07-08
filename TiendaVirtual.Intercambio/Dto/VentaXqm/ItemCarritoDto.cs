@@ -15,7 +15,22 @@ namespace TiendaVirtual.Intercambio.Dto.VentaXqm
         public decimal PrecioUnitario { get; set; }
         public decimal? PrecioOriginal { get; set; }
         public int Cantidad { get; set; }
-        public int StockDisponible { get; set; }
+
+        /// <summary>
+        /// True cuando la cantidad en carrito puede cumplirse con el stock actual.
+        /// Reemplaza al antiguo <c>StockDisponible</c> para NO revelar la cantidad
+        /// exacta de inventario al comprador.
+        /// </summary>
+        public bool StockSuficiente { get; set; }
+
+        /// <summary>
+        /// Cantidad máxima que se puede fijar en el stepper del carrito. Coincide
+        /// con el stock real cuando <c>StockSuficiente == false</c>; en caso
+        /// contrario se limita a la cantidad actual + un margen razonable para no
+        /// filtrar el stock real. Sirve para deshabilitar el botón "+".
+        /// </summary>
+        public int CantidadMaximaPermitida { get; set; }
+
         public decimal Subtotal { get; set; }
         public EnumeracionDto TipoProducto { get; set; } = null!;
 

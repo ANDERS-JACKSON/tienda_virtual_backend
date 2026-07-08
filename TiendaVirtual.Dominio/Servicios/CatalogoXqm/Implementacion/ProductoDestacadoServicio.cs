@@ -41,6 +41,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
                 var now = DateTime.UtcNow;
                 var destacados = await _context.ProductosDestacados
+                    .AsSplitQuery()
                     .AsNoTracking()
                     .Include(d => d.Producto).ThenInclude(p => p.Vendedor)
                     .Include(d => d.Producto).ThenInclude(p => p.Imagenes)
@@ -68,7 +69,6 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     "Ocurrió un error al obtener los productos destacados.");
             }
         }
-
         public async Task<ResultadoOperacion<List<ProductoDestacadoAdminDto>>> ListarAdminAsync()
         {
             try
@@ -91,7 +91,6 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     "Ocurrió un error al obtener los productos destacados.");
             }
         }
-
         public async Task<ResultadoOperacion<ProductoDestacadoAdminDto>> AgregarAsync(
             AgregarProductoDestacadoDto dto)
         {
@@ -148,7 +147,6 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     "Ocurrió un error al agregar el producto destacado.");
             }
         }
-
         public async Task<ResultadoOperacion<bool>> EliminarAsync(int destacadoId)
         {
             try
@@ -171,7 +169,6 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     "Ocurrió un error al eliminar el producto destacado.");
             }
         }
-
         public async Task<ResultadoOperacion<bool>> ReordenarAsync(ReordenarProductosDestacadosDto dto)
         {
             await using var tx = await _context.Database.BeginTransactionAsync();
@@ -210,7 +207,6 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     "Ocurrió un error al reordenar los productos destacados.");
             }
         }
-
         private void InvalidarCachePublico() => _cache.Remove(CacheKeyPublico);
 
         private static ProductoDestacadoPublicoDto MapearPublico(ProductoDestacado d)

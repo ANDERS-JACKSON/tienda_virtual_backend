@@ -31,57 +31,65 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             PlantillaCorreo? plantillaEmail = null,
             Dictionary<string, string>? placeholdersEmail = null)
         {
-            var notificacion = new Notificacion
+            try
             {
-                UsuarioId = usuarioId,
-                Tipo = tipo,
-                Titulo = titulo,
-                Cuerpo = cuerpo,
-                Datos = datos != null ? JsonSerializer.Serialize(datos) : null,
-                Leida = false,
-                Fecha = DateTime.UtcNow
-            };
-            _context.Notificaciones.Add(notificacion);
-            await _context.SaveChangesAsync();
-
-            if (!plantillaEmail.HasValue) return;
-
-            var datosUsuario = await _context.Usuarios
-                .Where(u => u.UsuarioId == usuarioId)
-                .Select(u => new
+                var notificacion = new Notificacion
                 {
-                    u.Correo,
-                    Nombre = u.Persona.Nombres,
-                    Apellido = u.Persona.ApellidoPaterno ?? string.Empty
-                })
-                .FirstOrDefaultAsync();
+                    UsuarioId = usuarioId,
+                    Tipo = tipo,
+                    Titulo = titulo,
+                    Cuerpo = cuerpo,
+                    Datos = datos != null ? JsonSerializer.Serialize(datos) : null,
+                    Leida = false,
+                    Fecha = DateTime.UtcNow
+                };
+                _context.Notificaciones.Add(notificacion);
+                await _context.SaveChangesAsync();
 
-            if (datosUsuario == null || string.IsNullOrWhiteSpace(datosUsuario.Correo))
-            {
-                _logger.LogWarning(
-                    "Usuario {UsuarioId} sin correo. No se envía email de tipo {Tipo}.",
-                    usuarioId, tipo);
-                return;
+                if (!plantillaEmail.HasValue) return;
+
+                var datosUsuario = await _context.Usuarios
+                    .Where(u => u.UsuarioId == usuarioId)
+                    .Select(u => new
+                    {
+                        u.Correo,
+                        Nombre = u.Persona.Nombres,
+                        Apellido = u.Persona.ApellidoPaterno ?? string.Empty
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (datosUsuario == null || string.IsNullOrWhiteSpace(datosUsuario.Correo))
+                {
+                    _logger.LogWarning(
+                        "Usuario {UsuarioId} sin correo. No se envía email de tipo {Tipo}.",
+                        usuarioId, tipo);
+                    return;
+                }
+
+                var nombreCompleto = $"{datosUsuario.Nombre} {datosUsuario.Apellido}".Trim();
+                var placeholders = placeholdersEmail ?? new Dictionary<string, string>();
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _email.EnviarAsync(
+                            datosUsuario.Correo, nombreCompleto,
+                            plantillaEmail.Value, placeholders);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex,
+                            "Error enviando email de notificación tipo {Tipo} (plantilla {Plantilla}) a usuario {UsuarioId}",
+                            tipo, plantillaEmail.Value, usuarioId);
+                    }
+                });
             }
-
-            var nombreCompleto = $"{datosUsuario.Nombre} {datosUsuario.Apellido}".Trim();
-            var placeholders = placeholdersEmail ?? new Dictionary<string, string>();
-
-            _ = Task.Run(async () =>
+            catch (Exception ex)
             {
-                try
-                {
-                    await _email.EnviarAsync(
-                        datosUsuario.Correo, nombreCompleto,
-                        plantillaEmail.Value, placeholders);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex,
-                        "Error enviando email de notificación tipo {Tipo} (plantilla {Plantilla}) a usuario {UsuarioId}",
-                        tipo, plantillaEmail.Value, usuarioId);
-                }
-            });
+                _logger.LogError(ex, "Error en NotificacionServicio.CrearAsync para usuario {UsuarioId}, tipo {Tipo}",
+                    usuarioId, tipo);
+            }
         }
 
         public async Task<ResultadoOperacion<PaginacionRespuestaDto<NotificacionDto>>> ListarMisAsync(
@@ -124,8 +132,8 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PaginacionRespuestaDto<NotificacionDto>>.SetError(
-                    "Error: " + ex.Message);
+                _logger.LogError(ex, "Error en NotificacionServicio.ListarMisAsync");
+                return ResultadoOperacion<PaginacionRespuestaDto<NotificacionDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -146,6 +154,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
                     usuarioId);
                 return ResultadoOperacion<int>.SetExito(0);
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> MarcarLeidaAsync(int usuarioId, long notificacionId)
@@ -165,25 +174,25 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en NotificacionServicio.MarcarLeidaAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<int>> MarcarTodasLeidasAsync(int usuarioId)
         {
             try
             {
-                var noLeidas = await _context.Notificaciones
+                var count = await _context.Notificaciones
                     .Where(n => n.UsuarioId == usuarioId && !n.Leida)
-                    .ToListAsync();
-                foreach (var n in noLeidas)
-                    n.Leida = true;
-                await _context.SaveChangesAsync();
-                return ResultadoOperacion<int>.SetExito(noLeidas.Count);
+                    .ExecuteUpdateAsync(s => s.SetProperty(n => n.Leida, true));
+                return ResultadoOperacion<int>.SetExito(count);
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<int>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en NotificacionServicio.MarcarTodasLeidasAsync");
+                return ResultadoOperacion<int>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
     }

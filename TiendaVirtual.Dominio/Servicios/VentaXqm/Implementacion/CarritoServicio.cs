@@ -1,10 +1,12 @@
 using System;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Modelo.VentaXqm;
+using TiendaVirtual.Dominio.Utilidad;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.Sistema;
 using TiendaVirtual.Intercambio.Dto.VentaXqm;
@@ -21,8 +23,13 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
         private const int STOCK_INFINITO_PATRON = 999999;
 
         protected readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<CarritoServicio> _logger;
 
-        public CarritoServicio(TiendaVirtualDbContext context) => _context = context;
+        public CarritoServicio(TiendaVirtualDbContext context, ILogger<CarritoServicio> logger)
+        {
+            _context = context;
+            _logger = logger;
+        }
 
         public async Task<ResultadoOperacion<CarritoDto>> ObtenerMiCarritoAsync(int usuarioId)
         {
@@ -34,8 +41,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<CarritoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en CarritoServicio.ObtenerMiCarritoAsync");
+                return ResultadoOperacion<CarritoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<CarritoDto>> AgregarItemAsync(int usuarioId, AgregarItemCarritoDto dto)
@@ -84,7 +93,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
                 if (cantidadFinal > stockDisponible)
                     return ResultadoOperacion<CarritoDto>.SetError(
-                        $"Solo hay {stockDisponible} unidad(es) disponible(s) de este producto.");
+                        "No hay stock suficiente para la cantidad que pediste.");
 
                 if (existente != null)
                 {
@@ -109,8 +118,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<CarritoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en CarritoServicio.AgregarItemAsync");
+                return ResultadoOperacion<CarritoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<CarritoDto>> ActualizarItemAsync(
@@ -134,7 +145,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 var stockDisponible = ObtenerStockDisponible(item.Variante);
                 if (dto.Cantidad > stockDisponible)
                     return ResultadoOperacion<CarritoDto>.SetError(
-                        $"Solo hay {stockDisponible} unidad(es) disponible(s) de este producto.");
+                        "No hay stock suficiente para la cantidad que pediste.");
 
                 item.Cantidad = dto.Cantidad;
                 carrito.FechaActualizacion = DateTime.UtcNow;
@@ -145,8 +156,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<CarritoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en CarritoServicio.ActualizarItemAsync");
+                return ResultadoOperacion<CarritoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<CarritoDto>> QuitarItemAsync(int usuarioId, int itemId)
@@ -169,8 +182,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<CarritoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en CarritoServicio.QuitarItemAsync");
+                return ResultadoOperacion<CarritoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> VaciarAsync(int usuarioId)
@@ -190,7 +205,8 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en CarritoServicio.VaciarAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -222,7 +238,11 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
         private async Task<CarritoDto> ConstruirCarritoDtoAsync(int carritoId)
         {
-            var items = await _context.ItemsCarrito.AsNoTracking()
+            // Cargamos items sin traer Producto.Variantes en el mismo grafo para evitar
+            // el ciclo Variante -> Producto -> Variantes bajo AsNoTracking.
+            var items = await _context.ItemsCarrito
+                .AsSplitQuery()
+                .AsNoTracking()
                 .Include(i => i.Variante).ThenInclude(v => v.Stock)
                 .Include(i => i.Variante).ThenInclude(v => v.Producto).ThenInclude(p => p.Vendedor)
                 .Include(i => i.Variante).ThenInclude(v => v.Producto).ThenInclude(p => p.Imagenes)
@@ -233,33 +253,56 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             if (items.Count == 0)
                 return new CarritoDto();
 
-            // Cargamos ofertas vigentes de TODOS los productos del carrito en una sola query.
             var productosIds = items.Select(i => i.Variante.ProductoId).Distinct().ToList();
             var now = DateTime.UtcNow;
+
+            // Cargamos ofertas vigentes de TODOS los productos del carrito en una sola query.
+            // Nota: siempre se consulta al momento; si la oferta cambia o termina, el subtotal
+            // se recalcula la próxima vez que el cliente consulte el carrito.
             var ofertas = await _context.Ofertas.AsNoTracking()
                 .Where(o => productosIds.Contains(o.ProductoId)
                             && o.Activa
                             && o.FechaInicio <= now
                             && o.FechaFin >= now)
+                .OrderByDescending(o => o.OfertaId)
                 .ToListAsync();
+
+            // Conteo de variantes activas por producto (para decidir si aceptar precio fijo
+            // de la oferta como fallback en productos de una sola variante).
+            var conteoVariantesActivas = await _context.VariantesProducto.AsNoTracking()
+                .Where(v => productosIds.Contains(v.ProductoId) && v.Activa)
+                .GroupBy(v => v.ProductoId)
+                .Select(g => new { ProductoId = g.Key, Total = g.Count() })
+                .ToDictionaryAsync(x => x.ProductoId, x => x.Total);
 
             var itemsDto = items.Select(i =>
             {
                 var producto = i.Variante.Producto;
                 var oferta = ofertas.FirstOrDefault(o => o.ProductoId == producto.ProductoId);
 
-                var precioBase = i.Variante.Precio;
-                var precioActual = oferta?.PrecioOferta ?? precioBase;
-                decimal? precioOriginal = oferta != null && precioActual < precioBase
-                    ? precioBase
-                    : null;
+                // Aplica el porcentaje de la oferta al precio ACTUAL de la variante en carrito.
+                var totalActivas = conteoVariantesActivas.TryGetValue(producto.ProductoId, out var c) ? c : 0;
+                var soloUnaVariante = totalActivas <= 1;
+                var precioCalc = PrecioOfertaUtil.Calcular(
+                    i.Variante.Precio, oferta, soloUnaVariante);
 
                 var imagen = producto.Imagenes.FirstOrDefault(im => im.EsPrincipal)?.Url
                              ?? producto.Imagenes.OrderBy(im => im.Orden).FirstOrDefault()?.Url;
 
+                // Stock real solo se usa dentro del servidor para decidir los
+                // flags que sí se serializan. NUNCA se expone al comprador.
                 var stockDisponible = producto.Tipo == TipoProducto.Patron
                     ? STOCK_INFINITO_PATRON
                     : (i.Variante.Stock?.CantidadDisponible ?? 0);
+
+                var stockSuficiente = i.Cantidad <= stockDisponible;
+
+                // Cuando el stock alcanza para la cantidad pedida, damos un techo
+                // razonable en el stepper para no revelar el stock total. Si NO
+                // alcanza, mostramos el máximo real (que ya conoce por la falla).
+                var cantidadMaximaPermitida = stockSuficiente
+                    ? Math.Min(i.Cantidad + 10, stockDisponible)
+                    : stockDisponible;
 
                 return new ItemCarritoDto
                 {
@@ -270,11 +313,12 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                     NombreProducto = producto.Nombre,
                     NombreVariante = i.Variante.Nombre,
                     ImagenUrl = imagen,
-                    PrecioUnitario = precioActual,
-                    PrecioOriginal = precioOriginal,
+                    PrecioUnitario = precioCalc.PrecioActual,
+                    PrecioOriginal = precioCalc.TieneDescuento ? precioCalc.PrecioOriginal : null,
                     Cantidad = i.Cantidad,
-                    StockDisponible = stockDisponible,
-                    Subtotal = Math.Round(precioActual * i.Cantidad, 2),
+                    StockSuficiente = stockSuficiente,
+                    CantidadMaximaPermitida = cantidadMaximaPermitida,
+                    Subtotal = Math.Round(precioCalc.PrecioActual * i.Cantidad, 2),
                     TipoProducto = new EnumeracionDto
                     {
                         Id = (int)producto.Tipo,
@@ -304,7 +348,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 Vendedores = grupos,
                 TotalItems = itemsDto.Sum(i => i.Cantidad),
                 Subtotal = Math.Round(itemsDto.Sum(i => i.Subtotal), 2),
-                TieneItemsSinStock = itemsDto.Any(i => i.Cantidad > i.StockDisponible)
+                TieneItemsSinStock = itemsDto.Any(i => !i.StockSuficiente)
             };
         }
     }

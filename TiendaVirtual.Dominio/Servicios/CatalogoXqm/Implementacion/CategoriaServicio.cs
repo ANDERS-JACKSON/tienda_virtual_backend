@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,8 +16,13 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
     public class CategoriaServicio : ICategoriaServicio
     {
         protected readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<CategoriaServicio> _logger;
 
-        public CategoriaServicio(TiendaVirtualDbContext context) => _context = context;
+        public CategoriaServicio(TiendaVirtualDbContext context, ILogger<CategoriaServicio> logger)
+        {
+            _context = context;
+            _logger = logger;
+        }
 
         public async Task<ResultadoOperacion<List<CategoriaDto>>> ListarAsync(bool soloActivas = true)
         {
@@ -37,8 +43,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<List<CategoriaDto>>.SetError("Error al listar categorías: " + ex.Message);
+                _logger.LogError(ex, "Error en CategoriaServicio.");
+                 return ResultadoOperacion<List<CategoriaDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<List<CategoriaArbolDto>>> ObtenerArbolAsync()
@@ -73,8 +81,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<List<CategoriaArbolDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en CategoriaServicio.");
+                 return ResultadoOperacion<List<CategoriaArbolDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<CategoriaDto>> ObtenerPorIdAsync(int id)
@@ -89,8 +99,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<CategoriaDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en CategoriaServicio.");
+                return ResultadoOperacion<CategoriaDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<CategoriaDto>> CrearAsync(CrearCategoriaDto dto)
@@ -125,8 +137,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<CategoriaDto>.SetError("Error al crear: " + ex.Message);
+                _logger.LogError(ex, "Error en CategoriaServicio.");
+                return ResultadoOperacion<CategoriaDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<CategoriaDto>> ActualizarAsync(int id, ActualizarCategoriaDto dto)
@@ -158,8 +172,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<CategoriaDto>.SetError("Error al actualizar: " + ex.Message);
+                _logger.LogError(ex, "Error en CategoriaServicio.");
+                return ResultadoOperacion<CategoriaDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> DesactivarAsync(int id)
@@ -181,7 +197,8 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en CategoriaServicio.");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 

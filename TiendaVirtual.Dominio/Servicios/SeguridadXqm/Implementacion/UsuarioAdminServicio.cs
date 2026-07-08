@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Modelo.SeguridadXqm;
 using TiendaVirtual.Dominio.Servicios.SoporteXqm;
@@ -13,10 +14,12 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
         private const int LONGITUD_CLAVE = 10;
 
         private readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<UsuarioAdminServicio> _logger;
         private readonly INotificacionServicio _notificacionServicio;
 
-        public UsuarioAdminServicio(TiendaVirtualDbContext context, INotificacionServicio notificacionServicio)
+        public UsuarioAdminServicio(TiendaVirtualDbContext context, INotificacionServicio notificacionServicio, ILogger<UsuarioAdminServicio> logger)
         {
+            _logger = logger;
             _context = context;
             _notificacionServicio = notificacionServicio;
         }
@@ -75,8 +78,10 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PaginacionRespuestaDto<UsuarioAdminListadoDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en UsuarioAdminServicio.ListarAsync");
+                return ResultadoOperacion<PaginacionRespuestaDto<UsuarioAdminListadoDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<UsuarioAdminDetalleDto>> ObtenerDetalleAsync(int usuarioId)
@@ -121,8 +126,10 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<UsuarioAdminDetalleDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en UsuarioAdminServicio.ObtenerDetalleAsync");
+                return ResultadoOperacion<UsuarioAdminDetalleDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> ActivarAsync(int usuarioId)
@@ -137,12 +144,15 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en UsuarioAdminServicio.ActivarAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> DesactivarAsync(int usuarioId)
         {
+            using var trx = await _context.Database.BeginTransactionAsync();
             try
             {
                 var u = await _context.Usuarios
@@ -167,12 +177,16 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 foreach (var t in tokens) t.Revocado = true;
 
                 await _context.SaveChangesAsync();
+                await trx.CommitAsync();
                 return ResultadoOperacion<bool>.SetExito(true);
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                await trx.RollbackAsync();
+                _logger.LogError(ex, "Error en UsuarioAdminServicio.DesactivarAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> AsignarRolAsync(int usuarioId, int rolId)
@@ -199,8 +213,10 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en UsuarioAdminServicio.AsignarRolAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> QuitarRolAsync(int usuarioId, int rolId, int adminActualId)
@@ -229,8 +245,10 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en UsuarioAdminServicio.QuitarRolAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> ResetearClaveAsync(int usuarioId)
@@ -262,8 +280,10 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en UsuarioAdminServicio.ResetearClaveAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<List<RolDto>>> ListarRolesAsync()
@@ -278,7 +298,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<List<RolDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en UsuarioAdminServicio.ListarRolesAsync");
+                return ResultadoOperacion<List<RolDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -29,13 +29,19 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
 
         public CategoriaDto Categoria { get; set; } = null!;
         public TiendaPublicaDto Vendedor { get; set; } = null!;
-        public List<VarianteProductoDto> Variantes { get; set; } = new();
+        /// <summary>
+        /// Variantes del producto — versión pública sin cantidades de stock.
+        /// El comprador solo ve <c>TieneStock</c> por variante.
+        /// </summary>
+        public List<VarianteProductoPublicoDto> Variantes { get; set; } = new();
         public List<ImagenProductoDto> Imagenes { get; set; } = new();
         public OfertaDto? OfertaVigente { get; set; }
 
         // Calculados para el front
         public decimal PrecioActual { get; set; }   // precio_oferta si hay, sino precio_base
         public decimal? PrecioAnterior { get; set; } // precio_base si hay oferta, sino null
+        /// <summary>Id de la variante mostrada por defecto (misma que en catálogo).</summary>
+        public int? VarianteIdDefecto { get; set; }
         public bool TieneStock { get; set; }
     }
 }

@@ -12,6 +12,48 @@ namespace TiendaVirtual.Dominio.Extensiones.CatalogoXqm
 {
     public static class ProductoExtension
     {
+        /// <summary>
+        /// Devuelve la variante que se muestra por defecto en catálogo y detalle:
+        /// la primera activa (menor VarianteId), es decir la que el vendedor creó primero.
+        /// El comprador ve el mismo precio en catálogo y al abrir el detalle.
+        /// </summary>
+        public static VarianteProducto? ObtenerVariantePorDefecto(this Producto p)
+        {
+            if (p?.Variantes == null) return null;
+            return p.Variantes
+                .Where(v => v.Activa)
+                .OrderBy(v => v.VarianteId)
+                .FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Precio de referencia para catálogo: precio de la variante por defecto (la primera
+        /// creada). Si no hay variantes activas, cae al precio base del producto.
+        /// </summary>
+        public static decimal ObtenerPrecioCatalogo(this Producto p)
+        {
+            var variante = p.ObtenerVariantePorDefecto();
+            if (variante != null) return variante.Precio;
+            return p?.PrecioBase ?? 0;
+        }
+
+        /// <summary>Precio mínimo entre variantes activas (útil para "Desde S/…").</summary>
+        public static decimal ObtenerPrecioMinimo(this Producto p)
+        {
+            if (p?.Variantes == null) return p?.PrecioBase ?? 0;
+            var activas = p.Variantes.Where(v => v.Activa).ToList();
+            if (activas.Count > 0) return activas.Min(v => v.Precio);
+            return p.PrecioBase ?? 0;
+        }
+
+        /// <summary>Indica si el comprador debe elegir entre variantes (2+ activas o flag explícito).</summary>
+        public static bool TieneVariantesComprables(this Producto p)
+        {
+            if (p == null) return false;
+            var activas = p.Variantes?.Count(v => v.Activa) ?? 0;
+            return p.TieneVariantes || activas > 1;
+        }
+
         public static Producto ToEntidad(this ProductoDto dto)
         {
             if (dto == null)

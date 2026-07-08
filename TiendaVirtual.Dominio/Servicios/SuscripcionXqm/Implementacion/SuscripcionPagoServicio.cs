@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones.PagoXqm;
@@ -14,14 +15,15 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
     public class SuscripcionPagoServicio : ISuscripcionPagoServicio
     {
         private readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<SuscripcionPagoServicio> _logger;
         private readonly IConfiguration _config;
         private readonly INotificacionServicio _notificacionServicio;
 
-        public SuscripcionPagoServicio(
-            TiendaVirtualDbContext context,
+        public SuscripcionPagoServicio(TiendaVirtualDbContext context,
             IConfiguration config,
-            INotificacionServicio notificacionServicio)
+            INotificacionServicio notificacionServicio, ILogger<SuscripcionPagoServicio> logger)
         {
+            _logger = logger;
             _context = context;
             _config = config;
             _notificacionServicio = notificacionServicio;
@@ -99,8 +101,10 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<RespuestaInicioPagoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en SuscripcionPagoServicio.IniciarPagoAsync");
+                return ResultadoOperacion<RespuestaInicioPagoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<TransaccionDto>> ConfirmarPagoAsync(
@@ -183,8 +187,10 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<TransaccionDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en SuscripcionPagoServicio.ConfirmarPagoAsync");
+                return ResultadoOperacion<TransaccionDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<List<TransaccionDto>>> ListarMisTransaccionesAsync(int usuarioId)
@@ -199,7 +205,8 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<List<TransaccionDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en SuscripcionPagoServicio.ListarMisTransaccionesAsync");
+                return ResultadoOperacion<List<TransaccionDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Google.Apis.Auth;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using TiendaVirtual.Intercambio;
 
 namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
@@ -13,11 +14,16 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
     {
         private readonly IReadOnlyList<string> _clientIds;
         private readonly bool _isDevelopment;
+        private readonly ILogger<GoogleAuthServicio> _logger;
 
-        public GoogleAuthServicio(IConfiguration configuration, IHostEnvironment environment)
+        public GoogleAuthServicio(
+            IConfiguration configuration,
+            IHostEnvironment environment,
+            ILogger<GoogleAuthServicio> logger)
         {
             _isDevelopment = environment.IsDevelopment();
             _clientIds = ObtenerClientIds(configuration);
+            _logger = logger;
         }
 
         public async Task<ResultadoOperacion<GoogleTokenPayload>> ValidarIdTokenAsync(string idToken)
@@ -57,16 +63,17 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (InvalidJwtException ex)
             {
+                _logger.LogWarning(ex, "Error en GoogleAuthServicio.ValidarIdTokenAsync — JWT inválido");
                 var mensaje = _isDevelopment
-                    ? $"Token de Google inválido: {ex.Message}. Verifica que Google:ClientId en el backend coincida con VITE_GOOGLE_CLIENT_ID del frontend."
+                    ? "Token de Google inválido. Verifica que Google:ClientId en el backend coincida con VITE_GOOGLE_CLIENT_ID del frontend."
                     : "El token de Google es inválido o expiró. Intenta de nuevo.";
 
                 return ResultadoOperacion<GoogleTokenPayload>.SetError(mensaje);
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<GoogleTokenPayload>.SetError(
-                    "No se pudo validar el token de Google: " + ex.Message);
+                _logger.LogError(ex, "Error en GoogleAuthServicio.ValidarIdTokenAsync");
+                return ResultadoOperacion<GoogleTokenPayload>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 

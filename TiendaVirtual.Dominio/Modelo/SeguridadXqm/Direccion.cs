@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -18,6 +18,12 @@ namespace TiendaVirtual.Dominio.Modelo.SeguridadXqm
 
         [Required]
         public string NombreReceptor { get; set; } = null!;
+
+        /// <summary>
+        /// DNI (o documento) del receptor. Requerido para envíos por agencia
+        /// (Shalom pide DNI del comprador para entregar el producto).
+        /// </summary>
+        public string? DniReceptor { get; set; }
 
         public string? Telefono { get; set; }
 

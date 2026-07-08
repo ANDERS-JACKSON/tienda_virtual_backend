@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Extensions.Logging;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -59,9 +60,10 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<LoginRespuestaDto>.SetError(
-                    "Error al iniciar sesión con Google: " + ex.Message);
+                _logger.LogError(ex, "Error en AutenticacionServicio.LoginConGoogleAsync");
+                return ResultadoOperacion<LoginRespuestaDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<LoginRespuestaDto>> CompletarRegistroGoogleAsync(
@@ -125,8 +127,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             catch (Exception ex)
             {
                 await transaccion.RollbackAsync();
-                return ResultadoOperacion<LoginRespuestaDto>.SetError(
-                    "Error al completar el registro con Google: " + ex.Message);
+                _logger.LogError(ex, "Error en AutenticacionServicio.CompletarRegistroGoogleAsync");
+                return ResultadoOperacion<LoginRespuestaDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -241,8 +243,10 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<CuentaSeguridadDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en AutenticacionServicio.ObtenerSeguridadCuentaAsync");
+                return ResultadoOperacion<CuentaSeguridadDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> VincularGoogleAsync(int usuarioId, GoogleLoginDto dto)
@@ -269,7 +273,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
                 if (usuario.Correo != payload.Email)
                     return ResultadoOperacion<bool>.SetError(
-                        "El correo de Google debe coincidir con el de tu cuenta (" + usuario.Correo + ").");
+                        "El correo de Google debe coincidir con el correo de tu cuenta.");
 
                 var yaVinculado = await _context.UsuariosLoginExterno.AnyAsync(le =>
                     le.UsuarioId == usuarioId && le.Proveedor == PROVEEDOR_GOOGLE);
@@ -281,8 +285,10 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error al vincular Google: " + ex.Message);
+                _logger.LogError(ex, "Error en AutenticacionServicio.VincularGoogleAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> DesvincularGoogleAsync(int usuarioId, string contrasena)
@@ -312,7 +318,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error al desvincular Google: " + ex.Message);
+                _logger.LogError(ex, "Error en AutenticacionServicio.DesvincularGoogleAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
     }

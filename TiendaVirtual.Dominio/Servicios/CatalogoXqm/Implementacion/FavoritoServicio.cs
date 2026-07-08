@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,8 +16,13 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
     public class FavoritoServicio : IFavoritoServicio
     {
         protected readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<FavoritoServicio> _logger;
 
-        public FavoritoServicio(TiendaVirtualDbContext context) => _context = context;
+        public FavoritoServicio(TiendaVirtualDbContext context, ILogger<FavoritoServicio> logger)
+        {
+            _context = context;
+            _logger = logger;
+        }
 
         public async Task<ResultadoOperacion<PaginacionRespuestaDto<FavoritoDto>>> ListarMisFavoritosAsync(
             int usuarioId, int pagina, int tamanioPagina)
@@ -41,6 +47,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
                 var total = await query.CountAsync();
                 var favoritos = await query
+                    .AsSplitQuery()
                     .Include(f => f.Producto).ThenInclude(p => p.Vendedor)
                     .Include(f => f.Producto).ThenInclude(p => p.Categoria)
                     .Include(f => f.Producto).ThenInclude(p => p.Imagenes)
@@ -106,8 +113,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PaginacionRespuestaDto<FavoritoDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en FavoritoServicio.");
+                 return ResultadoOperacion<PaginacionRespuestaDto<FavoritoDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> AgregarAsync(int usuarioId, int productoId)
@@ -133,8 +142,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en FavoritoServicio.");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> QuitarAsync(int usuarioId, int productoId)
@@ -151,7 +162,8 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en FavoritoServicio.QuitarAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
     }

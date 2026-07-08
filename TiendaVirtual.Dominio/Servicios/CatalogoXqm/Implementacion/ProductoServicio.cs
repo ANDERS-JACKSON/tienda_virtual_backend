@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,14 +21,15 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
     public partial class ProductoServicio : IProductoServicio
     {
         protected readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<ProductoServicio> _logger;
         private readonly ISuscripcionServicio _suscripcionServicio;
         private readonly INotificacionServicio _notificacionServicio;
 
-        public ProductoServicio(
-            TiendaVirtualDbContext context,
+        public ProductoServicio(TiendaVirtualDbContext context,
             ISuscripcionServicio suscripcionServicio,
-            INotificacionServicio notificacionServicio)
+            INotificacionServicio notificacionServicio, ILogger<ProductoServicio> logger)
         {
+            _logger = logger;
             _context = context;
             _suscripcionServicio = suscripcionServicio;
             _notificacionServicio = notificacionServicio;
@@ -50,6 +52,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                         "No tienes perfil de vendedor.");
 
                 var query = _context.Productos
+                    .AsSplitQuery()
                     .Include(p => p.Categoria)
                     .Include(p => p.Variantes).ThenInclude(v => v.Stock)
                     .Include(p => p.Imagenes)
@@ -77,8 +80,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PaginacionRespuestaDto<ProductoDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ProductoServicio.ListarMisProductosAsync");
+                return ResultadoOperacion<PaginacionRespuestaDto<ProductoDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<ProductoDto>> ObtenerMiProductoAsync(int usuarioId, int productoId)
@@ -97,7 +102,8 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<ProductoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ProductoServicio.ObtenerMiProductoAsync");
+                return ResultadoOperacion<ProductoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -149,6 +155,17 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     return ResultadoOperacion<ProductoDto>.SetError(
                         "Si el producto tiene variantes, debes agregar al menos una.");
 
+                // Validación de límite de imágenes (antes de crear nada en BD)
+                var cantidadVariantes = dto.TieneVariantes
+                    ? dto.Variantes?.Count ?? 0
+                    : 1;
+                var limiteImagenes = LimiteImagenesPorVariantes(cantidadVariantes);
+                if (dto.Imagenes != null && dto.Imagenes.Count > limiteImagenes)
+                    return ResultadoOperacion<ProductoDto>.SetError(
+                        cantidadVariantes > 3
+                            ? $"Máximo {limiteImagenes} imágenes cuando el producto tiene más de 3 variantes."
+                            : $"Máximo {limiteImagenes} imágenes por producto.");
+
                 // Slug único por vendedor
                 var slug = GenerarSlugProducto(dto.Nombre, vendedor.SlugTienda);
                 if (await _context.Productos.AnyAsync(p => p.Slug == slug))
@@ -195,6 +212,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 // Variantes con stock (solo si tiene variantes; sino, ignoramos lo enviado)
                 if (dto.TieneVariantes)
                 {
+                    var variantes = new List<VarianteProducto>();
                     foreach (var v in dto.Variantes)
                     {
                         var variante = new VarianteProducto
@@ -208,14 +226,18 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                             Activa = true
                         };
                         _context.VariantesProducto.Add(variante);
-                        await _context.SaveChangesAsync();
+                        variantes.Add(variante);
+                    }
+                    await _context.SaveChangesAsync(); // UN solo save — EF asigna todos los IDs
 
+                    for (int idx = 0; idx < variantes.Count; idx++)
+                    {
                         _context.Stocks.Add(new Stock
                         {
-                            VarianteId = variante.VarianteId,
-                            CantidadDisponible = v.CantidadInicial,
+                            VarianteId = variantes[idx].VarianteId,
+                            CantidadDisponible = dto.Variantes[idx].CantidadInicial,
                             CantidadReservada = 0,
-                            UmbralStockBajo = v.UmbralStockBajo
+                            UmbralStockBajo = dto.Variantes[idx].UmbralStockBajo
                         });
                     }
                 }
@@ -231,17 +253,30 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     _context.VariantesProducto.Add(defaultVariante);
                     await _context.SaveChangesAsync();
 
-                    // PATRÓN tiene stock infinito; físico usa lo que viene del DTO
+                    // PATRÓN tiene stock infinito; físico usa CantidadInicial del DTO raíz
                     var cantidad = tipo == TipoProducto.Patron
                         ? 999999
                         : Math.Max(0, dto.CantidadInicial);
+
+                    // Compatibilidad: el front puede enviar stock en variantes[0] sin cantidadInicial raíz
+                    if (tipo != TipoProducto.Patron && cantidad == 0
+                        && dto.Variantes is { Count: > 0 })
+                    {
+                        cantidad = Math.Max(0, dto.Variantes[0].CantidadInicial);
+                    }
+
+                    var umbral = dto.UmbralStockBajo > 0
+                        ? dto.UmbralStockBajo
+                        : dto.Variantes is { Count: > 0 } && dto.Variantes[0].UmbralStockBajo > 0
+                            ? dto.Variantes[0].UmbralStockBajo
+                            : 5;
 
                     _context.Stocks.Add(new Stock
                     {
                         VarianteId = defaultVariante.VarianteId,
                         CantidadDisponible = cantidad,
                         CantidadReservada = 0,
-                        UmbralStockBajo = dto.UmbralStockBajo
+                        UmbralStockBajo = umbral
                     });
                 }
 
@@ -254,8 +289,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<ProductoDto>.SetError("Error al crear: " + ex.Message);
+                _logger.LogError(ex, "Error en ProductoServicio.CrearAsync");
+                return ResultadoOperacion<ProductoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<ProductoDto>> ActualizarAsync(
@@ -295,8 +332,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<ProductoDto>.SetError("Error al actualizar: " + ex.Message);
+                _logger.LogError(ex, "Error en ProductoServicio.ActualizarAsync");
+                return ResultadoOperacion<ProductoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> EliminarAsync(int usuarioId, int productoId)
@@ -318,8 +357,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ProductoServicio.EliminarAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> PublicarAsync(int usuarioId, int productoId)
@@ -377,8 +418,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ProductoServicio.PublicarAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> PausarAsync(int usuarioId, int productoId)
@@ -398,7 +441,8 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ProductoServicio.PausarAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -435,6 +479,16 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     UmbralStockBajo = dto.UmbralStockBajo
                 });
                 await _context.SaveChangesAsync();
+
+                var activas = await _context.VariantesProducto
+                    .CountAsync(v => v.ProductoId == productoId && v.Activa);
+                if (activas >= 2)
+                {
+                    producto.TieneVariantes = true;
+                    producto.PrecioBase = null;
+                    await _context.SaveChangesAsync();
+                }
+
                 await trx.CommitAsync();
 
                 var conStock = await _context.VariantesProducto.Include(v => v.Stock)
@@ -444,8 +498,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<VarianteProductoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ProductoServicio.AgregarVarianteAsync");
+                return ResultadoOperacion<VarianteProductoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<VarianteProductoDto>> ActualizarVarianteAsync(
@@ -475,12 +531,15 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<VarianteProductoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ProductoServicio.ActualizarVarianteAsync");
+                return ResultadoOperacion<VarianteProductoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> EliminarVarianteAsync(int usuarioId, int varianteId)
         {
+            using var trx = await _context.Database.BeginTransactionAsync();
             try
             {
                 var variante = await _context.VariantesProducto
@@ -493,12 +552,28 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     return ResultadoOperacion<bool>.SetError("No tienes permiso.");
 
                 variante.Activa = false; // soft delete
+
+                var producto = variante.Producto;
+                var restantes = await _context.VariantesProducto
+                    .Where(v => v.ProductoId == producto.ProductoId && v.Activa && v.VarianteId != varianteId)
+                    .ToListAsync();
+
+                if (restantes.Count <= 1)
+                {
+                    producto.TieneVariantes = false;
+                    if (restantes.Count == 1)
+                        producto.PrecioBase = restantes[0].Precio;
+                }
+
                 await _context.SaveChangesAsync();
+                await trx.CommitAsync();
                 return ResultadoOperacion<bool>.SetExito(true);
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                await trx.RollbackAsync();
+                _logger.LogError(ex, "Error en ProductoServicio.EliminarVarianteAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -540,7 +615,8 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<VarianteProductoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ProductoServicio.ActualizarStockAsync");
+                return ResultadoOperacion<VarianteProductoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -555,6 +631,17 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             {
                 var producto = await ValidarPropiedadProductoAsync(usuarioId, productoId);
                 if (producto == null) return ResultadoOperacion<ImagenProductoDto>.SetError("Producto no encontrado.");
+
+                var cantidadVariantes = await _context.VariantesProducto
+                    .CountAsync(v => v.ProductoId == productoId);
+                var limiteImagenes = LimiteImagenesPorVariantes(cantidadVariantes);
+                var cantidadImagenes = await _context.ImagenesProducto
+                    .CountAsync(i => i.ProductoId == productoId);
+                if (cantidadImagenes >= limiteImagenes)
+                    return ResultadoOperacion<ImagenProductoDto>.SetError(
+                        cantidadVariantes > 3
+                            ? $"Máximo {limiteImagenes} imágenes cuando el producto tiene más de 3 variantes."
+                            : $"Máximo {limiteImagenes} imágenes por producto.");
 
                 // Si esta nueva es principal, quitar el flag de las demás
                 if (dto.EsPrincipal)
@@ -580,8 +667,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<ImagenProductoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ProductoServicio.AgregarImagenAsync");
+                return ResultadoOperacion<ImagenProductoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<ImagenProductoDto>> ActualizarImagenAsync(
@@ -617,8 +706,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<ImagenProductoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ProductoServicio.ActualizarImagenAsync");
+                return ResultadoOperacion<ImagenProductoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> EliminarImagenAsync(int usuarioId, int imagenId)
@@ -640,7 +731,8 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ProductoServicio.EliminarImagenAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -655,9 +747,9 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 var producto = await ValidarPropiedadProductoAsync(usuarioId, productoId);
                 if (producto == null) return ResultadoOperacion<OfertaDto>.SetError("Producto no encontrado.");
 
-                if (dto.PorcentajeDescuento == null && dto.PrecioOferta == null)
+                if (dto.PorcentajeDescuento is not > 0 && dto.PrecioOferta is not > 0)
                     return ResultadoOperacion<OfertaDto>.SetError(
-                        "Debes indicar porcentaje de descuento o precio de oferta.");
+                        "Debes indicar un porcentaje o un precio de oferta mayor a cero.");
 
                 var fechaInicio = FechaHoraUtil.InicioDiaUtc(dto.FechaInicio);
                 var fechaFin = FechaHoraUtil.FinDiaUtc(dto.FechaFin);
@@ -666,15 +758,41 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     return ResultadoOperacion<OfertaDto>.SetError(
                         "La fecha de fin debe ser mayor que la fecha de inicio.");
 
-                // Calcular el otro campo automáticamente
-                var (porcentaje, precioOferta) = CalcularDescuento(
-                    producto.PrecioBase ?? 0, dto.PorcentajeDescuento, dto.PrecioOferta);
+                // Precio de referencia para convertir "precio fijo" → porcentaje.
+                var productoConVariantes = await _context.Productos
+                    .Include(p => p.Variantes)
+                    .AsNoTracking()
+                    .FirstAsync(p => p.ProductoId == productoId);
+
+                var precioReferencia = ObtenerPrecioReferenciaOferta(productoConVariantes);
+                if (precioReferencia <= 0)
+                    return ResultadoOperacion<OfertaDto>.SetError(
+                        "Define un precio válido (en el producto o en al menos una variante) antes de crear una oferta.");
+
+                (decimal porcentaje, decimal precioOferta) descuento;
+                try
+                {
+                    descuento = CalcularDescuento(
+                        precioReferencia, dto.PorcentajeDescuento, dto.PrecioOferta);
+                }
+                catch (ArgumentException ex)
+                {
+                    return ResultadoOperacion<OfertaDto>.SetError(ex.Message);
+                }
+
+                var (porcentaje, precioOferta) = descuento;
+
+                if (porcentaje <= 0)
+                    return ResultadoOperacion<OfertaDto>.SetError(
+                        "El descuento debe ser mayor a 0%. Si ingresaste un precio fijo, asegúrate de que sea menor al precio de la variante más barata.");
 
                 var oferta = new Oferta
                 {
                     ProductoId = productoId,
                     Nombre = dto.Nombre,
                     PorcentajeDescuento = porcentaje,
+                    // Guardamos también el precio calculado (referencial); el cálculo real se
+                    // hace siempre con el porcentaje sobre cada variante.
                     PrecioOferta = precioOferta,
                     FechaInicio = fechaInicio,
                     FechaFin = fechaFin,
@@ -687,8 +805,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<OfertaDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ProductoServicio.CrearOfertaAsync");
+                return ResultadoOperacion<OfertaDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<OfertaDto>> ActualizarOfertaAsync(
@@ -712,8 +832,36 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     return ResultadoOperacion<OfertaDto>.SetError(
                         "La fecha de fin debe ser mayor que la fecha de inicio.");
 
-                var (porcentaje, precioOferta) = CalcularDescuento(
-                    oferta.Producto.PrecioBase ?? 0, dto.PorcentajeDescuento, dto.PrecioOferta);
+                if (dto.PorcentajeDescuento is not > 0 && dto.PrecioOferta is not > 0)
+                    return ResultadoOperacion<OfertaDto>.SetError(
+                        "Debes indicar un porcentaje o un precio de oferta mayor a cero.");
+
+                var productoConVariantes = await _context.Productos
+                    .Include(p => p.Variantes)
+                    .AsNoTracking()
+                    .FirstAsync(p => p.ProductoId == oferta.ProductoId);
+
+                var precioReferencia = ObtenerPrecioReferenciaOferta(productoConVariantes);
+                if (precioReferencia <= 0)
+                    return ResultadoOperacion<OfertaDto>.SetError(
+                        "El producto no tiene un precio válido.");
+
+                (decimal porcentaje, decimal precioOferta) descuento;
+                try
+                {
+                    descuento = CalcularDescuento(
+                        precioReferencia, dto.PorcentajeDescuento, dto.PrecioOferta);
+                }
+                catch (ArgumentException ex)
+                {
+                    return ResultadoOperacion<OfertaDto>.SetError(ex.Message);
+                }
+
+                var (porcentaje, precioOferta) = descuento;
+
+                if (porcentaje <= 0)
+                    return ResultadoOperacion<OfertaDto>.SetError(
+                        "El descuento debe ser mayor a 0%. Si ingresaste un precio fijo, asegúrate de que sea menor al precio de la variante más barata.");
 
                 oferta.Nombre = dto.Nombre;
                 oferta.PorcentajeDescuento = porcentaje;
@@ -726,8 +874,59 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<OfertaDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ProductoServicio.ActualizarOfertaAsync");
+                return ResultadoOperacion<OfertaDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
+        }
+
+        public async Task<ResultadoOperacion<List<OfertaDto>>> ListarOfertasAsync(int usuarioId, int productoId)
+        {
+            try
+            {
+                var producto = await ValidarPropiedadProductoAsync(usuarioId, productoId);
+                if (producto == null)
+                    return ResultadoOperacion<List<OfertaDto>>.SetError("Producto no encontrado.");
+
+                var ofertas = await _context.Ofertas.AsNoTracking()
+                    .Where(o => o.ProductoId == productoId)
+                    .OrderByDescending(o => o.OfertaId)
+                    .ToListAsync();
+
+                return ResultadoOperacion<List<OfertaDto>>.SetExito(
+                    ofertas.Select(o => o.ToDto()).ToList());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en ProductoServicio.ListarOfertasAsync");
+                return ResultadoOperacion<List<OfertaDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
+
+        }
+
+        public async Task<ResultadoOperacion<bool>> ActivarOfertaAsync(int usuarioId, int ofertaId)
+        {
+            try
+            {
+                var oferta = await _context.Ofertas
+                    .Include(o => o.Producto)
+                    .FirstOrDefaultAsync(o => o.OfertaId == ofertaId);
+                if (oferta == null) return ResultadoOperacion<bool>.SetError("Oferta no encontrada.");
+
+                var vendedor = await ObtenerVendedorAsync(usuarioId);
+                if (vendedor == null || oferta.Producto.VendedorId != vendedor.VendedorId)
+                    return ResultadoOperacion<bool>.SetError("No tienes permiso.");
+
+                oferta.Activa = true;
+                await _context.SaveChangesAsync();
+                return ResultadoOperacion<bool>.SetExito(true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en ProductoServicio.ActivarOfertaAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
+
         }
 
         public async Task<ResultadoOperacion<bool>> DesactivarOfertaAsync(int usuarioId, int ofertaId)
@@ -749,7 +948,33 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ProductoServicio.DesactivarOfertaAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
+
+        }
+
+        public async Task<ResultadoOperacion<bool>> EliminarOfertaAsync(int usuarioId, int ofertaId)
+        {
+            try
+            {
+                var oferta = await _context.Ofertas
+                    .Include(o => o.Producto)
+                    .FirstOrDefaultAsync(o => o.OfertaId == ofertaId);
+                if (oferta == null) return ResultadoOperacion<bool>.SetError("Oferta no encontrada.");
+
+                var vendedor = await ObtenerVendedorAsync(usuarioId);
+                if (vendedor == null || oferta.Producto.VendedorId != vendedor.VendedorId)
+                    return ResultadoOperacion<bool>.SetError("No tienes permiso.");
+
+                _context.Ofertas.Remove(oferta);
+                await _context.SaveChangesAsync();
+                return ResultadoOperacion<bool>.SetExito(true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en ProductoServicio.EliminarOfertaAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -772,6 +997,9 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 .FirstOrDefaultAsync(p => p.ProductoId == productoId);
         }
 
+        private static int LimiteImagenesPorVariantes(int cantidadVariantes) =>
+            cantidadVariantes > 3 ? 6 : 4;
+
         private async Task<Producto?> ValidarPropiedadProductoAsync(int usuarioId, int productoId)
         {
             var vendedor = await ObtenerVendedorAsync(usuarioId);
@@ -781,20 +1009,43 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             return producto;
         }
 
+        /// <summary>
+        /// Convierte lo ingresado por el vendedor a la dupla (porcentaje, precio referencial).
+        /// El porcentaje es la fuente de verdad; el precio se guarda como referencia.
+        /// </summary>
         private static (decimal porcentaje, decimal precioOferta) CalcularDescuento(
-            decimal precioBase, decimal? porcentaje, decimal? precioOferta)
+            decimal precioReferencia, decimal? porcentaje, decimal? precioOferta)
         {
-            if (porcentaje.HasValue && !precioOferta.HasValue)
+            if (porcentaje is > 0 and <= 99)
             {
-                var precio = Math.Round(precioBase * (1 - porcentaje.Value / 100), 2);
-                return (porcentaje.Value, precio);
+                var pct = Math.Round(porcentaje.Value, 2);
+                var precio = Math.Round(precioReferencia * (1 - pct / 100m), 2, MidpointRounding.AwayFromZero);
+                return (pct, Math.Max(0.01m, precio));
             }
-            if (precioOferta.HasValue && !porcentaje.HasValue)
+
+            if (precioOferta is > 0 && precioReferencia > 0 && precioOferta.Value < precioReferencia)
             {
-                var p = precioBase == 0 ? 0 : Math.Round((1 - precioOferta.Value / precioBase) * 100, 2);
-                return (p, precioOferta.Value);
+                var pct = Math.Round((1 - precioOferta.Value / precioReferencia) * 100m, 2, MidpointRounding.AwayFromZero);
+                pct = Math.Clamp(pct, 0.01m, 99m);
+                return (pct, precioOferta.Value);
             }
-            return (porcentaje ?? 0, precioOferta ?? 0);
+
+            throw new ArgumentException(
+                "Ingresa un porcentaje entre 1 y 99, o un precio fijo menor al precio del producto.");
+        }
+
+        /// <summary>
+        /// Precio que se usa como base para convertir la oferta a porcentaje.
+        /// Si el producto tiene variantes activas, usa la más barata (así el porcentaje
+        /// resultante nunca deja precios negativos en ninguna variante).
+        /// Si no, cae al precio base del producto.
+        /// </summary>
+        private static decimal ObtenerPrecioReferenciaOferta(Producto producto)
+        {
+            var variantes = producto.Variantes;
+            if (variantes != null && variantes.Any(v => v.Activa))
+                return variantes.Where(v => v.Activa).Min(v => v.Precio);
+            return producto.PrecioBase ?? 0;
         }
 
         private static string GenerarSlugProducto(string nombre, string slugTienda)

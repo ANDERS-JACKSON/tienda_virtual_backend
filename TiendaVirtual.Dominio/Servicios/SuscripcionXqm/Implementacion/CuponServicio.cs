@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones.VendedorXqm;
 using TiendaVirtual.Dominio.Modelo.VendedorXqm;
@@ -11,8 +12,13 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
     public class CuponServicio : ICuponServicio
     {
         private readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<CuponServicio> _logger;
 
-        public CuponServicio(TiendaVirtualDbContext context) => _context = context;
+        public CuponServicio(TiendaVirtualDbContext context, ILogger<CuponServicio> logger)
+        {
+            _context = context;
+            _logger = logger;
+        }
 
         public async Task<ResultadoOperacion<List<CuponDto>>> ListarAsync()
         {
@@ -25,8 +31,10 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<List<CuponDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en CuponServicio.ListarAsync");
+                return ResultadoOperacion<List<CuponDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<CuponDto>> CrearAsync(CrearCuponDto dto)
@@ -59,12 +67,15 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             }
             catch (DbUpdateException ex)
             {
-                return ResultadoOperacion<CuponDto>.SetError(ObtenerMensajeDb(ex));
+                _logger.LogError(ex, "Error en CuponServicio.CrearAsync");
+                return ResultadoOperacion<CuponDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<CuponDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en CuponServicio.CrearAsync");
+                return ResultadoOperacion<CuponDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<CuponDto>> ActualizarAsync(int id, ActualizarCuponDto dto)
@@ -98,22 +109,33 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             }
             catch (DbUpdateException ex)
             {
-                return ResultadoOperacion<CuponDto>.SetError(ObtenerMensajeDb(ex));
+                _logger.LogError(ex, "Error en CuponServicio.ActualizarAsync");
+                return ResultadoOperacion<CuponDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<CuponDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en CuponServicio.ActualizarAsync");
+                return ResultadoOperacion<CuponDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> DesactivarAsync(int id)
         {
-            var cupon = await _context.Cupones.FirstOrDefaultAsync(x => x.CuponId == id);
-            if (cupon == null)
-                return ResultadoOperacion<bool>.SetError("Cupón no encontrado.");
-            cupon.Activo = false;
-            await _context.SaveChangesAsync();
-            return ResultadoOperacion<bool>.SetExito(true);
+            try
+            {
+                var cupon = await _context.Cupones.FirstOrDefaultAsync(x => x.CuponId == id);
+                if (cupon == null)
+                    return ResultadoOperacion<bool>.SetError("Cupón no encontrado.");
+                cupon.Activo = false;
+                await _context.SaveChangesAsync();
+                return ResultadoOperacion<bool>.SetExito(true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en CuponServicio.DesactivarAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
         }
 
         public async Task<ResultadoOperacion<CuponValidadoDto>> ValidarAsync(int usuarioId, ValidarCuponDto dto)
@@ -180,7 +202,8 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<CuponValidadoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en CuponServicio.ValidarAsync");
+                return ResultadoOperacion<CuponValidadoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -216,8 +239,5 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
 
         private static int? NormalizarUsosMaximos(int? usosMaximos) =>
             usosMaximos is null or <= 0 ? null : usosMaximos;
-
-        private static string ObtenerMensajeDb(DbUpdateException ex) =>
-            ex.InnerException?.Message ?? ex.Message;
     }
 }

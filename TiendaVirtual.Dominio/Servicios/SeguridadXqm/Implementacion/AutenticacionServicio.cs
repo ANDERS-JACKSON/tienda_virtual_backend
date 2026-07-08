@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
@@ -23,6 +24,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
     public partial class AutenticacionServicio : IAutenticacionServicio
     {
         protected readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<AutenticacionServicio> _logger;
         protected readonly JwtTokenService _jwtService;
         protected readonly ITwoFactorService _twoFactorService;
         protected readonly IConfiguration _configuration;
@@ -36,14 +38,14 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
         // Roles que exigen 2FA obligatorio
         private static readonly string[] ROLES_CON_2FA = { "ADMIN", "VERIFICADOR" };
 
-        public AutenticacionServicio(
-            TiendaVirtualDbContext context,
+        public AutenticacionServicio(TiendaVirtualDbContext context,
             JwtTokenService jwtService,
             ITwoFactorService twoFactorService,
             IConfiguration configuration,
             INotificacionServicio notificacionServicio,
-            IGoogleAuthServicio googleAuth)
+            IGoogleAuthServicio googleAuth, ILogger<AutenticacionServicio> logger)
         {
+            _logger = logger;
             _context = context;
             _jwtService = jwtService;
             _twoFactorService = twoFactorService;
@@ -77,7 +79,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<LoginRespuestaDto>.SetError("Error al iniciar sesión: " + ex.Message);
+                _logger.LogError(ex, "Error en AutenticacionServicio.");
+                return ResultadoOperacion<LoginRespuestaDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -158,8 +161,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<TokenRespuestaDto>.SetError(
-                    "Error al verificar el código: " + ex.Message);
+                _logger.LogError(ex, "Error en AutenticacionServicio.VerificarDosFactoresAsync");
+                return ResultadoOperacion<TokenRespuestaDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -217,7 +220,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             catch (Exception ex)
             {
                 await transaccion.RollbackAsync();
-                return ResultadoOperacion<RegistroRespuestaDto>.SetError("Error al registrar cliente: " + ex.Message);
+                _logger.LogError(ex, "Error en AutenticacionServicio.RegistrarClienteAsync");
+                return ResultadoOperacion<RegistroRespuestaDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -304,7 +308,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             catch (Exception ex)
             {
                 await transaccion.RollbackAsync();
-                return ResultadoOperacion<RegistroRespuestaDto>.SetError("Error al registrar vendedor: " + ex.Message);
+                _logger.LogError(ex, "Error en AutenticacionServicio.");
+                return ResultadoOperacion<RegistroRespuestaDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -360,7 +365,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             catch (Exception ex)
             {
                 await transaccion.RollbackAsync();
-                return ResultadoOperacion<RegistroRespuestaDto>.SetError("Error al registrar administrador: " + ex.Message);
+                _logger.LogError(ex, "Error en AutenticacionServicio.");
+                return ResultadoOperacion<RegistroRespuestaDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -417,8 +423,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<string>.SetError(
-                    "Error al recuperar contraseña: " + ex.Message);
+                _logger.LogError(ex, "Error en AutenticacionServicio.RecuperarContrasenaAsync");
+                return ResultadoOperacion<string>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -458,8 +464,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError(
-                    "Error al cambiar la contraseña: " + ex.Message);
+                _logger.LogError(ex, "Error en AutenticacionServicio.CambiarContrasenaAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -507,8 +513,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError(
-                    "Error al establecer la contraseña: " + ex.Message);
+                _logger.LogError(ex, "Error en AutenticacionServicio.EstablecerContrasenaAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -553,7 +559,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<TokenRespuestaDto>.SetError("Error al refrescar token: " + ex.Message);
+                _logger.LogError(ex, "Error en AutenticacionServicio.");
+                return ResultadoOperacion<TokenRespuestaDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -580,7 +587,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error al cerrar sesión: " + ex.Message);
+                _logger.LogError(ex, "Error en AutenticacionServicio.");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -598,7 +606,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en AutenticacionServicio.");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 

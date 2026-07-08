@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Modelo.SoporteXqm;
@@ -11,10 +12,12 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
     public class ResenaServicio : IResenaServicio
     {
         private readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<ResenaServicio> _logger;
         private readonly INotificacionServicio _notif;
 
-        public ResenaServicio(TiendaVirtualDbContext context, INotificacionServicio notif)
+        public ResenaServicio(TiendaVirtualDbContext context, INotificacionServicio notif, ILogger<ResenaServicio> logger)
         {
+            _logger = logger;
             _context = context;
             _notif = notif;
         }
@@ -85,8 +88,10 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<ResenaProductoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ResenaServicio.CrearResenaProductoAsync");
+                return ResultadoOperacion<ResenaProductoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<ResenaVendedorDto>> CrearResenaVendedorAsync(
@@ -154,8 +159,10 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<ResenaVendedorDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ResenaServicio.CrearResenaVendedorAsync");
+                return ResultadoOperacion<ResenaVendedorDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<ResenaProductoDto>> ResponderResenaProductoAsync(
@@ -191,8 +198,44 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<ResenaProductoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ResenaServicio.ResponderResenaProductoAsync");
+                return ResultadoOperacion<ResenaProductoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
+        }
+
+        public async Task<ResultadoOperacion<ResenaProductoResumenDto>> ObtenerResumenProductoAsync(int productoId)
+        {
+            try
+            {
+                var filas = await _context.ResenasProducto.AsNoTracking()
+                    .Where(r => r.ProductoId == productoId)
+                    .GroupBy(r => r.Calificacion)
+                    .Select(g => new { Estrellas = g.Key, Cantidad = g.Count() })
+                    .ToListAsync();
+
+                var distribucion = Enumerable.Range(1, 5).ToDictionary(
+                    e => e,
+                    e => filas.FirstOrDefault(f => f.Estrellas == e)?.Cantidad ?? 0);
+
+                var total = distribucion.Values.Sum();
+                var promedio = total > 0
+                    ? Math.Round((decimal)filas.Sum(f => f.Estrellas * f.Cantidad) / total, 1)
+                    : 0m;
+
+                return ResultadoOperacion<ResenaProductoResumenDto>.SetExito(new ResenaProductoResumenDto
+                {
+                    Promedio = promedio,
+                    Total = total,
+                    Distribucion = distribucion
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en ResenaServicio.ObtenerResumenProductoAsync");
+                return ResultadoOperacion<ResenaProductoResumenDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
+
         }
 
         public async Task<ResultadoOperacion<PaginacionRespuestaDto<ResenaProductoDto>>> ListarPorProductoAsync(
@@ -243,8 +286,10 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PaginacionRespuestaDto<ResenaProductoDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ResenaServicio.ListarPorProductoAsync");
+                return ResultadoOperacion<PaginacionRespuestaDto<ResenaProductoDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<PaginacionRespuestaDto<ResenaVendedorDto>>> ListarPorVendedorAsync(
@@ -288,8 +333,10 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PaginacionRespuestaDto<ResenaVendedorDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ResenaServicio.ListarPorVendedorAsync");
+                return ResultadoOperacion<PaginacionRespuestaDto<ResenaVendedorDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<List<PendienteResenaDto>>> ObtenerPendientesAsync(int usuarioId)
@@ -301,6 +348,8 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
                     .Include(i => i.Suborden).ThenInclude(s => s.Vendedor)
                     .Where(i => i.Suborden.Orden.ClienteId == usuarioId &&
                                 i.Suborden.Estado == TipoEstadoSuborden.Entregada)
+                    .OrderByDescending(i => i.Suborden.SubordenId)
+                    .Take(200)
                     .ToListAsync();
 
                 var itemIds = items.Select(i => i.ItemOrdenId).ToList();
@@ -343,7 +392,8 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<List<PendienteResenaDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ResenaServicio.ObtenerPendientesAsync");
+                return ResultadoOperacion<List<PendienteResenaDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 

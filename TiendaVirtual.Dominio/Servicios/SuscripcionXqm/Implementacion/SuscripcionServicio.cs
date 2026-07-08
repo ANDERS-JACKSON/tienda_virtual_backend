@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones.VendedorXqm;
 using TiendaVirtual.Dominio.Modelo.VendedorXqm;
@@ -12,10 +13,12 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
     public class SuscripcionServicio : ISuscripcionServicio
     {
         private readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<SuscripcionServicio> _logger;
         private readonly INotificacionServicio _notificacionServicio;
 
-        public SuscripcionServicio(TiendaVirtualDbContext context, INotificacionServicio notificacionServicio)
+        public SuscripcionServicio(TiendaVirtualDbContext context, INotificacionServicio notificacionServicio, ILogger<SuscripcionServicio> logger)
         {
+            _logger = logger;
             _context = context;
             _notificacionServicio = notificacionServicio;
         }
@@ -46,8 +49,10 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<SuscripcionDto?>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en SuscripcionServicio.ObtenerMiSuscripcionAsync");
+                return ResultadoOperacion<SuscripcionDto?>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<SuscripcionElegibilidadDto>> ObtenerElegibilidadAsync(int usuarioId)
@@ -94,8 +99,10 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<SuscripcionElegibilidadDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en SuscripcionServicio.ObtenerElegibilidadAsync");
+                return ResultadoOperacion<SuscripcionElegibilidadDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<SuscripcionDto>> IniciarAsync(int usuarioId, IniciarSuscripcionDto dto)
@@ -121,8 +128,10 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<SuscripcionDto>.SetError("Error al iniciar suscripción: " + ex.Message);
+                _logger.LogError(ex, "Error en SuscripcionServicio.IniciarAsync");
+                return ResultadoOperacion<SuscripcionDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<SuscripcionDto>> ReactivarPlanAsync(int usuarioId, IniciarSuscripcionDto dto)
@@ -150,8 +159,10 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<SuscripcionDto>.SetError("Error al reactivar suscripción: " + ex.Message);
+                _logger.LogError(ex, "Error en SuscripcionServicio.ReactivarPlanAsync");
+                return ResultadoOperacion<SuscripcionDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<SuscripcionDto>> CambiarPlanAsync(int usuarioId, CambiarPlanDto dto)
@@ -189,8 +200,10 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<SuscripcionDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en SuscripcionServicio.CambiarPlanAsync");
+                return ResultadoOperacion<SuscripcionDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> CancelarAsync(int usuarioId)
@@ -219,15 +232,19 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en SuscripcionServicio.CancelarAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<bool> PuedeVendedorPublicarAsync(int vendedorId)
         {
             var now = DateTime.UtcNow;
             var activas = await _context.Suscripciones.AsNoTracking()
-                .Where(s => s.VendedorId == vendedorId)
+                .Where(s => s.VendedorId == vendedorId &&
+                            (s.Estado == TipoEstadoSuscripcion.EnPrueba ||
+                             s.Estado == TipoEstadoSuscripcion.Activa))
                 .ToListAsync();
             return activas.Any(s => SuscripcionBeneficiosHelper.EsComercialmenteActiva(s, now));
         }
@@ -264,30 +281,48 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PaginacionRespuestaDto<SuscripcionDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en SuscripcionServicio.ListarAdminAsync");
+                return ResultadoOperacion<PaginacionRespuestaDto<SuscripcionDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> SuspenderAsync(int suscripcionId)
         {
-            var sus = await _context.Suscripciones.FirstOrDefaultAsync(x => x.SuscripcionId == suscripcionId);
-            if (sus == null)
-                return ResultadoOperacion<bool>.SetError("Suscripción no encontrada.");
-            sus.Estado = TipoEstadoSuscripcion.Suspendida;
-            await _context.SaveChangesAsync();
-            return ResultadoOperacion<bool>.SetExito(true);
+            try
+            {
+                var sus = await _context.Suscripciones.FirstOrDefaultAsync(x => x.SuscripcionId == suscripcionId);
+                if (sus == null)
+                    return ResultadoOperacion<bool>.SetError("Suscripción no encontrada.");
+                sus.Estado = TipoEstadoSuscripcion.Suspendida;
+                await _context.SaveChangesAsync();
+                return ResultadoOperacion<bool>.SetExito(true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en SuscripcionServicio.SuspenderAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
         }
 
         public async Task<ResultadoOperacion<bool>> ReactivarAsync(int suscripcionId)
         {
-            var sus = await _context.Suscripciones.FirstOrDefaultAsync(x => x.SuscripcionId == suscripcionId);
-            if (sus == null)
-                return ResultadoOperacion<bool>.SetError("Suscripción no encontrada.");
-            if (sus.Estado != TipoEstadoSuscripcion.Suspendida)
-                return ResultadoOperacion<bool>.SetError("Solo se pueden reactivar suscripciones suspendidas.");
-            sus.Estado = TipoEstadoSuscripcion.PendientePago;
-            await _context.SaveChangesAsync();
-            return ResultadoOperacion<bool>.SetExito(true);
+            try
+            {
+                var sus = await _context.Suscripciones.FirstOrDefaultAsync(x => x.SuscripcionId == suscripcionId);
+                if (sus == null)
+                    return ResultadoOperacion<bool>.SetError("Suscripción no encontrada.");
+                if (sus.Estado != TipoEstadoSuscripcion.Suspendida)
+                    return ResultadoOperacion<bool>.SetError("Solo se pueden reactivar suscripciones suspendidas.");
+                sus.Estado = TipoEstadoSuscripcion.PendientePago;
+                await _context.SaveChangesAsync();
+                return ResultadoOperacion<bool>.SetExito(true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en SuscripcionServicio.ReactivarAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
         }
 
         public async Task<ResultadoOperacion<int>> ProcesarVencimientosAsync()
@@ -336,7 +371,8 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<int>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en SuscripcionServicio.ProcesarVencimientosAsync");
+                return ResultadoOperacion<int>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 

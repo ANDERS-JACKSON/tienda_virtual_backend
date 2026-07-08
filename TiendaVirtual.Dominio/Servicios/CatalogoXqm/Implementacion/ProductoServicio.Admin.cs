@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Utilidad;
 using TiendaVirtual.Intercambio;
@@ -18,7 +19,9 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 pagina = Math.Max(1, pagina);
                 tamanioPagina = Math.Clamp(tamanioPagina, 1, 50);
 
-                var query = _context.Productos.AsNoTracking()
+                var query = _context.Productos
+                    .AsSplitQuery()
+                    .AsNoTracking()
                     .Include(p => p.Vendedor)
                     .Include(p => p.Categoria)
                     .Include(p => p.Imagenes)
@@ -78,8 +81,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PaginacionRespuestaDto<ProductoAdminListadoDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ProductoServicio.ListarAdminAsync");
+                return ResultadoOperacion<PaginacionRespuestaDto<ProductoAdminListadoDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> OcultarAdminAsync(int productoId, OcultarProductoDto dto)
@@ -107,8 +112,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ProductoServicio.OcultarAdminAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> RestaurarAdminAsync(int productoId)
@@ -125,7 +132,8 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en ProductoServicio.ReactivarAdminAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
     }

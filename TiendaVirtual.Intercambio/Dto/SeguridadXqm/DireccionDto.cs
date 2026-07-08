@@ -12,6 +12,7 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
         public int PersonaId { get; set; }
         public string? Etiqueta { get; set; }
         public string NombreReceptor { get; set; } = null!;
+        public string? DniReceptor { get; set; }
         public string? Telefono { get; set; }
         public string Departamento { get; set; } = null!;
         public string Provincia { get; set; } = null!;

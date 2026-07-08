@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Modelo.PagoXqm;
 using TiendaVirtual.Dominio.Utilidad;
@@ -50,16 +51,19 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                         : o.CorreoCliente,
                     Total = o.Total,
                     Estado = new EnumeracionDto((int)o.Estado, o.Estado.GetDescription()),
-                    CantidadSubordenes = o.Subordenes?.Count ?? 0,
+                    CantidadSubordenes = 0,
                     FechaCreacion = o.Fecha
                 }).ToList();
 
-                // Fix suborden count - need separate query since not included
+                var ordenIds = items.Select(i => i.OrdenId).ToList();
+                var conteos = await _context.Subordenes
+                    .Where(s => ordenIds.Contains(s.OrdenId))
+                    .GroupBy(s => s.OrdenId)
+                    .Select(g => new { OrdenId = g.Key, Total = g.Count() })
+                    .ToDictionaryAsync(x => x.OrdenId, x => x.Total);
+
                 foreach (var item in items)
-                {
-                    item.CantidadSubordenes = await _context.Subordenes
-                        .CountAsync(s => s.OrdenId == item.OrdenId);
-                }
+                    item.CantidadSubordenes = conteos.TryGetValue(item.OrdenId, out var c) ? c : 0;
 
                 return ResultadoOperacion<PaginacionRespuestaDto<OrdenAdminListadoDto>>.SetExito(
                     new PaginacionRespuestaDto<OrdenAdminListadoDto>
@@ -70,8 +74,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PaginacionRespuestaDto<OrdenAdminListadoDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en OrdenServicio.ListarAdminAsync");
+                return ResultadoOperacion<PaginacionRespuestaDto<OrdenAdminListadoDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<OrdenAdminResumenDto>> ObtenerResumenAdminAsync()
@@ -95,17 +101,27 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<OrdenAdminResumenDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en OrdenServicio.ObtenerResumenAdminAsync");
+                return ResultadoOperacion<OrdenAdminResumenDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<OrdenDto>> ObtenerAdminDetalleAsync(long ordenId)
         {
-            var orden = await _context.Ordenes.AsNoTracking()
-                .FirstOrDefaultAsync(o => o.OrdenId == ordenId);
-            if (orden == null)
-                return ResultadoOperacion<OrdenDto>.SetError("Orden no encontrada.");
-            return await ObtenerMiOrdenAsync(orden.ClienteId, ordenId);
+            try
+            {
+                var orden = await _context.Ordenes.AsNoTracking()
+                    .FirstOrDefaultAsync(o => o.OrdenId == ordenId);
+                if (orden == null)
+                    return ResultadoOperacion<OrdenDto>.SetError("Orden no encontrada.");
+                return await ObtenerMiOrdenAsync(orden.ClienteId, ordenId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en OrdenServicio.ObtenerAdminDetalleAsync");
+                return ResultadoOperacion<OrdenDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
         }
 
         public async Task<ResultadoOperacion<bool>> CancelarAdminAsync(long ordenId, CancelarOrdenAdminDto dto)
@@ -159,7 +175,8 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en OrdenServicio.CancelarAdminAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
     }

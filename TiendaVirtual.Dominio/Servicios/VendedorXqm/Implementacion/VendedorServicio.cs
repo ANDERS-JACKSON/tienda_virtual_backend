@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,14 +23,15 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
     public class VendedorServicio : IVendedorServicio
     {
         protected readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<VendedorServicio> _logger;
         private readonly INotificacionServicio _notificacionServicio;
         private readonly ISuscripcionServicio _suscripcionServicio;
 
-        public VendedorServicio(
-            TiendaVirtualDbContext context,
+        public VendedorServicio(TiendaVirtualDbContext context,
             INotificacionServicio notificacionServicio,
-            ISuscripcionServicio suscripcionServicio)
+            ISuscripcionServicio suscripcionServicio, ILogger<VendedorServicio> logger)
         {
+            _logger = logger;
             _context = context;
             _notificacionServicio = notificacionServicio;
             _suscripcionServicio = suscripcionServicio;
@@ -54,8 +56,10 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<VendedorPerfilDto>.SetError("Error al obtener el perfil: " + ex.Message);
+                _logger.LogError(ex, "Error en VendedorServicio.");
+                return ResultadoOperacion<VendedorPerfilDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<ElegibilidadCreacionProductoDto>> ObtenerElegibilidadCreacionProductoAsync(int usuarioId)
@@ -111,9 +115,10 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<ElegibilidadCreacionProductoDto>.SetError(
-                    "Error al consultar elegibilidad: " + ex.Message);
+                _logger.LogError(ex, "Error en VendedorServicio.ConsultarElegibilidadCreacionProductoAsync");
+                return ResultadoOperacion<ElegibilidadCreacionProductoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<VendedorPerfilDto>> ActualizarMiPerfilAsync(int usuarioId, ActualizarPerfilVendedorDto dto)
@@ -147,8 +152,10 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<VendedorPerfilDto>.SetError("Error al actualizar el perfil: " + ex.Message);
+                _logger.LogError(ex, "Error en VendedorServicio.");
+                return ResultadoOperacion<VendedorPerfilDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<VendedorPerfilDto>> ActualizarImagenesPerfilAsync(
@@ -181,8 +188,8 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<VendedorPerfilDto>.SetError(
-                    "Error al actualizar las imágenes del perfil: " + ex.Message);
+                _logger.LogError(ex, "Error en VendedorServicio.ActualizarImagenesPerfilAsync");
+                return ResultadoOperacion<VendedorPerfilDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -240,8 +247,10 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<SolicitudVerificacionDto>.SetError("Error al enviar la solicitud: " + ex.Message);
+                _logger.LogError(ex, "Error en VendedorServicio.");
+                return ResultadoOperacion<SolicitudVerificacionDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<SolicitudVerificacionDto?>> ObtenerMiSolicitudActualAsync(int usuarioId)
@@ -266,7 +275,8 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<SolicitudVerificacionDto?>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en VendedorServicio.");
+                return ResultadoOperacion<SolicitudVerificacionDto?>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -305,8 +315,10 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PaginacionRespuestaDto<SolicitudVerificacionDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en VendedorServicio.");
+                 return ResultadoOperacion<PaginacionRespuestaDto<SolicitudVerificacionDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> AprobarSolicitudAsync(int solicitudId, int verificadorUsuarioId, ResolverSolicitudDto dto)
@@ -356,8 +368,10 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<bool>.SetError("Error al aprobar: " + ex.Message);
+                _logger.LogError(ex, "Error en VendedorServicio.");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> RechazarSolicitudAsync(int solicitudId, int verificadorUsuarioId, ResolverSolicitudDto dto)
@@ -412,7 +426,8 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<bool>.SetError("Error al rechazar: " + ex.Message);
+                _logger.LogError(ex, "Error en VendedorServicio.");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -475,8 +490,10 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PaginacionRespuestaDto<TiendaPublicaDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en VendedorServicio.");
+                 return ResultadoOperacion<PaginacionRespuestaDto<TiendaPublicaDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<TiendaPublicaDto>> ObtenerTiendaPorSlugAsync(string slug)
@@ -512,7 +529,8 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<TiendaPublicaDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en VendedorServicio.");
+                return ResultadoOperacion<TiendaPublicaDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -568,8 +586,10 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PaginacionRespuestaDto<HistoriaPublicaListadoDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en VendedorServicio.");
+                 return ResultadoOperacion<PaginacionRespuestaDto<HistoriaPublicaListadoDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<HistoriaPublicaDetalleDto>> ObtenerHistoriaPorSlugAsync(string slug)
@@ -610,7 +630,8 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<HistoriaPublicaDetalleDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en VendedorServicio.");
+                return ResultadoOperacion<HistoriaPublicaDetalleDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -680,8 +701,10 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PaginacionRespuestaDto<PedidoVendedorDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en VendedorServicio.");
+                 return ResultadoOperacion<PaginacionRespuestaDto<PedidoVendedorDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<PedidoVendedorDetalleDto>> ObtenerMisPedidoDetalleAsync(
@@ -749,6 +772,7 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
                             NombreVariante = i.NombreVariante,
                             ImagenUrl = i.ImagenUrl,
                             PrecioUnitario = i.PrecioUnitario,
+                            PrecioOriginal = i.PrecioOriginal,
                             Cantidad = i.Cantidad,
                             TotalLinea = i.TotalLinea,
                             TipoProducto = new EnumeracionDto(
@@ -761,7 +785,8 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PedidoVendedorDetalleDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en VendedorServicio.");
+                return ResultadoOperacion<PedidoVendedorDetalleDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -844,8 +869,10 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PaginacionRespuestaDto<VendedorAdminListadoDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en VendedorServicio.");
+                 return ResultadoOperacion<PaginacionRespuestaDto<VendedorAdminListadoDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<VendedorAdminDetalleDto>> ObtenerAdminDetalleAsync(int vendedorId)
@@ -900,8 +927,10 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<VendedorAdminDetalleDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en VendedorServicio.");
+                return ResultadoOperacion<VendedorAdminDetalleDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> SuspenderAdminAsync(int vendedorId, SuspenderVendedorDto dto)
@@ -934,8 +963,10 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en VendedorServicio.");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> ReactivarAdminAsync(int vendedorId)
@@ -950,7 +981,8 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en VendedorServicio.");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 

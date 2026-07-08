@@ -67,6 +67,9 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.VentaXqm
             builder.HasIndex(e => new { e.VendedorId, e.Estado }).HasDatabaseName("idx_suborden_vendedor");
             builder.HasIndex(e => e.OrdenId).HasDatabaseName("idx_suborden_orden");
 
+            builder.HasIndex(e => new { e.Estado, e.OrdenId })
+                .HasDatabaseName("idx_suborden_estado_orden");
+
             builder.HasOne(e => e.Orden)
                 .WithMany(o => o.Subordenes)
                 .HasForeignKey(e => e.OrdenId)

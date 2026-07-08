@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Modelo.PagoXqm;
 using TiendaVirtual.Dominio.Utilidad;
@@ -11,8 +12,13 @@ namespace TiendaVirtual.Dominio.Servicios.PagoXqm.Implementacion
     public class TransaccionAdminServicio : ITransaccionAdminServicio
     {
         private readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<TransaccionAdminServicio> _logger;
 
-        public TransaccionAdminServicio(TiendaVirtualDbContext context) => _context = context;
+        public TransaccionAdminServicio(TiendaVirtualDbContext context, ILogger<TransaccionAdminServicio> logger)
+        {
+            _context = context;
+            _logger = logger;
+        }
 
         public async Task<ResultadoOperacion<PaginacionRespuestaDto<TransaccionAdminListadoDto>>> ListarAsync(
             TipoTransaccion? tipo, TipoEstadoTransaccion? estado,
@@ -53,8 +59,10 @@ namespace TiendaVirtual.Dominio.Servicios.PagoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PaginacionRespuestaDto<TransaccionAdminListadoDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en TransaccionAdminServicio.ListarAsync");
+                return ResultadoOperacion<PaginacionRespuestaDto<TransaccionAdminListadoDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<TransaccionAdminResumenDto>> ObtenerResumenAsync()
@@ -88,8 +96,10 @@ namespace TiendaVirtual.Dominio.Servicios.PagoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<TransaccionAdminResumenDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en TransaccionAdminServicio.ObtenerResumenAsync");
+                return ResultadoOperacion<TransaccionAdminResumenDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<TransaccionAdminDetalleDto>> ObtenerDetalleAsync(long transaccionId)
@@ -118,8 +128,10 @@ namespace TiendaVirtual.Dominio.Servicios.PagoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<TransaccionAdminDetalleDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en TransaccionAdminServicio.ObtenerDetalleAsync");
+                return ResultadoOperacion<TransaccionAdminDetalleDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> MarcarCompletadaAsync(long transaccionId)
@@ -139,8 +151,10 @@ namespace TiendaVirtual.Dominio.Servicios.PagoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en TransaccionAdminServicio.MarcarCompletadaAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> MarcarFallidaAsync(long transaccionId, MarcarTransaccionFallidaDto dto)
@@ -160,7 +174,8 @@ namespace TiendaVirtual.Dominio.Servicios.PagoXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en TransaccionAdminServicio.MarcarFallidaAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
     }

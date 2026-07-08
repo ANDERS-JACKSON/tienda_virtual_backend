@@ -89,8 +89,10 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<long>.SetError("Error al enviar el mensaje: " + ex.Message);
+                _logger.LogError(ex, "Error en MensajeContactoServicio.CrearAsync");
+                return ResultadoOperacion<long>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<MensajeContactoDetalleDto>> ObtenerDetalleAsync(long id)
@@ -106,8 +108,10 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<MensajeContactoDetalleDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en MensajeContactoServicio.ObtenerDetalleAsync");
+                return ResultadoOperacion<MensajeContactoDetalleDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<PaginacionRespuestaDto<MensajeContactoListadoDto>>> ListarAsync(
@@ -163,9 +167,10 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<PaginacionRespuestaDto<MensajeContactoListadoDto>>.SetError(
-                    "Error: " + ex.Message);
+                _logger.LogError(ex, "Error en MensajeContactoServicio.ListarAsync");
+                return ResultadoOperacion<PaginacionRespuestaDto<MensajeContactoListadoDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> ResponderAsync(
@@ -217,8 +222,10 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error al responder: " + ex.Message);
+                _logger.LogError(ex, "Error en MensajeContactoServicio.ResponderAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> CambiarEstadoAsync(
@@ -242,8 +249,10 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en MensajeContactoServicio.CambiarEstadoAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<ContadorMensajesContactoDto>> ContarNoLeidosAsync()
@@ -258,7 +267,8 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<ContadorMensajesContactoDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en MensajeContactoServicio.ContarNoLeidosAsync");
+                return ResultadoOperacion<ContadorMensajesContactoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 

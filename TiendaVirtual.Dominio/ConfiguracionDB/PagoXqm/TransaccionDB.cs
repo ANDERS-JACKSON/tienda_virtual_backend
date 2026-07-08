@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System;
 using System.Collections.Generic;
@@ -68,6 +68,12 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.PagoXqm
 
             builder.HasIndex(e => e.Estado)
                 .HasDatabaseName("idx_transaccion_estado");
+
+            builder.HasIndex(e => e.Fecha)
+                .HasDatabaseName("idx_transaccion_fecha");
+
+            builder.HasIndex(e => new { e.Estado, e.Fecha })
+                .HasDatabaseName("idx_transaccion_estado_fecha");
 
             builder.HasOne(e => e.Orden)
                 .WithMany(o => o.Transacciones)

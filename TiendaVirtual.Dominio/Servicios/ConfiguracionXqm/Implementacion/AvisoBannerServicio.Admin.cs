@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TiendaVirtual.Dominio.Modelo.ConfiguracionXqm;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.ConfiguracionXqm;
@@ -21,8 +22,10 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<List<AvisoBannerAdminDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en AvisoBannerServicio.");
+                 return ResultadoOperacion<List<AvisoBannerAdminDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<AvisoBannerAdminDto>> CrearAsync(CrearAvisoBannerDto dto)
@@ -46,8 +49,10 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<AvisoBannerAdminDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en AvisoBannerServicio.");
+                return ResultadoOperacion<AvisoBannerAdminDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<AvisoBannerAdminDto>> ActualizarAsync(
@@ -69,8 +74,10 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<AvisoBannerAdminDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en AvisoBannerServicio.");
+                return ResultadoOperacion<AvisoBannerAdminDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> ActivarAsync(int id)
@@ -85,8 +92,10 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en AvisoBannerServicio.");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> DesactivarAsync(int id)
@@ -101,8 +110,10 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en AvisoBannerServicio.");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> EliminarAsync(int id)
@@ -118,7 +129,8 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en AvisoBannerServicio.");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 

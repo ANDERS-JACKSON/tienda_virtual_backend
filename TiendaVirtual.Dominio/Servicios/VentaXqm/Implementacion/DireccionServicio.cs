@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -17,8 +18,13 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
     public class DireccionServicio : IDireccionServicio
     {
         protected readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<DireccionServicio> _logger;
 
-        public DireccionServicio(TiendaVirtualDbContext context) => _context = context;
+        public DireccionServicio(TiendaVirtualDbContext context, ILogger<DireccionServicio> logger)
+        {
+            _context = context;
+            _logger = logger;
+        }
 
         public async Task<ResultadoOperacion<List<DireccionDto>>> ListarMisDireccionesAsync(int usuarioId)
         {
@@ -39,8 +45,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<List<DireccionDto>>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en DireccionServicio.ListarMisDireccionesAsync");
+                return ResultadoOperacion<List<DireccionDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<DireccionDto>> ObtenerPorIdAsync(int usuarioId, int direccionId)
@@ -55,8 +63,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
             catch (Exception ex)
             {
-                return ResultadoOperacion<DireccionDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en DireccionServicio.ObtenerPorIdAsync");
+                return ResultadoOperacion<DireccionDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<DireccionDto>> CrearAsync(int usuarioId, CrearDireccionDto dto)
@@ -79,6 +89,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                     PersonaId = personaId.Value,
                     Etiqueta = dto.Etiqueta?.Trim(),
                     NombreReceptor = dto.NombreReceptor.Trim(),
+                    DniReceptor = dto.DniReceptor.Trim(),
                     Telefono = dto.Telefono?.Trim(),
                     Departamento = dto.Departamento.Trim(),
                     Provincia = dto.Provincia.Trim(),
@@ -97,8 +108,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<DireccionDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en DireccionServicio.CrearAsync");
+                return ResultadoOperacion<DireccionDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<DireccionDto>> ActualizarAsync(
@@ -116,6 +129,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
                 d.Etiqueta = dto.Etiqueta?.Trim();
                 d.NombreReceptor = dto.NombreReceptor.Trim();
+                d.DniReceptor = dto.DniReceptor.Trim();
                 d.Telefono = dto.Telefono?.Trim();
                 d.Departamento = dto.Departamento.Trim();
                 d.Provincia = dto.Provincia.Trim();
@@ -132,8 +146,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<DireccionDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en DireccionServicio.ActualizarAsync");
+                return ResultadoOperacion<DireccionDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> EliminarAsync(int usuarioId, int direccionId)
@@ -172,8 +188,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en DireccionServicio.EliminarAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<bool>> MarcarPredeterminadaAsync(int usuarioId, int direccionId)
@@ -196,7 +214,8 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<bool>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en DireccionServicio.MarcarPredeterminadaAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -237,6 +256,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             PersonaId = d.PersonaId,
             Etiqueta = d.Etiqueta,
             NombreReceptor = d.NombreReceptor,
+            DniReceptor = d.DniReceptor,
             Telefono = d.Telefono,
             Departamento = d.Departamento,
             Provincia = d.Provincia,

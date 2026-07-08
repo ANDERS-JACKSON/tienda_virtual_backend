@@ -12,6 +12,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm
             int usuarioId, CrearResenaVendedorDto dto);
         Task<ResultadoOperacion<ResenaProductoDto>> ResponderResenaProductoAsync(
             int usuarioId, long resenaId, ResponderResenaDto dto);
+        Task<ResultadoOperacion<ResenaProductoResumenDto>> ObtenerResumenProductoAsync(int productoId);
         Task<ResultadoOperacion<PaginacionRespuestaDto<ResenaProductoDto>>> ListarPorProductoAsync(
             int productoId, int pagina, int tamanioPagina);
         Task<ResultadoOperacion<PaginacionRespuestaDto<ResenaVendedorDto>>> ListarPorVendedorAsync(

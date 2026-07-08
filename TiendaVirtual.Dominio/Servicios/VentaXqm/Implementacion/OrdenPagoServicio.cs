@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Modelo.PagoXqm;
@@ -15,14 +16,15 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
     public class OrdenPagoServicio : IOrdenPagoServicio
     {
         private readonly TiendaVirtualDbContext _context;
+        private readonly ILogger<OrdenPagoServicio> _logger;
         private readonly IConfiguration _config;
         private readonly INotificacionServicio _notificacionServicio;
 
-        public OrdenPagoServicio(
-            TiendaVirtualDbContext context,
+        public OrdenPagoServicio(TiendaVirtualDbContext context,
             IConfiguration config,
-            INotificacionServicio notificacionServicio)
+            INotificacionServicio notificacionServicio, ILogger<OrdenPagoServicio> logger)
         {
+            _logger = logger;
             _context = context;
             _config = config;
             _notificacionServicio = notificacionServicio;
@@ -93,8 +95,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<RespuestaInicioPagoOrdenDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en OrdenPagoServicio.IniciarPagoAsync");
+                return ResultadoOperacion<RespuestaInicioPagoOrdenDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+
         }
 
         public async Task<ResultadoOperacion<TransaccionOrdenDto>> ConfirmarPagoAsync(
@@ -188,7 +192,8 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
-                return ResultadoOperacion<TransaccionOrdenDto>.SetError("Error: " + ex.Message);
+                _logger.LogError(ex, "Error en OrdenPagoServicio.ConfirmarPagoAsync");
+                return ResultadoOperacion<TransaccionOrdenDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 

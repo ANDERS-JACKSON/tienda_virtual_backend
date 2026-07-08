@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System;
 using System.Collections.Generic;
@@ -39,6 +39,10 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.VentaXqm
                 .HasColumnName("precio_unitario")
                 .HasColumnType("numeric(10,2)");
 
+            builder.Property(e => e.PrecioOriginal)
+                .HasColumnName("precio_original")
+                .HasColumnType("numeric(10,2)");
+
             builder.Property(e => e.Cantidad)
                 .HasColumnName("cantidad");
 
@@ -65,6 +69,9 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.VentaXqm
                 .HasForeignKey(e => e.SubordenId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("fk_item_orden_suborden");
+
+            builder.HasIndex(e => e.SubordenId)
+                .HasDatabaseName("idx_item_orden_suborden");
 
             builder.HasOne(e => e.Variante)
                 .WithMany(v => v.ItemsOrden)
