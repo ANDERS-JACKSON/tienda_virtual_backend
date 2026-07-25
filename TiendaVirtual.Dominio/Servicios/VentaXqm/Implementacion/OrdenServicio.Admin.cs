@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Modelo.PagoXqm;
@@ -107,7 +107,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<OrdenDto>> ObtenerAdminDetalleAsync(long ordenId)
+        public async Task<ResultadoOperacion<OrdenDto>> ObtenerAdminDetalleAsync(Guid ordenId)
         {
             try
             {
@@ -124,7 +124,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
         }
 
-        public async Task<ResultadoOperacion<bool>> CancelarAdminAsync(long ordenId, CancelarOrdenAdminDto dto)
+        public async Task<ResultadoOperacion<bool>> CancelarAdminAsync(Guid ordenId, CancelarOrdenAdminDto dto)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -150,6 +150,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 {
                     _context.Transacciones.Add(new Transaccion
                     {
+                        TransaccionId = Guid.NewGuid(),
                         OrdenId = orden.OrdenId,
                         UsuarioId = orden.ClienteId,
                         Proveedor = "MANUAL",

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -13,36 +13,36 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm
     {
         // Listado y detalle (vendedor)
         Task<ResultadoOperacion<PaginacionRespuestaDto<ProductoDto>>> ListarMisProductosAsync(
-            int usuarioId, int pagina, int tamanioPagina);
-        Task<ResultadoOperacion<ProductoDto>> ObtenerMiProductoAsync(int usuarioId, int productoId);
+            Guid usuarioId, int pagina, int tamanioPagina);
+        Task<ResultadoOperacion<ProductoDto>> ObtenerMiProductoAsync(Guid usuarioId, int productoId);
 
         // CRUD del producto
-        Task<ResultadoOperacion<ProductoDto>> CrearAsync(int usuarioId, CrearProductoDto dto);
-        Task<ResultadoOperacion<ProductoDto>> ActualizarAsync(int usuarioId, int productoId, ActualizarProductoDto dto);
-        Task<ResultadoOperacion<bool>> EliminarAsync(int usuarioId, int productoId);
+        Task<ResultadoOperacion<ProductoDto>> CrearAsync(Guid usuarioId, CrearProductoDto dto);
+        Task<ResultadoOperacion<ProductoDto>> ActualizarAsync(Guid usuarioId, int productoId, ActualizarProductoDto dto);
+        Task<ResultadoOperacion<bool>> EliminarAsync(Guid usuarioId, int productoId);
 
         // Cambios de estado
-        Task<ResultadoOperacion<bool>> PublicarAsync(int usuarioId, int productoId);
-        Task<ResultadoOperacion<bool>> PausarAsync(int usuarioId, int productoId);
+        Task<ResultadoOperacion<bool>> PublicarAsync(Guid usuarioId, int productoId);
+        Task<ResultadoOperacion<bool>> PausarAsync(Guid usuarioId, int productoId);
 
         // Variantes
-        Task<ResultadoOperacion<VarianteProductoDto>> AgregarVarianteAsync(int usuarioId, int productoId, CrearVarianteDto dto);
-        Task<ResultadoOperacion<VarianteProductoDto>> ActualizarVarianteAsync(int usuarioId, int varianteId, ActualizarVarianteDto dto);
-        Task<ResultadoOperacion<bool>> EliminarVarianteAsync(int usuarioId, int varianteId);
-        Task<ResultadoOperacion<VarianteProductoDto>> ActualizarStockAsync(int usuarioId, int varianteId, ActualizarStockDto dto);
+        Task<ResultadoOperacion<VarianteProductoDto>> AgregarVarianteAsync(Guid usuarioId, int productoId, CrearVarianteDto dto);
+        Task<ResultadoOperacion<VarianteProductoDto>> ActualizarVarianteAsync(Guid usuarioId, int varianteId, ActualizarVarianteDto dto);
+        Task<ResultadoOperacion<bool>> EliminarVarianteAsync(Guid usuarioId, int varianteId);
+        Task<ResultadoOperacion<VarianteProductoDto>> ActualizarStockAsync(Guid usuarioId, int varianteId, ActualizarStockDto dto);
 
         // Imágenes
-        Task<ResultadoOperacion<ImagenProductoDto>> AgregarImagenAsync(int usuarioId, int productoId, CrearImagenDto dto);
-        Task<ResultadoOperacion<ImagenProductoDto>> ActualizarImagenAsync(int usuarioId, int imagenId, ActualizarImagenDto dto);
-        Task<ResultadoOperacion<bool>> EliminarImagenAsync(int usuarioId, int imagenId);
+        Task<ResultadoOperacion<ImagenProductoDto>> AgregarImagenAsync(Guid usuarioId, int productoId, CrearImagenDto dto);
+        Task<ResultadoOperacion<ImagenProductoDto>> ActualizarImagenAsync(Guid usuarioId, int imagenId, ActualizarImagenDto dto);
+        Task<ResultadoOperacion<bool>> EliminarImagenAsync(Guid usuarioId, int imagenId);
 
         // Ofertas
-        Task<ResultadoOperacion<OfertaDto>> CrearOfertaAsync(int usuarioId, int productoId, CrearOfertaDto dto);
-        Task<ResultadoOperacion<List<OfertaDto>>> ListarOfertasAsync(int usuarioId, int productoId);
-        Task<ResultadoOperacion<OfertaDto>> ActualizarOfertaAsync(int usuarioId, int ofertaId, ActualizarOfertaDto dto);
-        Task<ResultadoOperacion<bool>> ActivarOfertaAsync(int usuarioId, int ofertaId);
-        Task<ResultadoOperacion<bool>> DesactivarOfertaAsync(int usuarioId, int ofertaId);
-        Task<ResultadoOperacion<bool>> EliminarOfertaAsync(int usuarioId, int ofertaId);
+        Task<ResultadoOperacion<OfertaDto>> CrearOfertaAsync(Guid usuarioId, int productoId, CrearOfertaDto dto);
+        Task<ResultadoOperacion<List<OfertaDto>>> ListarOfertasAsync(Guid usuarioId, int productoId);
+        Task<ResultadoOperacion<OfertaDto>> ActualizarOfertaAsync(Guid usuarioId, int ofertaId, ActualizarOfertaDto dto);
+        Task<ResultadoOperacion<bool>> ActivarOfertaAsync(Guid usuarioId, int ofertaId);
+        Task<ResultadoOperacion<bool>> DesactivarOfertaAsync(Guid usuarioId, int ofertaId);
+        Task<ResultadoOperacion<bool>> EliminarOfertaAsync(Guid usuarioId, int ofertaId);
 
         // Moderación admin
         Task<ResultadoOperacion<PaginacionRespuestaDto<ProductoAdminListadoDto>>> ListarAdminAsync(

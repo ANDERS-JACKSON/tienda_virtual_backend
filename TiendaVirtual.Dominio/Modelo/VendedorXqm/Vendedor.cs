@@ -20,7 +20,7 @@ namespace TiendaVirtual.Dominio.Modelo.VendedorXqm
         public int VendedorId { get; set; }
 
         [Required]
-        public int UsuarioId { get; set; }
+        public Guid UsuarioId { get; set; }
 
         [Required]
         public string NombreTienda { get; set; } = null!;

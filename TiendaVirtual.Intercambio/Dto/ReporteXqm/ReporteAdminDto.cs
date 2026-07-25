@@ -1,4 +1,4 @@
-using TiendaVirtual.Intercambio.Dto.Sistema;
+﻿using TiendaVirtual.Intercambio.Dto.Sistema;
 
 namespace TiendaVirtual.Intercambio.Dto.ReporteXqm
 {
@@ -57,7 +57,7 @@ namespace TiendaVirtual.Intercambio.Dto.ReporteXqm
 
     public class ReporteClienteTopDto
     {
-        public long ClienteId { get; set; }
+        public Guid ClienteId { get; set; }
         public string NombreCliente { get; set; } = null!;
         public string Correo { get; set; } = null!;
         public int TotalOrdenes { get; set; }

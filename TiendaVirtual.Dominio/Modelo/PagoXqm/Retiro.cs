@@ -13,20 +13,20 @@ namespace TiendaVirtual.Dominio.Modelo.PagoXqm
 {
     public class Retiro
     {
-        public int RetiroId { get; set; }
+        public Guid RetiroId { get; set; }
 
         [Required]
         public int VendedorId { get; set; }
 
         [Required]
-        public int CuentaId { get; set; }
+        public Guid CuentaId { get; set; }
 
         public decimal Monto { get; set; }
 
         [EnumValorValido]
         public TipoEstadoRetiro Estado { get; set; }
 
-        public int? ProcesadoPor { get; set; }
+        public Guid? ProcesadoPor { get; set; }
         public string? ReferenciaTransferencia { get; set; }
         public DateTime FechaSolicitud { get; set; }
         public DateTime? FechaCompletado { get; set; }

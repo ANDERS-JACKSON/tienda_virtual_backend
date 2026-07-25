@@ -25,9 +25,9 @@ namespace TiendaVirtual.Dominio.Servicios.Sistema.Implementacion
         /// Si el usuario es vendedor, incluye también su vendedorId en los claims.
         /// </summary>
         public (string Token, DateTime ExpiraEn) GenerarToken(
-            int usuarioId,
+            Guid usuarioId,
             string correo,
-            int personaId,
+            Guid personaId,
             List<string> roles,
             int? vendedorId = null,
             int duracionMinutos = 60)
@@ -99,7 +99,7 @@ namespace TiendaVirtual.Dominio.Servicios.Sistema.Implementacion
         /// Token temporal corto (10 min) que solo sirve para validar 2FA.
         /// Si traes setupSecret, indica que es el primer enrolamiento.
         /// </summary>
-        public string GenerarTokenTemporal2Fa(int usuarioId, string? setupSecret = null, int duracionMinutos = 10)
+        public string GenerarTokenTemporal2Fa(Guid usuarioId, string? setupSecret = null, int duracionMinutos = 10)
         {
             var jwtSettings = _configuration.GetSection("Jwt");
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]!));

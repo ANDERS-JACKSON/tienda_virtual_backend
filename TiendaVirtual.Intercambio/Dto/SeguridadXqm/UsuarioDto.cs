@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,8 +9,8 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
 {
     public class UsuarioDto
     {
-        public int UsuarioId { get; set; }
-        public int PersonaId { get; set; }
+        public Guid UsuarioId { get; set; }
+        public Guid PersonaId { get; set; }
         public string Correo { get; set; } = null!;
         public string Contrasena { get; set; } = null!;
         public bool CorreoConfirmado { get; set; }

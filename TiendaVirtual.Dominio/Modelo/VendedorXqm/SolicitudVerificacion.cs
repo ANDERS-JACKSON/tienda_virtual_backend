@@ -13,7 +13,7 @@ namespace TiendaVirtual.Dominio.Modelo.VendedorXqm
 {
     public class SolicitudVerificacion
     {
-        public int SolicitudId { get; set; }
+        public Guid SolicitudId { get; set; }
 
         [Required]
         public int VendedorId { get; set; }
@@ -27,7 +27,7 @@ namespace TiendaVirtual.Dominio.Modelo.VendedorXqm
         public string? DocumentoReversoUrl { get; set; }
         public string? SelfieDocumentoUrl { get; set; }
         public string? FotosProductos { get; set; }   // JSONB
-        public int? VerificadorId { get; set; }
+        public Guid? VerificadorId { get; set; }
         public string? NotasRevisor { get; set; }
         public string? MotivoRechazo { get; set; }
         public DateTime FechaEnvio { get; set; }

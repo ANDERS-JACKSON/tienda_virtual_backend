@@ -18,5 +18,6 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
         public int? MaxProductos { get; set; }
         public decimal TasaComision { get; set; }
         public bool Activo { get; set; }
+        public PlanBeneficiosDto? Beneficios { get; set; }
     }
 }

@@ -18,10 +18,10 @@ namespace TiendaVirtual.Dominio.Modelo.SoporteXqm
         public int ProductoId { get; set; }
 
         [Required]
-        public long ItemOrdenId { get; set; }
+        public Guid ItemOrdenId { get; set; }
 
         [Required]
-        public int ClienteId { get; set; }
+        public Guid ClienteId { get; set; }
 
         public short Calificacion { get; set; }
         public string? Titulo { get; set; }

@@ -13,13 +13,13 @@ namespace TiendaVirtual.Dominio.Modelo.VentaXqm
 {
     public class Orden
     {
-        public long OrdenId { get; set; }
+        public Guid OrdenId { get; set; }
 
         [Required]
         public string NumeroOrden { get; set; } = null!;
 
         [Required]
-        public int ClienteId { get; set; }
+        public Guid ClienteId { get; set; }
 
         public decimal Subtotal { get; set; }
         public decimal TotalEnvio { get; set; }

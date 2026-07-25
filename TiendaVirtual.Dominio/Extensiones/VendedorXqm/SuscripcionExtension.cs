@@ -8,7 +8,11 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
 {
     public static class SuscripcionExtension
     {
-        public static SuscripcionDto ToDto(this Suscripcion entidad, string? nombreTienda = null, string? correoVendedor = null)
+        public static SuscripcionDto ToDto(
+            this Suscripcion entidad,
+            string? nombreTienda = null,
+            string? correoVendedor = null,
+            IReadOnlyDictionary<int, string>? nombresPlanes = null)
         {
             if (entidad == null)
                 return null!;
@@ -29,7 +33,7 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
             {
                 SuscripcionId = entidad.SuscripcionId,
                 VendedorId = entidad.VendedorId,
-                Plan = entidad.Plan.ToDto(),
+                Plan = entidad.Plan.ToDto(nombresPlanes),
                 Estado = new EnumeracionDto
                 {
                     Id = (int)estado,

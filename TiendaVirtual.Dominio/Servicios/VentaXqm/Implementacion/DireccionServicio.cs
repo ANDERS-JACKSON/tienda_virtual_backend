@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
@@ -26,7 +26,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             _logger = logger;
         }
 
-        public async Task<ResultadoOperacion<List<DireccionDto>>> ListarMisDireccionesAsync(int usuarioId)
+        public async Task<ResultadoOperacion<List<DireccionDto>>> ListarMisDireccionesAsync(Guid usuarioId)
         {
             try
             {
@@ -51,7 +51,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<DireccionDto>> ObtenerPorIdAsync(int usuarioId, int direccionId)
+        public async Task<ResultadoOperacion<DireccionDto>> ObtenerPorIdAsync(Guid usuarioId, Guid direccionId)
         {
             try
             {
@@ -69,7 +69,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<DireccionDto>> CrearAsync(int usuarioId, CrearDireccionDto dto)
+        public async Task<ResultadoOperacion<DireccionDto>> CrearAsync(Guid usuarioId, CrearDireccionDto dto)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -86,6 +86,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
                 var direccion = new Direccion
                 {
+                    DireccionId = Guid.NewGuid(),
                     PersonaId = personaId.Value,
                     Etiqueta = dto.Etiqueta?.Trim(),
                     NombreReceptor = dto.NombreReceptor.Trim(),
@@ -115,7 +116,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<DireccionDto>> ActualizarAsync(
-            int usuarioId, int direccionId, ActualizarDireccionDto dto)
+            Guid usuarioId, Guid direccionId, ActualizarDireccionDto dto)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -152,7 +153,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> EliminarAsync(int usuarioId, int direccionId)
+        public async Task<ResultadoOperacion<bool>> EliminarAsync(Guid usuarioId, Guid direccionId)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -194,7 +195,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> MarcarPredeterminadaAsync(int usuarioId, int direccionId)
+        public async Task<ResultadoOperacion<bool>> MarcarPredeterminadaAsync(Guid usuarioId, Guid direccionId)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -222,15 +223,15 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
         // ─────────────────────────────────────────────────────
         // Helpers
         // ─────────────────────────────────────────────────────
-        private async Task<int?> ObtenerPersonaIdAsync(int usuarioId)
+        private async Task<Guid?> ObtenerPersonaIdAsync(Guid usuarioId)
         {
             return await _context.Usuarios
                 .Where(u => u.UsuarioId == usuarioId)
-                .Select(u => (int?)u.PersonaId)
+                .Select(u => (Guid?)u.PersonaId)
                 .FirstOrDefaultAsync();
         }
 
-        private async Task<Direccion?> CargarDireccionPropiaAsync(int usuarioId, int direccionId)
+        private async Task<Direccion?> CargarDireccionPropiaAsync(Guid usuarioId, Guid direccionId)
         {
             var personaId = await ObtenerPersonaIdAsync(usuarioId);
             if (personaId == null) return null;
@@ -239,7 +240,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 d => d.DireccionId == direccionId && d.PersonaId == personaId);
         }
 
-        private async Task QuitarPredeterminadaAEsasOtrasAsync(int personaId, int? exceptoDireccionId)
+        private async Task QuitarPredeterminadaAEsasOtrasAsync(Guid personaId, Guid? exceptoDireccionId)
         {
             var otras = await _context.Direcciones
                 .Where(x => x.PersonaId == personaId

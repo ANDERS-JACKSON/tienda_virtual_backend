@@ -37,6 +37,7 @@ namespace TiendaVirtual.Dominio.Extensiones.CatalogoXqm
                 Slug = c.Slug,
                 ImagenUrl = c.ImagenUrl,
                 Orden = c.Orden,
+                Activa = c.Activa,
                 TotalProductos = totalProductos,
                 Subcategorias = new List<CategoriaArbolDto>()
             };

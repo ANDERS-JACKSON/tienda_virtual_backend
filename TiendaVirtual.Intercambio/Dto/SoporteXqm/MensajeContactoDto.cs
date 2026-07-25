@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using TiendaVirtual.Intercambio.Dto.Sistema;
 
 namespace TiendaVirtual.Intercambio.Dto.SoporteXqm
@@ -28,7 +28,7 @@ namespace TiendaVirtual.Intercambio.Dto.SoporteXqm
 
     public class MensajeContactoListadoDto
     {
-        public long Id { get; set; }
+        public Guid Id { get; set; }
         public string Nombre { get; set; } = null!;
         public string Correo { get; set; } = null!;
         public string Asunto { get; set; } = null!;
@@ -39,15 +39,15 @@ namespace TiendaVirtual.Intercambio.Dto.SoporteXqm
 
     public class MensajeContactoDetalleDto
     {
-        public long Id { get; set; }
-        public int? UsuarioId { get; set; }
+        public Guid Id { get; set; }
+        public Guid? UsuarioId { get; set; }
         public string Nombre { get; set; } = null!;
         public string Correo { get; set; } = null!;
         public string Asunto { get; set; } = null!;
         public string Mensaje { get; set; } = null!;
         public EnumeracionDto Estado { get; set; } = null!;
         public string? Respuesta { get; set; }
-        public int? RespondidoPor { get; set; }
+        public Guid? RespondidoPor { get; set; }
         public string? NombreRespondedor { get; set; }
         public DateTime? FechaRespuesta { get; set; }
         public DateTime FechaMensaje { get; set; }

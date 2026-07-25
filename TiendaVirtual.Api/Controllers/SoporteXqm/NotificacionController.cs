@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TiendaVirtual.Dominio.Servicios.SoporteXqm;
@@ -43,8 +43,8 @@ namespace TiendaVirtual.Api.Controllers.SoporteXqm
                 : StatusCode(StatusCodes.Status500InternalServerError, r);
         }
 
-        [HttpPost("{id:long}/leer")]
-        public async Task<ActionResult<ResultadoOperacion<bool>>> Leer(long id)
+        [HttpPost("{id:guid}/leer")]
+        public async Task<ActionResult<ResultadoOperacion<bool>>> Leer(Guid id)
         {
             var uid = ObtenerUsuarioId();
             if (uid == null) return Unauthorized();
@@ -61,10 +61,10 @@ namespace TiendaVirtual.Api.Controllers.SoporteXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
-        private int? ObtenerUsuarioId()
+        private Guid? ObtenerUsuarioId()
         {
             var claim = _http.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier);
-            return int.TryParse(claim?.Value, out var id) ? id : null;
+            return Guid.TryParse(claim?.Value, out var id) && id != Guid.Empty ? id : null;
         }
     }
 }

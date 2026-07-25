@@ -27,14 +27,15 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                     .Where(p => p.Activo)
                     .OrderBy(p => p.Precio)
                     .ToListAsync();
-                return ResultadoOperacion<List<PlanDto>>.SetExito(planes.Select(p => p.ToDto()).ToList());
+                var nombres = await MapaNombresAsync();
+                return ResultadoOperacion<List<PlanDto>>.SetExito(
+                    planes.Select(p => p.ToDto(nombres)).ToList());
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error en PlanServicio.ListarActivosAsync");
                 return ResultadoOperacion<List<PlanDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
-
         }
 
         public async Task<ResultadoOperacion<List<PlanDto>>> ListarTodosAsync()
@@ -42,14 +43,15 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             try
             {
                 var planes = await _context.Planes.AsNoTracking().OrderBy(p => p.Precio).ToListAsync();
-                return ResultadoOperacion<List<PlanDto>>.SetExito(planes.Select(p => p.ToDto()).ToList());
+                var nombres = await MapaNombresAsync();
+                return ResultadoOperacion<List<PlanDto>>.SetExito(
+                    planes.Select(p => p.ToDto(nombres)).ToList());
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error en PlanServicio.ListarTodosAsync");
                 return ResultadoOperacion<List<PlanDto>>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
-
         }
 
         public async Task<ResultadoOperacion<PlanDto>> ObtenerPorIdAsync(int id)
@@ -59,7 +61,8 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                 var plan = await _context.Planes.AsNoTracking().FirstOrDefaultAsync(p => p.PlanId == id);
                 if (plan == null)
                     return ResultadoOperacion<PlanDto>.SetError("Plan no encontrado.");
-                return ResultadoOperacion<PlanDto>.SetExito(plan.ToDto());
+                var nombres = await MapaNombresAsync();
+                return ResultadoOperacion<PlanDto>.SetExito(plan.ToDto(nombres));
             }
             catch (Exception ex)
             {
@@ -76,6 +79,10 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                 if (await _context.Planes.AnyAsync(p => p.Codigo == codigo))
                     return ResultadoOperacion<PlanDto>.SetError("Ya existe un plan con ese código.");
 
+                var errorBeneficios = await ValidarBeneficiosAsync(dto.Beneficios, planIdExcluir: null);
+                if (errorBeneficios != null)
+                    return ResultadoOperacion<PlanDto>.SetError(errorBeneficios);
+
                 var plan = new Plan
                 {
                     Codigo = codigo,
@@ -85,18 +92,21 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                     Periodo = (TipoPeriodoPlan)dto.Periodo.Id,
                     MaxProductos = dto.MaxProductos,
                     TasaComision = dto.TasaComision,
-                    Activo = true
+                    Activo = true,
+                    Beneficios = PlanExtension.SerializarBeneficios(
+                        dto.Beneficios ?? BeneficiosPorDefecto())
                 };
                 _context.Planes.Add(plan);
                 await _context.SaveChangesAsync();
-                return ResultadoOperacion<PlanDto>.SetExito(plan.ToDto());
+
+                var nombres = await MapaNombresAsync();
+                return ResultadoOperacion<PlanDto>.SetExito(plan.ToDto(nombres));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error en PlanServicio.CrearAsync");
                 return ResultadoOperacion<PlanDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
-
         }
 
         public async Task<ResultadoOperacion<PlanDto>> ActualizarAsync(int id, ActualizarPlanDto dto)
@@ -107,12 +117,11 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                 if (plan == null)
                     return ResultadoOperacion<PlanDto>.SetError("Plan no encontrado.");
 
-                var nuevoCodigo = dto.Codigo.Trim().ToUpperInvariant();
-                if (nuevoCodigo != plan.Codigo &&
-                    await _context.Planes.AnyAsync(p => p.Codigo == nuevoCodigo && p.PlanId != id))
-                    return ResultadoOperacion<PlanDto>.SetError("Ya existe otro plan con ese código.");
+                var errorBeneficios = await ValidarBeneficiosAsync(dto.Beneficios, planIdExcluir: id);
+                if (errorBeneficios != null)
+                    return ResultadoOperacion<PlanDto>.SetError(errorBeneficios);
 
-                plan.Codigo = nuevoCodigo;
+                // El código del plan es inmutable: no se actualiza nunca.
                 plan.Nombre = dto.Nombre.Trim();
                 plan.Descripcion = dto.Descripcion?.Trim();
                 plan.Precio = dto.Precio;
@@ -120,16 +129,19 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                 plan.MaxProductos = dto.MaxProductos;
                 plan.TasaComision = dto.TasaComision;
                 plan.Activo = dto.Activo;
+                if (dto.Beneficios != null)
+                    plan.Beneficios = PlanExtension.SerializarBeneficios(dto.Beneficios);
 
                 await _context.SaveChangesAsync();
-                return ResultadoOperacion<PlanDto>.SetExito(plan.ToDto());
+
+                var nombres = await MapaNombresAsync();
+                return ResultadoOperacion<PlanDto>.SetExito(plan.ToDto(nombres));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error en PlanServicio.ActualizarAsync");
                 return ResultadoOperacion<PlanDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
-
         }
 
         public async Task<ResultadoOperacion<bool>> CambiarEstadoAsync(int id, bool activo)
@@ -161,5 +173,39 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                 return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
+
+        private async Task<Dictionary<int, string>> MapaNombresAsync()
+        {
+            return await _context.Planes.AsNoTracking()
+                .Select(p => new { p.PlanId, p.Nombre })
+                .ToDictionaryAsync(x => x.PlanId, x => x.Nombre);
+        }
+
+        private async Task<string?> ValidarBeneficiosAsync(PlanBeneficiosDto? beneficios, int? planIdExcluir)
+        {
+            if (beneficios?.HeredaDePlanId is not int baseId)
+                return null;
+
+            if (planIdExcluir.HasValue && baseId == planIdExcluir.Value)
+                return "Un plan no puede heredar de sí mismo.";
+
+            var existe = await _context.Planes.AsNoTracking()
+                .AnyAsync(p => p.PlanId == baseId);
+            if (!existe)
+                return "El plan del que hereda no existe.";
+
+            return null;
+        }
+
+        private static PlanBeneficiosDto BeneficiosPorDefecto() => new()
+        {
+            Etiqueta = "Incluye",
+            Destacado = false,
+            Items = new List<PlanBeneficioItemDto>
+            {
+                new() { Texto = "Tienda pública en el marketplace", Incluido = true },
+                new() { Texto = "Panel de pedidos y productos", Incluido = true }
+            }
+        };
     }
 }

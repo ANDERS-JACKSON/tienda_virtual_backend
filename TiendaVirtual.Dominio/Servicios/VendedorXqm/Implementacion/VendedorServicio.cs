@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -40,7 +40,7 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
         // ─────────────────────────────────────────────────────────────
         // PERFIL PROPIO
         // ─────────────────────────────────────────────────────────────
-        public async Task<ResultadoOperacion<VendedorPerfilDto>> ObtenerMiPerfilAsync(int usuarioId)
+        public async Task<ResultadoOperacion<VendedorPerfilDto>> ObtenerMiPerfilAsync(Guid usuarioId)
         {
             try
             {
@@ -62,7 +62,7 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<ElegibilidadCreacionProductoDto>> ObtenerElegibilidadCreacionProductoAsync(int usuarioId)
+        public async Task<ResultadoOperacion<ElegibilidadCreacionProductoDto>> ObtenerElegibilidadCreacionProductoAsync(Guid usuarioId)
         {
             try
             {
@@ -121,7 +121,7 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<VendedorPerfilDto>> ActualizarMiPerfilAsync(int usuarioId, ActualizarPerfilVendedorDto dto)
+        public async Task<ResultadoOperacion<VendedorPerfilDto>> ActualizarMiPerfilAsync(Guid usuarioId, ActualizarPerfilVendedorDto dto)
         {
             try
             {
@@ -159,7 +159,7 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<VendedorPerfilDto>> ActualizarImagenesPerfilAsync(
-            int usuarioId, ActualizarImagenesPerfilVendedorDto dto)
+            Guid usuarioId, ActualizarImagenesPerfilVendedorDto dto)
         {
             try
             {
@@ -196,7 +196,7 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
         // ─────────────────────────────────────────────────────────────
         // SOLICITUD DE VERIFICACIÓN
         // ─────────────────────────────────────────────────────────────
-        public async Task<ResultadoOperacion<SolicitudVerificacionDto>> EnviarSolicitudVerificacionAsync(int usuarioId, EnviarSolicitudVerificacionDto dto)
+        public async Task<ResultadoOperacion<SolicitudVerificacionDto>> EnviarSolicitudVerificacionAsync(Guid usuarioId, EnviarSolicitudVerificacionDto dto)
         {
             try
             {
@@ -230,6 +230,7 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
 
                 var solicitud = new SolicitudVerificacion
                 {
+                    SolicitudId = Guid.NewGuid(),
                     VendedorId = vendedor.VendedorId,
                     Estado = TipoEstadoSolicitudVerificacion.Enviada,
                     DocumentoFrenteUrl = dto.DocumentoFrenteUrl,
@@ -253,7 +254,7 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<SolicitudVerificacionDto?>> ObtenerMiSolicitudActualAsync(int usuarioId)
+        public async Task<ResultadoOperacion<SolicitudVerificacionDto?>> ObtenerMiSolicitudActualAsync(Guid usuarioId)
         {
             try
             {
@@ -321,7 +322,7 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> AprobarSolicitudAsync(int solicitudId, int verificadorUsuarioId, ResolverSolicitudDto dto)
+        public async Task<ResultadoOperacion<bool>> AprobarSolicitudAsync(Guid solicitudId, Guid verificadorUsuarioId, ResolverSolicitudDto dto)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -374,7 +375,7 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> RechazarSolicitudAsync(int solicitudId, int verificadorUsuarioId, ResolverSolicitudDto dto)
+        public async Task<ResultadoOperacion<bool>> RechazarSolicitudAsync(Guid solicitudId, Guid verificadorUsuarioId, ResolverSolicitudDto dto)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -639,7 +640,7 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
         // PEDIDOS DEL VENDEDOR
         // ─────────────────────────────────────────────────────────────
         public async Task<ResultadoOperacion<PaginacionRespuestaDto<PedidoVendedorDto>>> ListarMisPedidosAsync(
-            int usuarioId, TipoEstadoSuborden? estado, int pagina, int tamanioPagina)
+            Guid usuarioId, TipoEstadoSuborden? estado, int pagina, int tamanioPagina)
         {
             try
             {
@@ -708,7 +709,7 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<PedidoVendedorDetalleDto>> ObtenerMisPedidoDetalleAsync(
-            int usuarioId, long subordenId)
+            Guid usuarioId, Guid subordenId)
         {
             try
             {

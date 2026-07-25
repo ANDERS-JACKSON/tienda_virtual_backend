@@ -1,8 +1,8 @@
-namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
+﻿namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
 {
     public class UsuarioAdminListadoDto
     {
-        public int UsuarioId { get; set; }
+        public Guid UsuarioId { get; set; }
         public string Correo { get; set; } = null!;
         public string NombreCompleto { get; set; } = null!;
         public string? DocumentoIdentidad { get; set; }

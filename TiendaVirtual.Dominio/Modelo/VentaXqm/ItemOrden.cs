@@ -12,10 +12,10 @@ namespace TiendaVirtual.Dominio.Modelo.VentaXqm
 {
     public class ItemOrden
     {
-        public long ItemOrdenId { get; set; }
+        public Guid ItemOrdenId { get; set; }
 
         [Required]
-        public long SubordenId { get; set; }
+        public Guid SubordenId { get; set; }
 
         public int? VarianteId { get; set; }
 

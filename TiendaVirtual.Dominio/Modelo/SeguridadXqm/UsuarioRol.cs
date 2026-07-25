@@ -8,7 +8,7 @@ namespace TiendaVirtual.Dominio.Modelo.SeguridadXqm
 {
     public class UsuarioRol
     {
-        public int UsuarioId { get; set; }
+        public Guid UsuarioId { get; set; }
         public short RolId { get; set; }
 
         public virtual Usuario Usuario { get; set; } = null!;

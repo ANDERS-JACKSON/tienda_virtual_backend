@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace TiendaVirtual.Intercambio.Dto.VentaXqm
@@ -12,7 +12,7 @@ namespace TiendaVirtual.Intercambio.Dto.VentaXqm
     public class CrearOrdenDto
     {
         [Required]
-        public int DireccionId { get; set; }
+        public Guid DireccionId { get; set; }
 
         /// <summary>
         /// Opcional. Si se envía, se usa el método indicado por vendedor.

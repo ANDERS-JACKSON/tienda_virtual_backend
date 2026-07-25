@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using TiendaVirtual.Intercambio.Dto.SeguridadXqm;
 using TiendaVirtual.Intercambio.Dto.Sistema;
@@ -25,9 +25,9 @@ namespace TiendaVirtual.Intercambio.Dto.VentaXqm
 
     public class OrdenDto
     {
-        public long OrdenId { get; set; }
+        public Guid OrdenId { get; set; }
         public string NumeroOrden { get; set; } = null!;
-        public int ClienteId { get; set; }
+        public Guid ClienteId { get; set; }
         public string CorreoCliente { get; set; } = null!;
         public string? TelefonoCliente { get; set; }
         public DireccionSnapshotDto DireccionEnvio { get; set; } = new();

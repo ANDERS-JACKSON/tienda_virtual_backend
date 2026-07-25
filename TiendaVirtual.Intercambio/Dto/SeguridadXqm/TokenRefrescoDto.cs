@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,7 +9,7 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
     public class TokenRefrescoDto
     {
         public long TokenId { get; set; }
-        public int UsuarioId { get; set; }
+        public Guid UsuarioId { get; set; }
         public string TokenHash { get; set; } = null!;
         public DateTime ExpiraEn { get; set; }
         public bool Revocado { get; set; }

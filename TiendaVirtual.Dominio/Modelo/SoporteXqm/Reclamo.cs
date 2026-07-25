@@ -13,13 +13,13 @@ namespace TiendaVirtual.Dominio.Modelo.SoporteXqm
 {
     public class Reclamo
     {
-        public long ReclamoId { get; set; }
+        public Guid ReclamoId { get; set; }
 
         [Required]
-        public long SubordenId { get; set; }
+        public Guid SubordenId { get; set; }
 
         [Required]
-        public int AbiertoPor { get; set; }
+        public Guid AbiertoPor { get; set; }
 
         [EnumValorValido]
         public TipoMotivoReclamo Motivo { get; set; }
@@ -31,7 +31,7 @@ namespace TiendaVirtual.Dominio.Modelo.SoporteXqm
         public TipoEstadoReclamo Estado { get; set; }
 
         public string? NotasResolucion { get; set; }
-        public int? ResueltoPor { get; set; }
+        public Guid? ResueltoPor { get; set; }
         public decimal? MontoReembolso { get; set; }
         public DateTime FechaApertura { get; set; }
         public DateTime? FechaResolucion { get; set; }

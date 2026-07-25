@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Modelo.PagoXqm;
@@ -102,7 +102,7 @@ namespace TiendaVirtual.Dominio.Servicios.PagoXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<TransaccionAdminDetalleDto>> ObtenerDetalleAsync(long transaccionId)
+        public async Task<ResultadoOperacion<TransaccionAdminDetalleDto>> ObtenerDetalleAsync(Guid transaccionId)
         {
             try
             {
@@ -134,7 +134,7 @@ namespace TiendaVirtual.Dominio.Servicios.PagoXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> MarcarCompletadaAsync(long transaccionId)
+        public async Task<ResultadoOperacion<bool>> MarcarCompletadaAsync(Guid transaccionId)
         {
             try
             {
@@ -157,7 +157,7 @@ namespace TiendaVirtual.Dominio.Servicios.PagoXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> MarcarFallidaAsync(long transaccionId, MarcarTransaccionFallidaDto dto)
+        public async Task<ResultadoOperacion<bool>> MarcarFallidaAsync(Guid transaccionId, MarcarTransaccionFallidaDto dto)
         {
             try
             {

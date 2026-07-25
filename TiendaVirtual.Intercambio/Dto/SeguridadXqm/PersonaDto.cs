@@ -9,7 +9,7 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
 {
     public class PersonaDto
     {
-        public int PersonaId { get; set; }
+        public Guid PersonaId { get; set; }
         public EnumeracionDto TipoDocumento { get; set; } = null!;
         public string NumeroDocumento { get; set; } = null!;
         public string? ApellidoPaterno { get; set; }

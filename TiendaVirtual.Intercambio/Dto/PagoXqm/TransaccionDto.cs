@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,10 +9,10 @@ namespace TiendaVirtual.Intercambio.Dto.PagoXqm
 {
     public class TransaccionDto
     {
-        public long TransaccionId { get; set; }
-        public long? OrdenId { get; set; }
+        public Guid TransaccionId { get; set; }
+        public Guid? OrdenId { get; set; }
         public int? SuscripcionId { get; set; }
-        public int UsuarioId { get; set; }
+        public Guid UsuarioId { get; set; }
         public string Proveedor { get; set; } = null!;
         public string? TransaccionProveedorId { get; set; }
         public EnumeracionDto Tipo { get; set; } = null!;

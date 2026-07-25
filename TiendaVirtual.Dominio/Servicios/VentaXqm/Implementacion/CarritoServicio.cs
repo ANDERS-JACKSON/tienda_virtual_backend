@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
@@ -31,7 +31,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             _logger = logger;
         }
 
-        public async Task<ResultadoOperacion<CarritoDto>> ObtenerMiCarritoAsync(int usuarioId)
+        public async Task<ResultadoOperacion<CarritoDto>> ObtenerMiCarritoAsync(Guid usuarioId)
         {
             try
             {
@@ -47,7 +47,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<CarritoDto>> AgregarItemAsync(int usuarioId, AgregarItemCarritoDto dto)
+        public async Task<ResultadoOperacion<CarritoDto>> AgregarItemAsync(Guid usuarioId, AgregarItemCarritoDto dto)
         {
             try
             {
@@ -125,7 +125,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<CarritoDto>> ActualizarItemAsync(
-            int usuarioId, int itemId, ActualizarItemCarritoDto dto)
+            Guid usuarioId, int itemId, ActualizarItemCarritoDto dto)
         {
             try
             {
@@ -162,7 +162,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<CarritoDto>> QuitarItemAsync(int usuarioId, int itemId)
+        public async Task<ResultadoOperacion<CarritoDto>> QuitarItemAsync(Guid usuarioId, int itemId)
         {
             try
             {
@@ -188,7 +188,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> VaciarAsync(int usuarioId)
+        public async Task<ResultadoOperacion<bool>> VaciarAsync(Guid usuarioId)
         {
             try
             {
@@ -213,7 +213,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
         // ─────────────────────────────────────────────────────
         // Helpers
         // ─────────────────────────────────────────────────────
-        private async Task<Carrito> ObtenerOCrearCarritoAsync(int usuarioId)
+        private async Task<Carrito> ObtenerOCrearCarritoAsync(Guid usuarioId)
         {
             var carrito = await _context.Carritos.FirstOrDefaultAsync(c => c.UsuarioId == usuarioId);
             if (carrito == null)

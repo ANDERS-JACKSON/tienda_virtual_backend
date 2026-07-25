@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TiendaVirtual.Dominio.Extensiones;
 using TiendaVirtual.Dominio.Extensiones.SeguridadXqm;
@@ -18,7 +18,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             _context = context;
         }
 
-        public async Task<ResultadoOperacion<UsuarioPerfilDto>> ObtenerMiPerfilAsync(int usuarioId)
+        public async Task<ResultadoOperacion<UsuarioPerfilDto>> ObtenerMiPerfilAsync(Guid usuarioId)
         {
             try
             {
@@ -41,7 +41,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<UsuarioPerfilDto>> ActualizarMisDatosAsync(
-            int usuarioId, ActualizarMisDatosPersonalesDto dto)
+            Guid usuarioId, ActualizarMisDatosPersonalesDto dto)
         {
             try
             {

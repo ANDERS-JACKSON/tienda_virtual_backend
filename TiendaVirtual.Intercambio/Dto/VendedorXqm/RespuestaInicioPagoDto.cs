@@ -1,8 +1,8 @@
-namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
+﻿namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
 {
     public class RespuestaInicioPagoDto
     {
-        public long TransaccionId { get; set; }
+        public Guid TransaccionId { get; set; }
         public decimal Monto { get; set; }
         public string Moneda { get; set; } = "PEN";
         public string Concepto { get; set; } = null!;

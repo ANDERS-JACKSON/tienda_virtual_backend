@@ -9,7 +9,7 @@ namespace TiendaVirtual.Dominio.Modelo.VendedorXqm
 {
     public class CuentaBancaria
     {
-        public int CuentaId { get; set; }
+        public Guid CuentaId { get; set; }
 
         [Required]
         public int VendedorId { get; set; }

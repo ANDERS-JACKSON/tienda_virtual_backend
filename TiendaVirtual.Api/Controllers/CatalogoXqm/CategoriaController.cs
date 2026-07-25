@@ -26,7 +26,15 @@ namespace TiendaVirtual.Api.Controllers.CatalogoXqm
         [AllowAnonymous]
         public async Task<ActionResult<ResultadoOperacion<List<CategoriaArbolDto>>>> ObtenerArbol()
         {
-            var r = await _servicio.ObtenerArbolAsync();
+            var r = await _servicio.ObtenerArbolAsync(soloActivas: true);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
+        [HttpGet("admin/arbol")]
+        [Authorize(Roles = "ADMIN")]
+        public async Task<ActionResult<ResultadoOperacion<List<CategoriaArbolDto>>>> ObtenerArbolAdmin()
+        {
+            var r = await _servicio.ObtenerArbolAsync(soloActivas: false);
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
@@ -52,6 +60,14 @@ namespace TiendaVirtual.Api.Controllers.CatalogoXqm
             int id, [FromBody] ActualizarCategoriaDto dto)
         {
             var r = await _servicio.ActualizarAsync(id, dto);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
+        [HttpPost("{id:int}/activar")]
+        [Authorize(Roles = "ADMIN")]
+        public async Task<ActionResult<ResultadoOperacion<bool>>> Activar(int id)
+        {
+            var r = await _servicio.ActivarAsync(id);
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 

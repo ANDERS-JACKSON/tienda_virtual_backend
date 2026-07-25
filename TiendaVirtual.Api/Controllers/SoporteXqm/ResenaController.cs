@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TiendaVirtual.Dominio.Servicios.SoporteXqm;
@@ -87,10 +87,10 @@ namespace TiendaVirtual.Api.Controllers.SoporteXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
-        private int? ObtenerUsuarioId()
+        private Guid? ObtenerUsuarioId()
         {
             var claim = _http.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier);
-            return int.TryParse(claim?.Value, out var id) ? id : null;
+            return Guid.TryParse(claim?.Value, out var id) && id != Guid.Empty ? id : null;
         }
     }
 }

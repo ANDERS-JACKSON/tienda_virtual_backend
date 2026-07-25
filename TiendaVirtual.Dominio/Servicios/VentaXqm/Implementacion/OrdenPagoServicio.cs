@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using TiendaVirtual.Comun.Enumeracion;
@@ -31,7 +31,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<RespuestaInicioPagoOrdenDto>> IniciarPagoAsync(
-            int usuarioId, IniciarPagoOrdenDto dto)
+            Guid usuarioId, IniciarPagoOrdenDto dto)
         {
             await using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -67,6 +67,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
                     transaccion = new Transaccion
                     {
+                        TransaccionId = Guid.NewGuid(),
                         OrdenId = orden.OrdenId,
                         UsuarioId = usuarioId,
                         Proveedor = "IZIPAY",
@@ -102,7 +103,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<TransaccionOrdenDto>> ConfirmarPagoAsync(
-            ConfirmarPagoOrdenDto dto, int? usuarioIdSolicitante = null)
+            ConfirmarPagoOrdenDto dto, Guid? usuarioIdSolicitante = null)
         {
             await using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -157,7 +158,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
                 string? tituloCliente = null;
                 string? cuerpoCliente = null;
-                var notifsVendedores = new List<(int UsuarioId, string Titulo, string Cuerpo)>();
+                var notifsVendedores = new List<(Guid UsuarioId, string Titulo, string Cuerpo)>();
 
                 if (dto.Exitosa && transaccion.OrdenId.HasValue)
                 {
@@ -197,8 +198,8 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
         }
 
-        private async Task<(string? TituloCliente, string? CuerpoCliente, List<(int, string, string)> NotifsVendedor)>
-            ActivarOrdenTrasPagoAsync(long ordenId)
+        private async Task<(string? TituloCliente, string? CuerpoCliente, List<(Guid, string, string)> NotifsVendedor)>
+            ActivarOrdenTrasPagoAsync(Guid ordenId)
         {
             var orden = await _context.Ordenes
                 .Include(o => o.Subordenes)
@@ -206,11 +207,11 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 .FirstAsync(o => o.OrdenId == ordenId);
 
             if (orden.Estado != TipoEstadoOrden.PendientePago)
-                return (null, null, new List<(int, string, string)>());
+                return (null, null, new List<(Guid, string, string)>());
 
             orden.Estado = TipoEstadoOrden.Pagada;
 
-            var notifsVendedor = new List<(int, string, string)>();
+            var notifsVendedor = new List<(Guid, string, string)>();
             foreach (var sub in orden.Subordenes.Where(s => s.Estado == TipoEstadoSuborden.Pendiente))
             {
                 sub.Estado = TipoEstadoSuborden.EnPreparacion;

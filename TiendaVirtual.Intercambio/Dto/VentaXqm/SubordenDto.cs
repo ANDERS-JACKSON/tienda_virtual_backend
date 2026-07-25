@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using TiendaVirtual.Intercambio.Dto.Sistema;
 
@@ -6,8 +6,8 @@ namespace TiendaVirtual.Intercambio.Dto.VentaXqm
 {
     public class SubordenDto
     {
-        public long SubordenId { get; set; }
-        public long OrdenId { get; set; }
+        public Guid SubordenId { get; set; }
+        public Guid OrdenId { get; set; }
         public int VendedorId { get; set; }
         public string NombreTienda { get; set; } = string.Empty;
         public string SlugTienda { get; set; } = string.Empty;

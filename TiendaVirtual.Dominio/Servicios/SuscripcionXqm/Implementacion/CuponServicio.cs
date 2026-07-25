@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones.VendedorXqm;
@@ -138,7 +138,7 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             }
         }
 
-        public async Task<ResultadoOperacion<CuponValidadoDto>> ValidarAsync(int usuarioId, ValidarCuponDto dto)
+        public async Task<ResultadoOperacion<CuponValidadoDto>> ValidarAsync(Guid usuarioId, ValidarCuponDto dto)
         {
             try
             {

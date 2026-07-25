@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Servicios.VentaXqm;
@@ -37,16 +37,16 @@ namespace TiendaVirtual.Api.Controllers.VentaXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
-        [HttpGet("admin/{ordenId:long}")]
-        public async Task<ActionResult<ResultadoOperacion<OrdenDto>>> Detalle(long ordenId)
+        [HttpGet("admin/{ordenId:guid}")]
+        public async Task<ActionResult<ResultadoOperacion<OrdenDto>>> Detalle(Guid ordenId)
         {
             var r = await _servicio.ObtenerAdminDetalleAsync(ordenId);
             return r.Exito ? Ok(r) : NotFound(r);
         }
 
-        [HttpPost("admin/{ordenId:long}/cancelar")]
+        [HttpPost("admin/{ordenId:guid}/cancelar")]
         public async Task<ActionResult<ResultadoOperacion<bool>>> Cancelar(
-            long ordenId, [FromBody] CancelarOrdenAdminDto dto)
+            Guid ordenId, [FromBody] CancelarOrdenAdminDto dto)
         {
             var r = await _servicio.CancelarAdminAsync(ordenId, dto);
             return r.Exito ? Ok(r) : BadRequest(r);

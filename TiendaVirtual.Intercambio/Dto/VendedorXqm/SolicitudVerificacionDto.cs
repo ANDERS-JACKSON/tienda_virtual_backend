@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,7 +9,7 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
 {
     public class SolicitudVerificacionDto
     {
-        public int SolicitudId { get; set; }
+        public Guid SolicitudId { get; set; }
         public int VendedorId { get; set; }
         public string NombreTienda { get; set; } = null!; 
         public string CorreoVendedor { get; set; } = null!;
@@ -18,7 +18,7 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
         public string? DocumentoReversoUrl { get; set; }
         public string? SelfieDocumentoUrl { get; set; }
         public string? FotosProductos { get; set; }
-        public int? VerificadorId { get; set; }
+        public Guid? VerificadorId { get; set; }
         public string? NotasRevisor { get; set; }
         public string? MotivoRechazo { get; set; }
         public DateTime FechaEnvio { get; set; }

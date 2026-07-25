@@ -12,6 +12,13 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
         public int TamanioPagina { get; set; } = 12;
 
         public int? CategoriaId { get; set; }
+
+        /// <summary>
+        /// Varias categorías (OR). Cada id incluye sus subcategorías.
+        /// Query: categoriaIds=1&amp;categoriaIds=2
+        /// </summary>
+        public List<int>? CategoriaIds { get; set; }
+
         public int? VendedorId { get; set; }
         public string? Busqueda { get; set; }
         public decimal? PrecioMin { get; set; }
@@ -21,7 +28,7 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
 
         /// <summary>
         /// "precio_asc", "precio_desc", "mas_vendidos",
-        /// "mejor_calificados", "novedades" (default)
+        /// "mejor_calificados", "novedades", "relevancia"
         /// </summary>
         public string? OrdenarPor { get; set; }
     }

@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using TiendaVirtual.Intercambio.Dto.Sistema;
 
 namespace TiendaVirtual.Intercambio.Dto.SoporteXqm
@@ -6,7 +6,7 @@ namespace TiendaVirtual.Intercambio.Dto.SoporteXqm
     public class CrearResenaProductoDto
     {
         [Required]
-        public long ItemOrdenId { get; set; }
+        public Guid ItemOrdenId { get; set; }
 
         [Range(1, 5)]
         public int Calificacion { get; set; }
@@ -23,7 +23,7 @@ namespace TiendaVirtual.Intercambio.Dto.SoporteXqm
     public class CrearResenaVendedorDto
     {
         [Required]
-        public long SubordenId { get; set; }
+        public Guid SubordenId { get; set; }
 
         [Range(1, 5)]
         public int Calificacion { get; set; }
@@ -40,11 +40,11 @@ namespace TiendaVirtual.Intercambio.Dto.SoporteXqm
 
     public class PendienteResenaDto
     {
-        public long ItemOrdenId { get; set; }
+        public Guid ItemOrdenId { get; set; }
         public int ProductoId { get; set; }
         public string NombreProducto { get; set; } = null!;
         public string? ImagenUrl { get; set; }
-        public long SubordenId { get; set; }
+        public Guid SubordenId { get; set; }
         public int VendedorId { get; set; }
         public string NombreTienda { get; set; } = null!;
         public bool ResenoProducto { get; set; }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -11,7 +11,7 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
         public string Token { get; set; } = null!;
         public string RefreshToken { get; set; } = null!;
         public DateTime ExpiraEn { get; set; }
-        public int UsuarioId { get; set; }
+        public Guid UsuarioId { get; set; }
         public string Correo { get; set; } = null!;
         public string NombreCompleto { get; set; } = null!;
         public List<string> Roles { get; set; } = new();

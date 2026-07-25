@@ -19,7 +19,7 @@ namespace TiendaVirtual.Dominio.Extensiones.SeguridadXqm
 
             var persona = new Persona();
 
-            persona.PersonaId = dto.PersonaId;
+            persona.PersonaId = dto.PersonaId == Guid.Empty ? Guid.NewGuid() : dto.PersonaId;
             persona.TipoDocumento = (TipoDocumentoIdentidad)dto.TipoDocumento.Id;
             persona.NumeroDocumento = dto.NumeroDocumento.Normalizar();
             persona.ApellidoPaterno = dto.ApellidoPaterno?.Normalizar_null();

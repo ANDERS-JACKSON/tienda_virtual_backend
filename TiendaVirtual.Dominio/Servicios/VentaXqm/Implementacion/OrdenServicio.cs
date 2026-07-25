@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
@@ -38,7 +38,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             _notificacionServicio = notificacionServicio;
         }
 
-        public async Task<ResultadoOperacion<OrdenDto>> CrearAsync(int usuarioId, CrearOrdenDto dto)
+        public async Task<ResultadoOperacion<OrdenDto>> CrearAsync(Guid usuarioId, CrearOrdenDto dto)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -188,6 +188,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
                 var orden = new Orden
                 {
+                    OrdenId = Guid.NewGuid(),
                     NumeroOrden = numeroOrden,
                     ClienteId = usuarioId,
                     CorreoCliente = cliente.Correo,
@@ -207,7 +208,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 //    El envío no suma al total: se paga aparte al momento del retiro.
                 decimal subtotalOrden = 0;
                 decimal descuentoOrden = 0;
-                var subordenesCreadas = new List<(long SubordenId, string NumeroSuborden, int VendedorId, decimal Subtotal)>();
+                var subordenesCreadas = new List<(Guid SubordenId, string NumeroSuborden, int VendedorId, decimal Subtotal)>();
 
                 foreach (var grupo in items.GroupBy(i => i.Variante.Producto.VendedorId))
                 {
@@ -217,6 +218,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                     // (Shalom / similar). NO se cobra en la orden.
                     var suborden = new Suborden
                     {
+                        SubordenId = Guid.NewGuid(),
                         NumeroSuborden = GenerarNumero("SUB"),
                         OrdenId = orden.OrdenId,
                         VendedorId = grupo.Key,
@@ -264,6 +266,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
                         _context.ItemsOrden.Add(new ItemOrden
                         {
+                            ItemOrdenId = Guid.NewGuid(),
                             SubordenId = suborden.SubordenId,
                             VarianteId = i.VarianteId,
                             NombreProducto = p.Nombre,
@@ -358,7 +361,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<PaginacionRespuestaDto<OrdenListadoDto>>> ListarMisOrdenesAsync(
-            int usuarioId, int pagina, int tamanioPagina)
+            Guid usuarioId, int pagina, int tamanioPagina)
         {
             try
             {
@@ -420,7 +423,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<OrdenDto>> ObtenerMiOrdenAsync(int usuarioId, long ordenId)
+        public async Task<ResultadoOperacion<OrdenDto>> ObtenerMiOrdenAsync(Guid usuarioId, Guid ordenId)
         {
             try
             {
@@ -515,7 +518,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
         // Registro de envío (vendedor)
         // ─────────────────────────────────────────────────────
         public async Task<ResultadoOperacion<EnvioDto>> RegistrarEnvioSubordenAsync(
-            int vendedorUsuarioId, long subordenId, RegistrarEnvioSubordenDto dto)
+            Guid vendedorUsuarioId, Guid subordenId, RegistrarEnvioSubordenDto dto)
         {
             try
             {
@@ -580,6 +583,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
                 var envio = new Envio
                 {
+                    EnvioId = Guid.NewGuid(),
                     SubordenId = suborden.SubordenId,
                     Transportista = transportista,
                     CodigoOrdenAgencia = string.IsNullOrWhiteSpace(codigoOrdenAgencia)
@@ -641,7 +645,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
         // Listo para recoger (recojo en tienda)
         // ─────────────────────────────────────────────────────
         public async Task<ResultadoOperacion<bool>> MarcarListoParaRecogerAsync(
-            int vendedorUsuarioId, long subordenId, MarcarListoParaRecogerDto? dto)
+            Guid vendedorUsuarioId, Guid subordenId, MarcarListoParaRecogerDto? dto)
         {
             try
             {
@@ -710,7 +714,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
         // Cambio de estado de suborden (vendedor)
         // ─────────────────────────────────────────────────────
         public async Task<ResultadoOperacion<bool>> CambiarEstadoSubordenAsync(
-            int vendedorUsuarioId, long subordenId, TipoEstadoSuborden nuevoEstado)
+            Guid vendedorUsuarioId, Guid subordenId, TipoEstadoSuborden nuevoEstado)
         {
             try
             {

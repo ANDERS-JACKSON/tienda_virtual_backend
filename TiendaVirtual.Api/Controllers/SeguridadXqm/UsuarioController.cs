@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using TiendaVirtual.Dominio.Servicios.SeguridadXqm;
@@ -62,41 +62,41 @@ namespace TiendaVirtual.Api.Controllers.SeguridadXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
-        [HttpGet("admin/{id:int}")]
+        [HttpGet("admin/{id:guid}")]
         [Authorize(Roles = "ADMIN")]
-        public async Task<ActionResult<ResultadoOperacion<UsuarioAdminDetalleDto>>> Detalle(int id)
+        public async Task<ActionResult<ResultadoOperacion<UsuarioAdminDetalleDto>>> Detalle(Guid id)
         {
             var r = await _servicio.ObtenerDetalleAsync(id);
             return r.Exito ? Ok(r) : NotFound(r);
         }
 
-        [HttpPost("admin/{id:int}/activar")]
+        [HttpPost("admin/{id:guid}/activar")]
         [Authorize(Roles = "ADMIN")]
-        public async Task<ActionResult<ResultadoOperacion<bool>>> Activar(int id)
+        public async Task<ActionResult<ResultadoOperacion<bool>>> Activar(Guid id)
         {
             var r = await _servicio.ActivarAsync(id);
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
-        [HttpPost("admin/{id:int}/desactivar")]
+        [HttpPost("admin/{id:guid}/desactivar")]
         [Authorize(Roles = "ADMIN")]
-        public async Task<ActionResult<ResultadoOperacion<bool>>> Desactivar(int id)
+        public async Task<ActionResult<ResultadoOperacion<bool>>> Desactivar(Guid id)
         {
             var r = await _servicio.DesactivarAsync(id);
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
-        [HttpPost("admin/{id:int}/roles/asignar")]
+        [HttpPost("admin/{id:guid}/roles/asignar")]
         [Authorize(Roles = "ADMIN")]
-        public async Task<ActionResult<ResultadoOperacion<bool>>> AsignarRol(int id, [FromBody] AsignarRolDto dto)
+        public async Task<ActionResult<ResultadoOperacion<bool>>> AsignarRol(Guid id, [FromBody] AsignarRolDto dto)
         {
             var r = await _servicio.AsignarRolAsync(id, dto.RolId);
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
-        [HttpPost("admin/{id:int}/roles/quitar")]
+        [HttpPost("admin/{id:guid}/roles/quitar")]
         [Authorize(Roles = "ADMIN")]
-        public async Task<ActionResult<ResultadoOperacion<bool>>> QuitarRol(int id, [FromBody] AsignarRolDto dto)
+        public async Task<ActionResult<ResultadoOperacion<bool>>> QuitarRol(Guid id, [FromBody] AsignarRolDto dto)
         {
             var uid = ObtenerUsuarioId();
             if (uid == null) return Unauthorized();
@@ -104,18 +104,18 @@ namespace TiendaVirtual.Api.Controllers.SeguridadXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
-        [HttpPost("admin/{id:int}/resetear-clave")]
+        [HttpPost("admin/{id:guid}/resetear-clave")]
         [Authorize(Roles = "ADMIN")]
-        public async Task<ActionResult<ResultadoOperacion<bool>>> ResetearClave(int id)
+        public async Task<ActionResult<ResultadoOperacion<bool>>> ResetearClave(Guid id)
         {
             var r = await _servicio.ResetearClaveAsync(id);
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
-        private int? ObtenerUsuarioId()
+        private Guid? ObtenerUsuarioId()
         {
             var claim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier);
-            return int.TryParse(claim?.Value, out var id) ? id : null;
+            return Guid.TryParse(claim?.Value, out var id) && id != Guid.Empty ? id : null;
         }
     }
 

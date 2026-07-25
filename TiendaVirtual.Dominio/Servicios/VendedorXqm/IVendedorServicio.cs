@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -13,20 +13,20 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm
     public interface IVendedorServicio
     {
         // Perfil propio
-        Task<ResultadoOperacion<VendedorPerfilDto>> ObtenerMiPerfilAsync(int usuarioId);
-        Task<ResultadoOperacion<VendedorPerfilDto>> ActualizarMiPerfilAsync(int usuarioId, ActualizarPerfilVendedorDto dto);
-        Task<ResultadoOperacion<VendedorPerfilDto>> ActualizarImagenesPerfilAsync(int usuarioId, ActualizarImagenesPerfilVendedorDto dto);
+        Task<ResultadoOperacion<VendedorPerfilDto>> ObtenerMiPerfilAsync(Guid usuarioId);
+        Task<ResultadoOperacion<VendedorPerfilDto>> ActualizarMiPerfilAsync(Guid usuarioId, ActualizarPerfilVendedorDto dto);
+        Task<ResultadoOperacion<VendedorPerfilDto>> ActualizarImagenesPerfilAsync(Guid usuarioId, ActualizarImagenesPerfilVendedorDto dto);
 
-        Task<ResultadoOperacion<ElegibilidadCreacionProductoDto>> ObtenerElegibilidadCreacionProductoAsync(int usuarioId);
+        Task<ResultadoOperacion<ElegibilidadCreacionProductoDto>> ObtenerElegibilidadCreacionProductoAsync(Guid usuarioId);
 
         // Solicitud de verificación
-        Task<ResultadoOperacion<SolicitudVerificacionDto>> EnviarSolicitudVerificacionAsync(int usuarioId, EnviarSolicitudVerificacionDto dto);
-        Task<ResultadoOperacion<SolicitudVerificacionDto?>> ObtenerMiSolicitudActualAsync(int usuarioId);
+        Task<ResultadoOperacion<SolicitudVerificacionDto>> EnviarSolicitudVerificacionAsync(Guid usuarioId, EnviarSolicitudVerificacionDto dto);
+        Task<ResultadoOperacion<SolicitudVerificacionDto?>> ObtenerMiSolicitudActualAsync(Guid usuarioId);
 
         // Resolución (admin / verificador)
         Task<ResultadoOperacion<PaginacionRespuestaDto<SolicitudVerificacionDto>>> ListarSolicitudesPendientesAsync(int pagina, int tamanioPagina);
-        Task<ResultadoOperacion<bool>> AprobarSolicitudAsync(int solicitudId, int verificadorUsuarioId, ResolverSolicitudDto dto);
-        Task<ResultadoOperacion<bool>> RechazarSolicitudAsync(int solicitudId, int verificadorUsuarioId, ResolverSolicitudDto dto);
+        Task<ResultadoOperacion<bool>> AprobarSolicitudAsync(Guid solicitudId, Guid verificadorUsuarioId, ResolverSolicitudDto dto);
+        Task<ResultadoOperacion<bool>> RechazarSolicitudAsync(Guid solicitudId, Guid verificadorUsuarioId, ResolverSolicitudDto dto);
 
         // Listado público
         Task<ResultadoOperacion<PaginacionRespuestaDto<TiendaPublicaDto>>> ListarTiendasPublicasAsync(int pagina, int tamanioPagina, string? busqueda);
@@ -37,8 +37,8 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm
         Task<ResultadoOperacion<HistoriaPublicaDetalleDto>> ObtenerHistoriaPorSlugAsync(string slug);
 
         // Pedidos del vendedor
-        Task<ResultadoOperacion<PaginacionRespuestaDto<PedidoVendedorDto>>> ListarMisPedidosAsync(int usuarioId, TipoEstadoSuborden? estado, int pagina, int tamanioPagina);
-        Task<ResultadoOperacion<PedidoVendedorDetalleDto>> ObtenerMisPedidoDetalleAsync(int usuarioId, long subordenId);
+        Task<ResultadoOperacion<PaginacionRespuestaDto<PedidoVendedorDto>>> ListarMisPedidosAsync(Guid usuarioId, TipoEstadoSuborden? estado, int pagina, int tamanioPagina);
+        Task<ResultadoOperacion<PedidoVendedorDetalleDto>> ObtenerMisPedidoDetalleAsync(Guid usuarioId, Guid subordenId);
 
         // Admin overview
         Task<ResultadoOperacion<PaginacionRespuestaDto<VendedorAdminListadoDto>>> ListarAdminAsync(

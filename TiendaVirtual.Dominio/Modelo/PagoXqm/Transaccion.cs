@@ -14,12 +14,12 @@ namespace TiendaVirtual.Dominio.Modelo.PagoXqm
 {
     public class Transaccion
     {
-        public long TransaccionId { get; set; }
-        public long? OrdenId { get; set; }
+        public Guid TransaccionId { get; set; }
+        public Guid? OrdenId { get; set; }
         public int? SuscripcionId { get; set; }
 
         [Required]
-        public int UsuarioId { get; set; }
+        public Guid UsuarioId { get; set; }
 
         [Required]
         public string Proveedor { get; set; } = null!;

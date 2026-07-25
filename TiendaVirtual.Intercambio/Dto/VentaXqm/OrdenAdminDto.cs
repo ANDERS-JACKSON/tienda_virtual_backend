@@ -1,10 +1,10 @@
-using TiendaVirtual.Intercambio.Dto.Sistema;
+﻿using TiendaVirtual.Intercambio.Dto.Sistema;
 
 namespace TiendaVirtual.Intercambio.Dto.VentaXqm
 {
     public class OrdenAdminListadoDto
     {
-        public long OrdenId { get; set; }
+        public Guid OrdenId { get; set; }
         public string NumeroOrden { get; set; } = null!;
         public string CorreoCliente { get; set; } = null!;
         public string NombreCliente { get; set; } = null!;

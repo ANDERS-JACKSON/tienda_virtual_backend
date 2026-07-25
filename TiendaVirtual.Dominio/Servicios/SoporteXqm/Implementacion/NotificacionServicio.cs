@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -26,7 +26,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             _logger = logger;
         }
 
-        public async Task CrearAsync(int usuarioId, string tipo, string titulo, string cuerpo,
+        public async Task CrearAsync(Guid usuarioId, string tipo, string titulo, string cuerpo,
             object? datos = null,
             PlantillaCorreo? plantillaEmail = null,
             Dictionary<string, string>? placeholdersEmail = null)
@@ -35,6 +35,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             {
                 var notificacion = new Notificacion
                 {
+                    NotificacionId = Guid.NewGuid(),
                     UsuarioId = usuarioId,
                     Tipo = tipo,
                     Titulo = titulo,
@@ -93,7 +94,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<PaginacionRespuestaDto<NotificacionDto>>> ListarMisAsync(
-            int usuarioId, int pagina, int tamanioPagina)
+            Guid usuarioId, int pagina, int tamanioPagina)
         {
             try
             {
@@ -137,7 +138,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             }
         }
 
-        public async Task<ResultadoOperacion<int>> ContarNoLeidasAsync(int usuarioId)
+        public async Task<ResultadoOperacion<int>> ContarNoLeidasAsync(Guid usuarioId)
         {
             try
             {
@@ -157,7 +158,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> MarcarLeidaAsync(int usuarioId, long notificacionId)
+        public async Task<ResultadoOperacion<bool>> MarcarLeidaAsync(Guid usuarioId, Guid notificacionId)
         {
             try
             {
@@ -180,7 +181,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<int>> MarcarTodasLeidasAsync(int usuarioId)
+        public async Task<ResultadoOperacion<int>> MarcarTodasLeidasAsync(Guid usuarioId)
         {
             try
             {

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Intercambio;
@@ -9,18 +9,18 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm
 {
     public interface INotificacionServicio
     {
-        Task CrearAsync(int usuarioId, string tipo, string titulo, string cuerpo,
+        Task CrearAsync(Guid usuarioId, string tipo, string titulo, string cuerpo,
             object? datos = null,
             PlantillaCorreo? plantillaEmail = null,
             Dictionary<string, string>? placeholdersEmail = null);
 
         Task<ResultadoOperacion<PaginacionRespuestaDto<NotificacionDto>>> ListarMisAsync(
-            int usuarioId, int pagina, int tamanioPagina);
+            Guid usuarioId, int pagina, int tamanioPagina);
 
-        Task<ResultadoOperacion<int>> ContarNoLeidasAsync(int usuarioId);
+        Task<ResultadoOperacion<int>> ContarNoLeidasAsync(Guid usuarioId);
 
-        Task<ResultadoOperacion<bool>> MarcarLeidaAsync(int usuarioId, long notificacionId);
+        Task<ResultadoOperacion<bool>> MarcarLeidaAsync(Guid usuarioId, Guid notificacionId);
 
-        Task<ResultadoOperacion<int>> MarcarTodasLeidasAsync(int usuarioId);
+        Task<ResultadoOperacion<int>> MarcarTodasLeidasAsync(Guid usuarioId);
     }
 }

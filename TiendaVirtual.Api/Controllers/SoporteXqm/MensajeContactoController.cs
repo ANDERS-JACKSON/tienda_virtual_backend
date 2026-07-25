@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TiendaVirtual.Comun.Enumeracion;
@@ -24,7 +24,7 @@ namespace TiendaVirtual.Api.Controllers.SoporteXqm
 
         [HttpPost]
         [AllowAnonymous]
-        public async Task<ActionResult<ResultadoOperacion<long>>> Crear([FromBody] CrearMensajeContactoDto dto)
+        public async Task<ActionResult<ResultadoOperacion<Guid>>> Crear([FromBody] CrearMensajeContactoDto dto)
         {
             var usuarioId = ObtenerUsuarioIdOpcional();
             var r = await _servicio.CrearAsync(dto, usuarioId);
@@ -51,18 +51,18 @@ namespace TiendaVirtual.Api.Controllers.SoporteXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
-        [HttpGet("admin/{id:long}")]
+        [HttpGet("admin/{id:guid}")]
         [Authorize(Roles = "ADMIN")]
-        public async Task<ActionResult<ResultadoOperacion<MensajeContactoDetalleDto>>> Obtener(long id)
+        public async Task<ActionResult<ResultadoOperacion<MensajeContactoDetalleDto>>> Obtener(Guid id)
         {
             var r = await _servicio.ObtenerDetalleAsync(id);
             return r.Exito ? Ok(r) : NotFound(r);
         }
 
-        [HttpPost("admin/{id:long}/responder")]
+        [HttpPost("admin/{id:guid}/responder")]
         [Authorize(Roles = "ADMIN")]
         public async Task<ActionResult<ResultadoOperacion<bool>>> Responder(
-            long id, [FromBody] ResponderMensajeContactoDto dto)
+            Guid id, [FromBody] ResponderMensajeContactoDto dto)
         {
             var adminId = ObtenerUsuarioId();
             if (adminId == null) return Unauthorized();
@@ -70,10 +70,10 @@ namespace TiendaVirtual.Api.Controllers.SoporteXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
-        [HttpPatch("admin/{id:long}/estado")]
+        [HttpPatch("admin/{id:guid}/estado")]
         [Authorize(Roles = "ADMIN")]
         public async Task<ActionResult<ResultadoOperacion<bool>>> CambiarEstado(
-            long id, [FromBody] CambiarEstadoMensajeContactoDto dto)
+            Guid id, [FromBody] CambiarEstadoMensajeContactoDto dto)
         {
             var adminId = ObtenerUsuarioId();
             if (adminId == null) return Unauthorized();
@@ -83,13 +83,13 @@ namespace TiendaVirtual.Api.Controllers.SoporteXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
-        private int? ObtenerUsuarioId()
+        private Guid? ObtenerUsuarioId()
         {
             var claim = _http.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier);
-            return int.TryParse(claim?.Value, out var id) ? id : null;
+            return Guid.TryParse(claim?.Value, out var id) && id != Guid.Empty ? id : null;
         }
 
-        private int? ObtenerUsuarioIdOpcional()
+        private Guid? ObtenerUsuarioIdOpcional()
         {
             if (_http.HttpContext?.User?.Identity?.IsAuthenticated != true)
                 return null;

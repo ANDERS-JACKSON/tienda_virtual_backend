@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using TiendaVirtual.Comun.Enumeracion;
@@ -23,7 +23,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             _notif = notif;
         }
 
-        public async Task<ResultadoOperacion<ReclamoDto>> AbrirAsync(int usuarioId, AbrirReclamoDto dto)
+        public async Task<ResultadoOperacion<ReclamoDto>> AbrirAsync(Guid usuarioId, AbrirReclamoDto dto)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -58,6 +58,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
 
                 var reclamo = new Reclamo
                 {
+                    ReclamoId = Guid.NewGuid(),
                     SubordenId = dto.SubordenId,
                     AbiertoPor = usuarioId,
                     Motivo = (TipoMotivoReclamo)dto.Motivo.Id,
@@ -90,7 +91,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<ReclamoDto>> ObtenerDetalleAsync(int usuarioId, long reclamoId)
+        public async Task<ResultadoOperacion<ReclamoDto>> ObtenerDetalleAsync(Guid usuarioId, Guid reclamoId)
         {
             try
             {
@@ -120,7 +121,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<MensajeReclamoDto>> AgregarMensajeAsync(
-            int usuarioId, long reclamoId, AgregarMensajeReclamoDto dto)
+            Guid usuarioId, Guid reclamoId, AgregarMensajeReclamoDto dto)
         {
             try
             {
@@ -142,6 +143,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
 
                 var mensaje = new MensajeReclamo
                 {
+                    MensajeId = Guid.NewGuid(),
                     ReclamoId = reclamoId,
                     RemitenteId = usuarioId,
                     Mensaje = dto.Mensaje.Trim(),
@@ -191,7 +193,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<bool>> ResolverAsync(
-            int usuarioId, long reclamoId, ResolverReclamoDto dto)
+            Guid usuarioId, Guid reclamoId, ResolverReclamoDto dto)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -251,7 +253,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<PaginacionRespuestaDto<ReclamoListadoDto>>> ListarMisAsync(
-            int usuarioId, int pagina, int tamanioPagina)
+            Guid usuarioId, int pagina, int tamanioPagina)
         {
             try
             {
@@ -272,7 +274,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<PaginacionRespuestaDto<ReclamoListadoDto>>> ListarRecibidosAsync(
-            int usuarioId, int pagina, int tamanioPagina)
+            Guid usuarioId, int pagina, int tamanioPagina)
         {
             try
             {
@@ -360,14 +362,14 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             }
         }
 
-        private async Task<bool> TieneAccesoAsync(int usuarioId, Reclamo reclamo)
+        private async Task<bool> TieneAccesoAsync(Guid usuarioId, Reclamo reclamo)
         {
             if (await EsAdminOVerificadorAsync(usuarioId)) return true;
             if (reclamo.AbiertoPor == usuarioId) return true;
             return reclamo.Suborden.Vendedor.UsuarioId == usuarioId;
         }
 
-        private Task<bool> EsAdminOVerificadorAsync(int usuarioId) =>
+        private Task<bool> EsAdminOVerificadorAsync(Guid usuarioId) =>
             _context.UsuarioRoles.AnyAsync(ur =>
                 ur.UsuarioId == usuarioId &&
                 (ur.Rol.Nombre == "ADMIN" || ur.Rol.Nombre == "VERIFICADOR"));

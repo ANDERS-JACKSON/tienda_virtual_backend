@@ -9,7 +9,7 @@ namespace TiendaVirtual.Dominio.Modelo.CatalogoXqm
 {
     public class Favorito
     {
-        public int UsuarioId { get; set; }
+        public Guid UsuarioId { get; set; }
         public int ProductoId { get; set; }
         public DateTime Fecha { get; set; }
 

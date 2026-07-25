@@ -25,5 +25,7 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
 
         [Range(0, 100)]
         public decimal TasaComision { get; set; }
+
+        public PlanBeneficiosDto? Beneficios { get; set; }
     }
 }

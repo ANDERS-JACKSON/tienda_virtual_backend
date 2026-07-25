@@ -1,4 +1,4 @@
-namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
+﻿namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
 {
     /// <summary>
     /// Respuesta del registro de cliente / vendedor cuando la contraseña se
@@ -7,7 +7,7 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
     /// </summary>
     public class RegistroRespuestaDto
     {
-        public int UsuarioId { get; set; }
+        public Guid UsuarioId { get; set; }
         public string Correo { get; set; } = null!;
         public string NombreCompleto { get; set; } = null!;
         public string Mensaje { get; set; } = null!;

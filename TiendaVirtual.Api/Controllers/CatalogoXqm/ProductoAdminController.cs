@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TiendaVirtual.Dominio.Servicios.CatalogoXqm;
 using TiendaVirtual.Intercambio;

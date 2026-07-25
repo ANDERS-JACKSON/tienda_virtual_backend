@@ -12,7 +12,7 @@ namespace TiendaVirtual.Dominio.Modelo.SeguridadXqm
         public long TokenId { get; set; }
 
         [Required]
-        public int UsuarioId { get; set; }
+        public Guid UsuarioId { get; set; }
 
         [Required]
         public string TokenHash { get; set; } = null!;

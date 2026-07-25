@@ -1,11 +1,11 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
 {
     public class ConfirmarPagoSuscripcionDto
     {
         [Required]
-        public long TransaccionId { get; set; }
+        public Guid TransaccionId { get; set; }
 
         [Required]
         public string TransaccionProveedorId { get; set; } = null!;

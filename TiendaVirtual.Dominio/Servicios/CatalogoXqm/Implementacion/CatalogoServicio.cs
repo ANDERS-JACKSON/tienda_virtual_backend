@@ -58,10 +58,16 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                                 p.Vendedor.Estado == TipoEstadoVendedor.Activo)
                     .DondeVendedorTienePlanActivo(_context, now);
 
-                // Filtro por categoría (incluye subcategorías)
-                if (filtros.CategoriaId.HasValue)
+                // Filtro por categoría(s): cada id incluye subcategorías (OR)
+                var idsCategoriaSolicitados = new List<int>();
+                if (filtros.CategoriaIds is { Count: > 0 })
+                    idsCategoriaSolicitados.AddRange(filtros.CategoriaIds);
+                else if (filtros.CategoriaId.HasValue)
+                    idsCategoriaSolicitados.Add(filtros.CategoriaId.Value);
+
+                if (idsCategoriaSolicitados.Count > 0)
                 {
-                    var ids = await ObtenerCategoriaConDescendientesAsync(filtros.CategoriaId.Value);
+                    var ids = await ObtenerCategoriasConDescendientesAsync(idsCategoriaSolicitados);
                     query = query.Where(p => ids.Contains(p.CategoriaId));
                 }
 
@@ -104,15 +110,24 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                         o.Activa && o.FechaInicio <= now && o.FechaFin >= now));
                 }
 
-                // Ordenamiento
+                // Precio efectivo = min variante activa o PrecioBase (mismo criterio que el filtro)
                 query = filtros.OrdenarPor switch
                 {
-                    "precio_asc" => query.OrderBy(p => p.PrecioBase),
-                    "precio_desc" => query.OrderByDescending(p => p.PrecioBase),
+                    "precio_asc" => query.OrderBy(p =>
+                        p.Variantes.Any(v => v.Activa)
+                            ? p.Variantes.Where(v => v.Activa).Min(v => v.Precio)
+                            : (p.PrecioBase ?? 0)),
+                    "precio_desc" => query.OrderByDescending(p =>
+                        p.Variantes.Any(v => v.Activa)
+                            ? p.Variantes.Where(v => v.Activa).Min(v => v.Precio)
+                            : (p.PrecioBase ?? 0)),
                     "mas_vendidos" => query.OrderByDescending(p => p.Ventas),
                     "mejor_calificados" => query.OrderByDescending(p => p.CalificacionPromedio)
                                                 .ThenByDescending(p => p.TotalResenas),
-                    _ => query.OrderByDescending(p => p.ProductoId) // novedades por defecto
+                    "relevancia" => query.OrderByDescending(p => p.Ventas)
+                                         .ThenByDescending(p => p.CalificacionPromedio)
+                                         .ThenByDescending(p => p.ProductoId),
+                    _ => query.OrderByDescending(p => p.ProductoId) // novedades
                 };
 
                 var total = await query.CountAsync();
@@ -319,31 +334,48 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         // ─────────────────────────────────────────────────────
         private async Task<List<int>> ObtenerCategoriaConDescendientesAsync(int categoriaId)
         {
-            const string cacheKey = "todas_categorias_jerarquia";
-            var todas = await _cache.GetOrCreateAsync(cacheKey, async entry =>
+            var set = await ObtenerCategoriasConDescendientesAsync(new[] { categoriaId });
+            return set.ToList();
+        }
+
+        private async Task<HashSet<int>> ObtenerCategoriasConDescendientesAsync(IEnumerable<int> categoriaIds)
+        {
+            const string cacheKey = "todas_categorias_jerarquia_v2";
+            var jerarquia = await _cache.GetOrCreateAsync(cacheKey, async entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10);
                 return await _context.Categorias.AsNoTracking()
-                    .Select(c => new { c.CategoriaId, c.CategoriaPadreId })
-                    .ToListAsync();
-            });
-
-            var resultado = new List<int> { categoriaId };
-            var pendientes = new Queue<int>(new[] { categoriaId });
-            while (pendientes.Count > 0)
-            {
-                var actual = pendientes.Dequeue();
-                var hijos = todas.Where(c => c.CategoriaPadreId == actual).Select(c => c.CategoriaId).ToList();
-                foreach (var h in hijos)
-                {
-                    if (!resultado.Contains(h))
+                    .Select(c => new CategoriaNodoId
                     {
-                        resultado.Add(h);
-                        pendientes.Enqueue(h);
+                        CategoriaId = c.CategoriaId,
+                        CategoriaPadreId = c.CategoriaPadreId,
+                    })
+                    .ToListAsync();
+            }) ?? new List<CategoriaNodoId>();
+
+            var resultado = new HashSet<int>();
+            foreach (var categoriaId in categoriaIds.Distinct())
+            {
+                if (!resultado.Add(categoriaId)) continue;
+                var pendientes = new Queue<int>();
+                pendientes.Enqueue(categoriaId);
+                while (pendientes.Count > 0)
+                {
+                    var actual = pendientes.Dequeue();
+                    foreach (var h in jerarquia.Where(c => c.CategoriaPadreId == actual).Select(c => c.CategoriaId))
+                    {
+                        if (resultado.Add(h))
+                            pendientes.Enqueue(h);
                     }
                 }
             }
             return resultado;
+        }
+
+        private sealed class CategoriaNodoId
+        {
+            public int CategoriaId { get; set; }
+            public int? CategoriaPadreId { get; set; }
         }
 
         private async Task<Dictionary<int, Oferta>> ObtenerOfertasVigentesAsync(List<int> productosIds)

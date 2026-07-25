@@ -9,10 +9,10 @@ namespace TiendaVirtual.Dominio.Modelo.VentaXqm
 {
     public class Envio
     {
-        public long EnvioId { get; set; }
+        public Guid EnvioId { get; set; }
 
         [Required]
-        public long SubordenId { get; set; }
+        public Guid SubordenId { get; set; }
 
         [Required]
         public string Transportista { get; set; } = null!;

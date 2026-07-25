@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -39,7 +39,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         // LISTADO Y DETALLE (vendedor)
         // ─────────────────────────────────────────────────────
         public async Task<ResultadoOperacion<PaginacionRespuestaDto<ProductoDto>>> ListarMisProductosAsync(
-            int usuarioId, int pagina, int tamanioPagina)
+            Guid usuarioId, int pagina, int tamanioPagina)
         {
             try
             {
@@ -86,7 +86,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<ProductoDto>> ObtenerMiProductoAsync(int usuarioId, int productoId)
+        public async Task<ResultadoOperacion<ProductoDto>> ObtenerMiProductoAsync(Guid usuarioId, int productoId)
         {
             try
             {
@@ -110,7 +110,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         // ─────────────────────────────────────────────────────
         // CRUD del producto
         // ─────────────────────────────────────────────────────
-        public async Task<ResultadoOperacion<ProductoDto>> CrearAsync(int usuarioId, CrearProductoDto dto)
+        public async Task<ResultadoOperacion<ProductoDto>> CrearAsync(Guid usuarioId, CrearProductoDto dto)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -296,7 +296,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<ProductoDto>> ActualizarAsync(
-            int usuarioId, int productoId, ActualizarProductoDto dto)
+            Guid usuarioId, int productoId, ActualizarProductoDto dto)
         {
             try
             {
@@ -338,7 +338,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> EliminarAsync(int usuarioId, int productoId)
+        public async Task<ResultadoOperacion<bool>> EliminarAsync(Guid usuarioId, int productoId)
         {
             try
             {
@@ -363,7 +363,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> PublicarAsync(int usuarioId, int productoId)
+        public async Task<ResultadoOperacion<bool>> PublicarAsync(Guid usuarioId, int productoId)
         {
             try
             {
@@ -424,7 +424,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> PausarAsync(int usuarioId, int productoId)
+        public async Task<ResultadoOperacion<bool>> PausarAsync(Guid usuarioId, int productoId)
         {
             try
             {
@@ -450,7 +450,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         // VARIANTES
         // ─────────────────────────────────────────────────────
         public async Task<ResultadoOperacion<VarianteProductoDto>> AgregarVarianteAsync(
-            int usuarioId, int productoId, CrearVarianteDto dto)
+            Guid usuarioId, int productoId, CrearVarianteDto dto)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -505,7 +505,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<VarianteProductoDto>> ActualizarVarianteAsync(
-            int usuarioId, int varianteId, ActualizarVarianteDto dto)
+            Guid usuarioId, int varianteId, ActualizarVarianteDto dto)
         {
             try
             {
@@ -537,7 +537,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> EliminarVarianteAsync(int usuarioId, int varianteId)
+        public async Task<ResultadoOperacion<bool>> EliminarVarianteAsync(Guid usuarioId, int varianteId)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -578,7 +578,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<VarianteProductoDto>> ActualizarStockAsync(
-            int usuarioId, int varianteId, ActualizarStockDto dto)
+            Guid usuarioId, int varianteId, ActualizarStockDto dto)
         {
             try
             {
@@ -624,7 +624,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         // IMÁGENES
         // ─────────────────────────────────────────────────────
         public async Task<ResultadoOperacion<ImagenProductoDto>> AgregarImagenAsync(
-            int usuarioId, int productoId, CrearImagenDto dto)
+            Guid usuarioId, int productoId, CrearImagenDto dto)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -674,7 +674,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<ImagenProductoDto>> ActualizarImagenAsync(
-            int usuarioId, int imagenId, ActualizarImagenDto dto)
+            Guid usuarioId, int imagenId, ActualizarImagenDto dto)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -712,7 +712,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> EliminarImagenAsync(int usuarioId, int imagenId)
+        public async Task<ResultadoOperacion<bool>> EliminarImagenAsync(Guid usuarioId, int imagenId)
         {
             try
             {
@@ -740,7 +740,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         // OFERTAS
         // ─────────────────────────────────────────────────────
         public async Task<ResultadoOperacion<OfertaDto>> CrearOfertaAsync(
-            int usuarioId, int productoId, CrearOfertaDto dto)
+            Guid usuarioId, int productoId, CrearOfertaDto dto)
         {
             try
             {
@@ -812,7 +812,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<OfertaDto>> ActualizarOfertaAsync(
-            int usuarioId, int ofertaId, ActualizarOfertaDto dto)
+            Guid usuarioId, int ofertaId, ActualizarOfertaDto dto)
         {
             try
             {
@@ -880,7 +880,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<List<OfertaDto>>> ListarOfertasAsync(int usuarioId, int productoId)
+        public async Task<ResultadoOperacion<List<OfertaDto>>> ListarOfertasAsync(Guid usuarioId, int productoId)
         {
             try
             {
@@ -904,7 +904,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> ActivarOfertaAsync(int usuarioId, int ofertaId)
+        public async Task<ResultadoOperacion<bool>> ActivarOfertaAsync(Guid usuarioId, int ofertaId)
         {
             try
             {
@@ -929,7 +929,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> DesactivarOfertaAsync(int usuarioId, int ofertaId)
+        public async Task<ResultadoOperacion<bool>> DesactivarOfertaAsync(Guid usuarioId, int ofertaId)
         {
             try
             {
@@ -954,7 +954,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> EliminarOfertaAsync(int usuarioId, int ofertaId)
+        public async Task<ResultadoOperacion<bool>> EliminarOfertaAsync(Guid usuarioId, int ofertaId)
         {
             try
             {
@@ -981,7 +981,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         // ─────────────────────────────────────────────────────
         // HELPERS PRIVADOS
         // ─────────────────────────────────────────────────────
-        private async Task<Vendedor?> ObtenerVendedorAsync(int usuarioId)
+        private async Task<Vendedor?> ObtenerVendedorAsync(Guid usuarioId)
         {
             return await _context.Vendedores.FirstOrDefaultAsync(v => v.UsuarioId == usuarioId);
         }
@@ -1000,7 +1000,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         private static int LimiteImagenesPorVariantes(int cantidadVariantes) =>
             cantidadVariantes > 3 ? 6 : 4;
 
-        private async Task<Producto?> ValidarPropiedadProductoAsync(int usuarioId, int productoId)
+        private async Task<Producto?> ValidarPropiedadProductoAsync(Guid usuarioId, int productoId)
         {
             var vendedor = await ObtenerVendedorAsync(usuarioId);
             if (vendedor == null) return null;

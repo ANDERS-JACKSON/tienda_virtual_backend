@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,7 +8,7 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
 {
     public class CuentaBancariaDto
     {
-        public int CuentaId { get; set; }
+        public Guid CuentaId { get; set; }
         public int VendedorId { get; set; }
         public string Banco { get; set; } = null!;
         public string NumeroCuenta { get; set; } = null!;

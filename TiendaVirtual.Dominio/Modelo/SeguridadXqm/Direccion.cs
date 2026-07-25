@@ -9,10 +9,10 @@ namespace TiendaVirtual.Dominio.Modelo.SeguridadXqm
 {
     public class Direccion
     {
-        public int DireccionId { get; set; }
+        public Guid DireccionId { get; set; }
 
         [Required]
-        public int PersonaId { get; set; }
+        public Guid PersonaId { get; set; }
 
         public string? Etiqueta { get; set; }
 

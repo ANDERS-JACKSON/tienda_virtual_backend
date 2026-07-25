@@ -49,12 +49,14 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<List<CategoriaArbolDto>>> ObtenerArbolAsync()
+        public async Task<ResultadoOperacion<List<CategoriaArbolDto>>> ObtenerArbolAsync(bool soloActivas = true)
         {
             try
             {
-                var todas = await _context.Categorias.AsNoTracking()
-                    .Where(c => c.Activa)
+                var query = _context.Categorias.AsNoTracking();
+                if (soloActivas) query = query.Where(c => c.Activa);
+
+                var todas = await query
                     .OrderBy(c => c.Orden).ThenBy(c => c.Nombre)
                     .ToListAsync();
 
@@ -192,6 +194,35 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                         "No se puede desactivar: hay productos activos en esta categoría.");
 
                 c.Activa = false;
+                await _context.SaveChangesAsync();
+                return ResultadoOperacion<bool>.SetExito(true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en CategoriaServicio.");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
+        }
+
+        public async Task<ResultadoOperacion<bool>> ActivarAsync(int id)
+        {
+            try
+            {
+                var c = await _context.Categorias.FirstOrDefaultAsync(x => x.CategoriaId == id);
+                if (c == null) return ResultadoOperacion<bool>.SetError("Categoría no encontrada.");
+
+                if (c.CategoriaPadreId.HasValue)
+                {
+                    var padre = await _context.Categorias.AsNoTracking()
+                        .FirstOrDefaultAsync(x => x.CategoriaId == c.CategoriaPadreId.Value);
+                    if (padre == null)
+                        return ResultadoOperacion<bool>.SetError("La categoría padre no existe.");
+                    if (!padre.Activa)
+                        return ResultadoOperacion<bool>.SetError(
+                            "No se puede activar: la categoría padre está inactiva. Actívala primero.");
+                }
+
+                c.Activa = true;
                 await _context.SaveChangesAsync();
                 return ResultadoOperacion<bool>.SetExito(true);
             }

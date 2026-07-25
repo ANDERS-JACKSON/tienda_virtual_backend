@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Modelo.SeguridadXqm;
@@ -11,7 +11,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 {
     public class UsuarioAdminServicio : IUsuarioAdminServicio
     {
-        private const int LONGITUD_CLAVE = 10;
+        private const int LONGITUD_CLAVE = 6;
 
         private readonly TiendaVirtualDbContext _context;
         private readonly ILogger<UsuarioAdminServicio> _logger;
@@ -84,7 +84,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<UsuarioAdminDetalleDto>> ObtenerDetalleAsync(int usuarioId)
+        public async Task<ResultadoOperacion<UsuarioAdminDetalleDto>> ObtenerDetalleAsync(Guid usuarioId)
         {
             try
             {
@@ -132,7 +132,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> ActivarAsync(int usuarioId)
+        public async Task<ResultadoOperacion<bool>> ActivarAsync(Guid usuarioId)
         {
             try
             {
@@ -150,7 +150,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> DesactivarAsync(int usuarioId)
+        public async Task<ResultadoOperacion<bool>> DesactivarAsync(Guid usuarioId)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -189,7 +189,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> AsignarRolAsync(int usuarioId, int rolId)
+        public async Task<ResultadoOperacion<bool>> AsignarRolAsync(Guid usuarioId, int rolId)
         {
             try
             {
@@ -219,7 +219,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> QuitarRolAsync(int usuarioId, int rolId, int adminActualId)
+        public async Task<ResultadoOperacion<bool>> QuitarRolAsync(Guid usuarioId, int rolId, Guid adminActualId)
         {
             try
             {
@@ -251,7 +251,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> ResetearClaveAsync(int usuarioId)
+        public async Task<ResultadoOperacion<bool>> ResetearClaveAsync(Guid usuarioId)
         {
             try
             {
@@ -317,13 +317,14 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
         private static string GenerarClaveAleatoria(int longitud)
         {
-            const string TODO = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+            if (longitud < 4) longitud = 4;
+
             var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
+            var chars = new char[longitud];
             var buf = new byte[longitud];
             rng.GetBytes(buf);
-            var chars = new char[longitud];
             for (int i = 0; i < longitud; i++)
-                chars[i] = TODO[buf[i] % TODO.Length];
+                chars[i] = (char)('0' + (buf[i] % 10));
             return new string(chars);
         }
     }

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using System;
@@ -33,7 +33,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
         private const int DURACION_TOKEN_MINUTOS = 60;
         private const int DURACION_REFRESH_DIAS = 30;
-        private const int LONGITUD_CLAVE_AUTO = 10;
+        private const int LONGITUD_CLAVE_AUTO = 6;
 
         // Roles que exigen 2FA obligatorio
         private static readonly string[] ROLES_CON_2FA = { "ADMIN", "VERIFICADOR" };
@@ -103,7 +103,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                         "Token no autorizado para esta operación.");
 
                 var usuarioIdStr = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (!int.TryParse(usuarioIdStr, out int usuarioId))
+                if (!Guid.TryParse(usuarioIdStr, out var usuarioId) || usuarioId == Guid.Empty)
                     return ResultadoOperacion<TokenRespuestaDto>.SetError("Token inválido.");
 
                 var clave = _configuration["TwoFactor:ClaveCifrado"]!;
@@ -187,7 +187,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 await _context.SaveChangesAsync();
 
                 // Clave auto generada: el usuario la recibirá por correo
-                var claveAuto = GenerarClaveAleatoria(LONGITUD_CLAVE_AUTO);
+                var claveAuto = GenerarClaveNumerica(LONGITUD_CLAVE_AUTO);
 
                 var usuario = CrearUsuario(persona.PersonaId, dto.Correo, claveAuto, forzarCambioClave: true);
                 _context.Usuarios.Add(usuario);
@@ -250,7 +250,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 _context.Personas.Add(persona);
                 await _context.SaveChangesAsync();
 
-                var claveAuto = GenerarClaveAleatoria(LONGITUD_CLAVE_AUTO);
+                var claveAuto = GenerarClaveNumerica(LONGITUD_CLAVE_AUTO);
 
                 var usuario = CrearUsuario(persona.PersonaId, dto.Correo, claveAuto, forzarCambioClave: true);
                 _context.Usuarios.Add(usuario);
@@ -333,7 +333,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 _context.Personas.Add(persona);
                 await _context.SaveChangesAsync();
 
-                var claveAuto = GenerarClaveAleatoria(LONGITUD_CLAVE_AUTO);
+                var claveAuto = GenerarClaveNumerica(LONGITUD_CLAVE_AUTO);
 
                 var usuario = CrearUsuario(persona.PersonaId, dto.Correo, claveAuto, forzarCambioClave: true);
                 _context.Usuarios.Add(usuario);
@@ -389,7 +389,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 // Mensaje genérico: NO revelamos si el correo está registrado
                 // (defensa contra enumeración de usuarios).
                 const string MENSAJE_OK =
-                    "Si el correo está registrado, te enviamos una nueva contraseña en unos segundos.";
+                    "Si el correo está registrado, te enviamos un código de 6 dígitos en unos segundos.";
 
                 if (usuario == null)
                     return ResultadoOperacion<string>.SetExito(MENSAJE_OK);
@@ -397,7 +397,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 if (usuario.Estado != TipoEstadoUsuario.Activo)
                     return ResultadoOperacion<string>.SetExito(MENSAJE_OK);
 
-                var nuevaClave = GenerarClaveAleatoria(LONGITUD_CLAVE_AUTO);
+                var nuevaClave = GenerarClaveNumerica(LONGITUD_CLAVE_AUTO);
                 usuario.Contrasena = BCrypt.Net.BCrypt.HashPassword(nuevaClave);
                 usuario.ForzarCambioClave = true;
                 await _context.SaveChangesAsync();
@@ -432,7 +432,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
         // CAMBIAR CONTRASEÑA (usuario autenticado)
         // ─────────────────────────────────────────────────────────────
         public async Task<ResultadoOperacion<bool>> CambiarPasswordAsync(
-            int usuarioId, string contrasenaActual, string contrasenaNueva)
+            Guid usuarioId, string contrasenaActual, string contrasenaNueva)
         {
             try
             {
@@ -481,7 +481,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                     return ResultadoOperacion<bool>.SetError("El correo es obligatorio.");
 
                 if (string.IsNullOrWhiteSpace(contrasenaActual))
-                    return ResultadoOperacion<bool>.SetError("La contraseña del correo es obligatoria.");
+                    return ResultadoOperacion<bool>.SetError("El código del correo es obligatorio.");
 
                 var validacionNueva = ContrasenaValidador.Validar(contrasenaNueva);
                 if (!validacionNueva.Exito)
@@ -489,21 +489,21 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
                 if (contrasenaActual == contrasenaNueva)
                     return ResultadoOperacion<bool>.SetError(
-                        "La contraseña nueva debe ser diferente a la del correo.");
+                        "La contraseña nueva debe ser diferente al código del correo.");
 
                 var correoNorm = correo.Trim().ToLower();
                 var usuario = await _context.Usuarios
                     .FirstOrDefaultAsync(u => u.Correo == correoNorm);
 
                 if (usuario == null)
-                    return ResultadoOperacion<bool>.SetError("Correo o contraseña incorrectos.");
+                    return ResultadoOperacion<bool>.SetError("El código ingresado no es correcto.");
 
                 if (!usuario.ForzarCambioClave)
                     return ResultadoOperacion<bool>.SetError(
                         "Esta cuenta ya tiene una contraseña definida. Inicia sesión y cámbiala desde tu perfil.");
 
                 if (!BCrypt.Net.BCrypt.Verify(contrasenaActual, usuario.Contrasena))
-                    return ResultadoOperacion<bool>.SetError("Correo o contraseña incorrectos.");
+                    return ResultadoOperacion<bool>.SetError("El código ingresado no es correcto.");
 
                 usuario.Contrasena = BCrypt.Net.BCrypt.HashPassword(contrasenaNueva);
                 usuario.ForzarCambioClave = false;
@@ -637,10 +637,11 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             return ResultadoOperacion<bool>.SetExito(true);
         }
 
-        private static Usuario CrearUsuario(int personaId, string correo, string contrasena, bool forzarCambioClave = false)
+        private static Usuario CrearUsuario(Guid personaId, string correo, string contrasena, bool forzarCambioClave = false)
         {
             return new Usuario
             {
+                UsuarioId = Guid.NewGuid(),
                 PersonaId = personaId,
                 Correo = correo.ToLower(),
                 Contrasena = BCrypt.Net.BCrypt.HashPassword(contrasena),
@@ -652,9 +653,27 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
         }
 
         /// <summary>
+        /// Clave temporal de 6 dígitos numéricos para enviar por correo
+        /// (registro y recuperación). Fácil de copiar e ingresar.
+        /// </summary>
+        private static string GenerarClaveNumerica(int longitud = LONGITUD_CLAVE_AUTO)
+        {
+            if (longitud < 4) longitud = 4;
+
+            var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
+            var chars = new char[longitud];
+            var buf = new byte[longitud];
+            rng.GetBytes(buf);
+            for (int i = 0; i < longitud; i++)
+                chars[i] = (char)('0' + (buf[i] % 10));
+            return new string(chars);
+        }
+
+        /// <summary>
         /// Genera una clave alfanumérica criptográficamente segura.
         /// Garantiza al menos: 1 mayúscula, 1 minúscula y 1 dígito —
         /// para cumplir las políticas habituales de "contraseña fuerte".
+        /// Usada internamente (p. ej. cuentas Google), no se muestra al usuario.
         /// </summary>
         private static string GenerarClaveAleatoria(int longitud)
         {
@@ -697,7 +716,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
         /// regenerar la clave manualmente.
         /// </summary>
         private async Task<bool> IntentarEnviarCreacionAsync(
-            int usuarioId, string correo, string clave)
+            Guid usuarioId, string correo, string clave)
         {
             try
             {

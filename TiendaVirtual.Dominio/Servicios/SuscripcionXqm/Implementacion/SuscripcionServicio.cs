@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones.VendedorXqm;
@@ -23,7 +23,7 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             _notificacionServicio = notificacionServicio;
         }
 
-        public async Task<ResultadoOperacion<SuscripcionDto?>> ObtenerMiSuscripcionAsync(int usuarioId)
+        public async Task<ResultadoOperacion<SuscripcionDto?>> ObtenerMiSuscripcionAsync(Guid usuarioId)
         {
             try
             {
@@ -45,7 +45,8 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                         (s.Estado == TipoEstadoSuscripcion.Cancelada &&
                          s.PeriodoFin.HasValue && s.PeriodoFin > now));
 
-                return ResultadoOperacion<SuscripcionDto?>.SetExito(sus?.ToDto());
+                return ResultadoOperacion<SuscripcionDto?>.SetExito(
+                    sus == null ? null : sus.ToDto(nombresPlanes: await MapaNombresPlanesAsync()));
             }
             catch (Exception ex)
             {
@@ -55,7 +56,7 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<SuscripcionElegibilidadDto>> ObtenerElegibilidadAsync(int usuarioId)
+        public async Task<ResultadoOperacion<SuscripcionElegibilidadDto>> ObtenerElegibilidadAsync(Guid usuarioId)
         {
             try
             {
@@ -105,7 +106,7 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<SuscripcionDto>> IniciarAsync(int usuarioId, IniciarSuscripcionDto dto)
+        public async Task<ResultadoOperacion<SuscripcionDto>> IniciarAsync(Guid usuarioId, IniciarSuscripcionDto dto)
         {
             await using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -134,7 +135,7 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<SuscripcionDto>> ReactivarPlanAsync(int usuarioId, IniciarSuscripcionDto dto)
+        public async Task<ResultadoOperacion<SuscripcionDto>> ReactivarPlanAsync(Guid usuarioId, IniciarSuscripcionDto dto)
         {
             await using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -165,7 +166,7 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<SuscripcionDto>> CambiarPlanAsync(int usuarioId, CambiarPlanDto dto)
+        public async Task<ResultadoOperacion<SuscripcionDto>> CambiarPlanAsync(Guid usuarioId, CambiarPlanDto dto)
         {
             await using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -206,7 +207,7 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> CancelarAsync(int usuarioId)
+        public async Task<ResultadoOperacion<bool>> CancelarAsync(Guid usuarioId)
         {
             try
             {
@@ -399,8 +400,14 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                 .Include(x => x.Plan)
                 .Include(x => x.Cupon)
                 .FirstAsync(x => x.SuscripcionId == suscripcionId);
-            return ResultadoOperacion<SuscripcionDto>.SetExito(s.ToDto());
+            var nombres = await MapaNombresPlanesAsync();
+            return ResultadoOperacion<SuscripcionDto>.SetExito(s.ToDto(nombresPlanes: nombres));
         }
+
+        private async Task<Dictionary<int, string>> MapaNombresPlanesAsync() =>
+            await _context.Planes.AsNoTracking()
+                .Select(p => new { p.PlanId, p.Nombre })
+                .ToDictionaryAsync(x => x.PlanId, x => x.Nombre);
 
         private async Task FinalizarSuscripcionesCanceladasParaReactivarAsync(int vendedorId, DateTime now)
         {
@@ -421,7 +428,7 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
         }
 
         private async Task<ResultadoOperacion<SuscripcionDto>> CrearSuscripcionAsync(
-            int usuarioId,
+            Guid usuarioId,
             Vendedor vendedor,
             IniciarSuscripcionDto dto,
             bool forzarPago,

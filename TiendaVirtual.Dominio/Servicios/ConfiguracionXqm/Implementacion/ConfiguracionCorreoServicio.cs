@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TiendaVirtual.Dominio.Modelo.ConfiguracionXqm;
 using TiendaVirtual.Dominio.Servicios.SoporteXqm;
@@ -128,7 +128,7 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> EnviarPruebaAsync(int adminUsuarioId)
+        public async Task<ResultadoOperacion<bool>> EnviarPruebaAsync(Guid adminUsuarioId)
         {
             try
             {

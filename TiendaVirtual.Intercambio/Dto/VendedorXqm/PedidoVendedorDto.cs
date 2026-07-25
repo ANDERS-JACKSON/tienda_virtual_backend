@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,7 +9,7 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
 {
     public class PedidoVendedorDto
     {
-        public long SubordenId { get; set; }
+        public Guid SubordenId { get; set; }
         public string NumeroSuborden { get; set; } = null!;
         public string NombreCliente { get; set; } = null!;
         public string CorreoCliente { get; set; } = null!;

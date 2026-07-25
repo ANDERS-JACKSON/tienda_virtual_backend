@@ -53,6 +53,10 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.VendedorXqm
             builder.Property(e => e.Activo)
                 .HasColumnName("activo");
 
+            builder.Property(e => e.Beneficios)
+                .HasColumnName("beneficios")
+                .HasColumnType("jsonb");
+
             builder.HasIndex(e => e.Codigo)
                 .IsUnique()
                 .HasDatabaseName("uq_plan_codigo");

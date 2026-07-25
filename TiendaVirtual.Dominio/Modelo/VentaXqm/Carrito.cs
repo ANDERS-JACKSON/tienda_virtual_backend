@@ -10,7 +10,7 @@ namespace TiendaVirtual.Dominio.Modelo.VentaXqm
     public class Carrito
     {
         public int CarritoId { get; set; }
-        public int UsuarioId { get; set; }
+        public Guid UsuarioId { get; set; }
         public DateTime FechaActualizacion { get; set; }
 
         public virtual Usuario Usuario { get; set; } = null!;

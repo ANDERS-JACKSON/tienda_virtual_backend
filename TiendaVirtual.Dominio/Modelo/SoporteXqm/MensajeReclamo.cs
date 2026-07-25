@@ -10,13 +10,13 @@ namespace TiendaVirtual.Dominio.Modelo.SoporteXqm
 {
     public class MensajeReclamo
     {
-        public long MensajeId { get; set; }
+        public Guid MensajeId { get; set; }
 
         [Required]
-        public long ReclamoId { get; set; }
+        public Guid ReclamoId { get; set; }
 
         [Required]
-        public int RemitenteId { get; set; }
+        public Guid RemitenteId { get; set; }
 
         [Required]
         public string Mensaje { get; set; } = null!;

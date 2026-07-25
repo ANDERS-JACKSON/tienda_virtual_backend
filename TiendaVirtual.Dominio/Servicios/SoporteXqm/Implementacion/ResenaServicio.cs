@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using TiendaVirtual.Comun.Enumeracion;
@@ -23,7 +23,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<ResenaProductoDto>> CrearResenaProductoAsync(
-            int usuarioId, CrearResenaProductoDto dto)
+            Guid usuarioId, CrearResenaProductoDto dto)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -95,7 +95,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<ResenaVendedorDto>> CrearResenaVendedorAsync(
-            int usuarioId, CrearResenaVendedorDto dto)
+            Guid usuarioId, CrearResenaVendedorDto dto)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -166,7 +166,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<ResenaProductoDto>> ResponderResenaProductoAsync(
-            int usuarioId, long resenaId, ResponderResenaDto dto)
+            Guid usuarioId, long resenaId, ResponderResenaDto dto)
         {
             try
             {
@@ -339,7 +339,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<List<PendienteResenaDto>>> ObtenerPendientesAsync(int usuarioId)
+        public async Task<ResultadoOperacion<List<PendienteResenaDto>>> ObtenerPendientesAsync(Guid usuarioId)
         {
             try
             {

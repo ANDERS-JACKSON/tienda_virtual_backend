@@ -10,10 +10,10 @@ namespace TiendaVirtual.Dominio.Modelo.SoporteXqm
 {
     public class Notificacion
     {
-        public long NotificacionId { get; set; }
+        public Guid NotificacionId { get; set; }
 
         [Required]
-        public int UsuarioId { get; set; }
+        public Guid UsuarioId { get; set; }
 
         [Required]
         public string Tipo { get; set; } = null!;

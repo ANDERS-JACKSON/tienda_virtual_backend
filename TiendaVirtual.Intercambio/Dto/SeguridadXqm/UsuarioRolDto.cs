@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,7 +8,7 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
 {
     public class UsuarioRolDto
     {
-        public int UsuarioId { get; set; }
+        public Guid UsuarioId { get; set; }
         public short RolId { get; set; }
     }
 }

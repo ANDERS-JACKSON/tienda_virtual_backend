@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,8 +8,8 @@ namespace TiendaVirtual.Intercambio.Dto.SoporteXqm
 {
     public class NotificacionDto
     {
-        public long NotificacionId { get; set; }
-        public int UsuarioId { get; set; }
+        public Guid NotificacionId { get; set; }
+        public Guid UsuarioId { get; set; }
         public string Tipo { get; set; } = null!;
         public string Titulo { get; set; } = null!;
         public string? Cuerpo { get; set; }

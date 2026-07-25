@@ -1,8 +1,8 @@
-namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
+﻿namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
 {
     public class UsuarioPerfilDto
     {
-        public int UsuarioId { get; set; }
+        public Guid UsuarioId { get; set; }
         public string Correo { get; set; } = null!;
         public PersonaDto Persona { get; set; } = null!;
     }

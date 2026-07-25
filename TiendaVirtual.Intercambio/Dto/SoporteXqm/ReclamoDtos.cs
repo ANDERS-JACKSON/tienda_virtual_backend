@@ -1,12 +1,12 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using TiendaVirtual.Intercambio.Dto.Sistema;
 
 namespace TiendaVirtual.Intercambio.Dto.SoporteXqm
 {
     public class ReclamoListadoDto
     {
-        public long ReclamoId { get; set; }
-        public long SubordenId { get; set; }
+        public Guid ReclamoId { get; set; }
+        public Guid SubordenId { get; set; }
         public string NumeroSuborden { get; set; } = null!;
         public string NombreContraparte { get; set; } = null!;
         public EnumeracionDto Motivo { get; set; } = null!;
@@ -18,7 +18,7 @@ namespace TiendaVirtual.Intercambio.Dto.SoporteXqm
     public class AbrirReclamoDto
     {
         [Required]
-        public long SubordenId { get; set; }
+        public Guid SubordenId { get; set; }
 
         [Required]
         public EnumeracionDto Motivo { get; set; } = null!;

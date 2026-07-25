@@ -1,10 +1,10 @@
-using TiendaVirtual.Intercambio.Dto.Sistema;
+﻿using TiendaVirtual.Intercambio.Dto.Sistema;
 
 namespace TiendaVirtual.Intercambio.Dto.PagoXqm
 {
     public class TransaccionAdminListadoDto
     {
-        public long TransaccionId { get; set; }
+        public Guid TransaccionId { get; set; }
         public string? TransaccionProveedorId { get; set; }
         public EnumeracionDto Tipo { get; set; } = null!;
         public decimal Monto { get; set; }
@@ -16,9 +16,9 @@ namespace TiendaVirtual.Intercambio.Dto.PagoXqm
     public class TransaccionAdminDetalleDto : TransaccionAdminListadoDto
     {
         public string Proveedor { get; set; } = null!;
-        public long? OrdenId { get; set; }
+        public Guid? OrdenId { get; set; }
         public int? SuscripcionId { get; set; }
-        public int UsuarioId { get; set; }
+        public Guid UsuarioId { get; set; }
         public string? RespuestaProveedor { get; set; }
     }
 

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using TiendaVirtual.Comun.Enumeracion;
@@ -30,7 +30,7 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<RespuestaInicioPagoDto>> IniciarPagoAsync(
-            int usuarioId, IniciarPagoSuscripcionDto dto)
+            Guid usuarioId, IniciarPagoSuscripcionDto dto)
         {
             await using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -73,6 +73,7 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
 
                     transaccion = new Transaccion
                     {
+                        TransaccionId = Guid.NewGuid(),
                         SuscripcionId = sus.SuscripcionId,
                         UsuarioId = usuarioId,
                         Proveedor = "IZIPAY",
@@ -108,7 +109,7 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<TransaccionDto>> ConfirmarPagoAsync(
-            ConfirmarPagoSuscripcionDto dto, int? usuarioIdSolicitante = null)
+            ConfirmarPagoSuscripcionDto dto, Guid? usuarioIdSolicitante = null)
         {
             await using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -193,7 +194,7 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<List<TransaccionDto>>> ListarMisTransaccionesAsync(int usuarioId)
+        public async Task<ResultadoOperacion<List<TransaccionDto>>> ListarMisTransaccionesAsync(Guid usuarioId)
         {
             try
             {

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.Extensions.Logging;
 using System.Linq;
 using System.Threading.Tasks;
@@ -140,14 +140,14 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 .Select(le => le.UsuarioId)
                 .FirstOrDefaultAsync();
 
-            if (usuarioId == 0)
+            if (usuarioId == Guid.Empty)
                 return null;
 
             return await QueryUsuarioConRelaciones()
                 .FirstOrDefaultAsync(u => u.UsuarioId == usuarioId);
         }
 
-        private async Task<ResultadoOperacion<bool>> VincularGoogleInternoAsync(int usuarioId, string subjectId)
+        private async Task<ResultadoOperacion<bool>> VincularGoogleInternoAsync(Guid usuarioId, string subjectId)
         {
             var vinculadoAOtro = await _context.UsuariosLoginExterno.AnyAsync(le =>
                 le.Proveedor == PROVEEDOR_GOOGLE &&
@@ -213,11 +213,12 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             return (partes[0], partes[1], string.Join(' ', partes.Skip(2)));
         }
 
-        private static Usuario CrearUsuarioOAuth(int personaId, string correo)
+        private static Usuario CrearUsuarioOAuth(Guid personaId, string correo)
         {
             var claveInterna = GenerarClaveAleatoria(32);
             return new Usuario
             {
+                UsuarioId = Guid.NewGuid(),
                 PersonaId = personaId,
                 Correo = correo.ToLower(),
                 Contrasena = BCrypt.Net.BCrypt.HashPassword(claveInterna),
@@ -228,7 +229,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             };
         }
 
-        public async Task<ResultadoOperacion<CuentaSeguridadDto>> ObtenerSeguridadCuentaAsync(int usuarioId)
+        public async Task<ResultadoOperacion<CuentaSeguridadDto>> ObtenerSeguridadCuentaAsync(Guid usuarioId)
         {
             try
             {
@@ -249,7 +250,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> VincularGoogleAsync(int usuarioId, GoogleLoginDto dto)
+        public async Task<ResultadoOperacion<bool>> VincularGoogleAsync(Guid usuarioId, GoogleLoginDto dto)
         {
             try
             {
@@ -291,7 +292,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> DesvincularGoogleAsync(int usuarioId, string contrasena)
+        public async Task<ResultadoOperacion<bool>> DesvincularGoogleAsync(Guid usuarioId, string contrasena)
         {
             try
             {

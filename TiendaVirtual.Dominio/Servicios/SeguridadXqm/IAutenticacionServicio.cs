@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -38,7 +38,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm
         Task<ResultadoOperacion<string>> RecuperarClaveAsync(string correo);
 
         Task<ResultadoOperacion<bool>> CambiarPasswordAsync(
-            int usuarioId, string contrasenaActual, string contrasenaNueva);
+            Guid usuarioId, string contrasenaActual, string contrasenaNueva);
 
         /// <summary>
         /// Primer cambio tras registro o recuperación, sin sesión (correo + clave temporal).
@@ -52,10 +52,10 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm
         Task<ResultadoOperacion<LoginRespuestaDto>> CompletarRegistroGoogleAsync(
             CompletarRegistroGoogleDto dto, string? direccionIp, string? agenteUsuario);
 
-        Task<ResultadoOperacion<CuentaSeguridadDto>> ObtenerSeguridadCuentaAsync(int usuarioId);
+        Task<ResultadoOperacion<CuentaSeguridadDto>> ObtenerSeguridadCuentaAsync(Guid usuarioId);
 
-        Task<ResultadoOperacion<bool>> VincularGoogleAsync(int usuarioId, GoogleLoginDto dto);
+        Task<ResultadoOperacion<bool>> VincularGoogleAsync(Guid usuarioId, GoogleLoginDto dto);
 
-        Task<ResultadoOperacion<bool>> DesvincularGoogleAsync(int usuarioId, string contrasena);
+        Task<ResultadoOperacion<bool>> DesvincularGoogleAsync(Guid usuarioId, string contrasena);
     }
 }

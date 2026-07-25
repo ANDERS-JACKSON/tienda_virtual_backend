@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Servicios.PagoXqm;
@@ -37,23 +37,23 @@ namespace TiendaVirtual.Api.Controllers.PagoXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
-        [HttpGet("admin/{id:long}")]
-        public async Task<ActionResult<ResultadoOperacion<TransaccionAdminDetalleDto>>> Detalle(long id)
+        [HttpGet("admin/{id:guid}")]
+        public async Task<ActionResult<ResultadoOperacion<TransaccionAdminDetalleDto>>> Detalle(Guid id)
         {
             var r = await _servicio.ObtenerDetalleAsync(id);
             return r.Exito ? Ok(r) : NotFound(r);
         }
 
-        [HttpPost("admin/{id:long}/marcar-completada")]
-        public async Task<ActionResult<ResultadoOperacion<bool>>> MarcarCompletada(long id)
+        [HttpPost("admin/{id:guid}/marcar-completada")]
+        public async Task<ActionResult<ResultadoOperacion<bool>>> MarcarCompletada(Guid id)
         {
             var r = await _servicio.MarcarCompletadaAsync(id);
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
-        [HttpPost("admin/{id:long}/marcar-fallida")]
+        [HttpPost("admin/{id:guid}/marcar-fallida")]
         public async Task<ActionResult<ResultadoOperacion<bool>>> MarcarFallida(
-            long id, [FromBody] MarcarTransaccionFallidaDto dto)
+            Guid id, [FromBody] MarcarTransaccionFallidaDto dto)
         {
             var r = await _servicio.MarcarFallidaAsync(id, dto);
             return r.Exito ? Ok(r) : BadRequest(r);

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,12 +9,12 @@ namespace TiendaVirtual.Intercambio.Dto.PagoXqm
 {
     public class RetiroDto
     {
-        public int RetiroId { get; set; }
+        public Guid RetiroId { get; set; }
         public int VendedorId { get; set; }
-        public int CuentaId { get; set; }
+        public Guid CuentaId { get; set; }
         public decimal Monto { get; set; }
         public EnumeracionDto Estado { get; set; } = null!;
-        public int? ProcesadoPor { get; set; }
+        public Guid? ProcesadoPor { get; set; }
         public string? ReferenciaTransferencia { get; set; }
         public DateTime FechaSolicitud { get; set; }
         public DateTime? FechaCompletado { get; set; }

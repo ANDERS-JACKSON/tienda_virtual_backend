@@ -1,4 +1,4 @@
-using System.Net.Mail;
+﻿using System.Net.Mail;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,16 +28,16 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             _logger = logger;
         }
 
-        public async Task<ResultadoOperacion<long>> CrearAsync(
-            CrearMensajeContactoDto dto, int? usuarioIdSiLogueado)
+        public async Task<ResultadoOperacion<Guid>> CrearAsync(
+            CrearMensajeContactoDto dto, Guid? usuarioIdSiLogueado)
         {
             try
             {
                 if (dto == null)
-                    return ResultadoOperacion<long>.SetError("Datos inválidos.");
+                    return ResultadoOperacion<Guid>.SetError("Datos inválidos.");
 
                 if (!string.IsNullOrWhiteSpace(dto.Sitio))
-                    return ResultadoOperacion<long>.SetExito(0L);
+                    return ResultadoOperacion<Guid>.SetExito(Guid.Empty);
 
                 var nombre = dto.Nombre.Normalizar();
                 var correo = dto.Correo.Trim().ToLowerInvariant();
@@ -46,13 +46,13 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
 
                 var validacion = ValidarCampos(nombre, correo, asunto, mensaje);
                 if (validacion != null)
-                    return ResultadoOperacion<long>.SetError(validacion);
+                    return ResultadoOperacion<Guid>.SetError(validacion);
 
                 var haceUnaHora = DateTime.UtcNow.AddHours(-1);
                 var enviosRecientes = await _context.MensajesContacto
                     .CountAsync(m => m.Correo == correo && m.FechaMensaje >= haceUnaHora);
                 if (enviosRecientes >= 3)
-                    return ResultadoOperacion<long>.SetError(
+                    return ResultadoOperacion<Guid>.SetError(
                         "Has enviado demasiados mensajes. Intenta de nuevo más tarde.");
 
                 var haceCincoMin = DateTime.UtcNow.AddMinutes(-5);
@@ -65,11 +65,12 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
                         m.FechaMensaje >= haceCincoMin)
                     .Select(m => m.MensajeContactoId)
                     .FirstOrDefaultAsync();
-                if (duplicado > 0)
-                    return ResultadoOperacion<long>.SetExito(duplicado);
+                if (duplicado != Guid.Empty)
+                    return ResultadoOperacion<Guid>.SetExito(duplicado);
 
                 var entidad = new MensajeContacto
                 {
+                    MensajeContactoId = Guid.NewGuid(),
                     UsuarioId = usuarioIdSiLogueado,
                     Nombre = nombre,
                     Correo = correo,
@@ -85,17 +86,17 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
                 var mensajeId = entidad.MensajeContactoId;
                 _ = Task.Run(() => NotificarAdminsAsync(mensajeId));
 
-                return ResultadoOperacion<long>.SetExito(mensajeId);
+                return ResultadoOperacion<Guid>.SetExito(mensajeId);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error en MensajeContactoServicio.CrearAsync");
-                return ResultadoOperacion<long>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+                return ResultadoOperacion<Guid>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
 
         }
 
-        public async Task<ResultadoOperacion<MensajeContactoDetalleDto>> ObtenerDetalleAsync(long id)
+        public async Task<ResultadoOperacion<MensajeContactoDetalleDto>> ObtenerDetalleAsync(Guid id)
         {
             try
             {
@@ -174,7 +175,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<bool>> ResponderAsync(
-            long id, int adminId, ResponderMensajeContactoDto dto)
+            Guid id, Guid adminId, ResponderMensajeContactoDto dto)
         {
             try
             {
@@ -229,7 +230,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<bool>> CambiarEstadoAsync(
-            long id, int adminId, TipoEstadoContacto nuevoEstado)
+            Guid id, Guid adminId, TipoEstadoContacto nuevoEstado)
         {
             try
             {
@@ -272,7 +273,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             }
         }
 
-        private async Task NotificarAdminsAsync(long mensajeId)
+        private async Task NotificarAdminsAsync(Guid mensajeId)
         {
             try
             {
@@ -370,7 +371,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             }
         }
 
-        private async Task<MensajeContactoDetalleDto?> CargarDetalleAsync(long id)
+        private async Task<MensajeContactoDetalleDto?> CargarDetalleAsync(Guid id)
         {
             var m = await _context.MensajesContacto
                 .AsNoTracking()
@@ -483,13 +484,13 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
 
         private sealed class MensajeContactoSnapshot
         {
-            public long Id { get; init; }
+            public Guid Id { get; init; }
             public string Nombre { get; init; } = null!;
             public string Correo { get; init; } = null!;
             public string Asunto { get; init; } = null!;
             public string Mensaje { get; init; } = null!;
             public string Respuesta { get; init; } = null!;
-            public int? UsuarioId { get; init; }
+            public Guid? UsuarioId { get; init; }
         }
     }
 }

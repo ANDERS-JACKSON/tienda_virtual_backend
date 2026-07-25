@@ -12,7 +12,7 @@ namespace TiendaVirtual.Dominio.Modelo.SeguridadXqm
 {
     public class Persona
     {
-        public int PersonaId { get; set; }
+        public Guid PersonaId { get; set; }
 
         [EnumValorValido]
         public TipoDocumentoIdentidad TipoDocumento { get; set; }

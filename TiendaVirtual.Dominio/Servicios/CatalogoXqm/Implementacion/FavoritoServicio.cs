@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -25,7 +25,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<PaginacionRespuestaDto<FavoritoDto>>> ListarMisFavoritosAsync(
-            int usuarioId, int pagina, int tamanioPagina)
+            Guid usuarioId, int pagina, int tamanioPagina)
         {
             try
             {
@@ -119,7 +119,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> AgregarAsync(int usuarioId, int productoId)
+        public async Task<ResultadoOperacion<bool>> AgregarAsync(Guid usuarioId, int productoId)
         {
             try
             {
@@ -148,7 +148,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
         }
 
-        public async Task<ResultadoOperacion<bool>> QuitarAsync(int usuarioId, int productoId)
+        public async Task<ResultadoOperacion<bool>> QuitarAsync(Guid usuarioId, int productoId)
         {
             try
             {

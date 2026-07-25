@@ -29,6 +29,9 @@ namespace TiendaVirtual.Dominio.Modelo.VendedorXqm
         public decimal TasaComision { get; set; }
         public bool Activo { get; set; }
 
+        /// <summary>JSON de marketing: etiqueta, heredaDePlanId, destacado, notaPie, items.</summary>
+        public string? Beneficios { get; set; }
+
         public virtual ICollection<Suscripcion> Suscripciones { get; set; } = new List<Suscripcion>();
     }
 }

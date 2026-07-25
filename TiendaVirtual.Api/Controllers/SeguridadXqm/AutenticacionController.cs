@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TiendaVirtual.Dominio.Servicios.SeguridadXqm;
@@ -172,7 +172,7 @@ namespace TiendaVirtual.Api.Controllers.SeguridadXqm
                 return BadRequest(ModelState);
 
             var usuarioIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (!int.TryParse(usuarioIdStr, out int usuarioId))
+            if (!Guid.TryParse(usuarioIdStr, out var usuarioId) || usuarioId == Guid.Empty)
                 return Unauthorized();
 
             var resultado = await _servicio.CambiarPasswordAsync(
@@ -210,10 +210,10 @@ namespace TiendaVirtual.Api.Controllers.SeguridadXqm
             return (ip, agente);
         }
 
-        private int? ObtenerUsuarioId()
+        private Guid? ObtenerUsuarioId()
         {
             var usuarioIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            return int.TryParse(usuarioIdStr, out int usuarioId) ? usuarioId : null;
+            return Guid.TryParse(usuarioIdStr, out var usuarioId) && usuarioId != Guid.Empty ? usuarioId : null;
         }
     }
 }

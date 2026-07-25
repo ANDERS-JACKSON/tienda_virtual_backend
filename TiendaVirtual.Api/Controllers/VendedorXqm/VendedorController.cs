@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using TiendaVirtual.Comun.Enumeracion;
@@ -108,10 +108,10 @@ namespace TiendaVirtual.Api.Controllers.VendedorXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
-        [HttpPost("solicitudes/{solicitudId:int}/aprobar")]
+        [HttpPost("solicitudes/{solicitudId:guid}/aprobar")]
         [Authorize(Roles = "ADMIN,VERIFICADOR")]
         public async Task<ActionResult<ResultadoOperacion<bool>>> Aprobar(
-            int solicitudId, [FromBody] ResolverSolicitudDto dto)
+            Guid solicitudId, [FromBody] ResolverSolicitudDto dto)
         {
             var usuarioId = ObtenerUsuarioId();
             if (usuarioId == null) return Unauthorized();
@@ -119,10 +119,10 @@ namespace TiendaVirtual.Api.Controllers.VendedorXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
-        [HttpPost("solicitudes/{solicitudId:int}/rechazar")]
+        [HttpPost("solicitudes/{solicitudId:guid}/rechazar")]
         [Authorize(Roles = "ADMIN,VERIFICADOR")]
         public async Task<ActionResult<ResultadoOperacion<bool>>> Rechazar(
-            int solicitudId, [FromBody] ResolverSolicitudDto dto)
+            Guid solicitudId, [FromBody] ResolverSolicitudDto dto)
         {
             var usuarioId = ObtenerUsuarioId();
             if (usuarioId == null) return Unauthorized();
@@ -184,9 +184,9 @@ namespace TiendaVirtual.Api.Controllers.VendedorXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
-        [HttpGet("mis-pedidos/{subordenId:long}")]
+        [HttpGet("mis-pedidos/{subordenId:guid}")]
         [Authorize(Roles = "VENDEDOR")]
-        public async Task<ActionResult<ResultadoOperacion<PedidoVendedorDetalleDto>>> ObtenerMisPedido(long subordenId)
+        public async Task<ActionResult<ResultadoOperacion<PedidoVendedorDetalleDto>>> ObtenerMisPedido(Guid subordenId)
         {
             var usuarioId = ObtenerUsuarioId();
             if (usuarioId == null) return Unauthorized();
@@ -196,10 +196,10 @@ namespace TiendaVirtual.Api.Controllers.VendedorXqm
             return Ok(r);
         }
 
-        [HttpPost("mis-pedidos/{subordenId:long}/envio")]
+        [HttpPost("mis-pedidos/{subordenId:guid}/envio")]
         [Authorize(Roles = "VENDEDOR")]
         public async Task<ActionResult<ResultadoOperacion<EnvioDto>>> RegistrarEnvio(
-            long subordenId, [FromBody] RegistrarEnvioSubordenDto dto)
+            Guid subordenId, [FromBody] RegistrarEnvioSubordenDto dto)
         {
             var usuarioId = ObtenerUsuarioId();
             if (usuarioId == null) return Unauthorized();
@@ -207,10 +207,10 @@ namespace TiendaVirtual.Api.Controllers.VendedorXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
-        [HttpPost("mis-pedidos/{subordenId:long}/listo-recoger")]
+        [HttpPost("mis-pedidos/{subordenId:guid}/listo-recoger")]
         [Authorize(Roles = "VENDEDOR")]
         public async Task<ActionResult<ResultadoOperacion<bool>>> MarcarListoParaRecoger(
-            long subordenId, [FromBody] MarcarListoParaRecogerDto? dto)
+            Guid subordenId, [FromBody] MarcarListoParaRecogerDto? dto)
         {
             var usuarioId = ObtenerUsuarioId();
             if (usuarioId == null) return Unauthorized();
@@ -218,10 +218,10 @@ namespace TiendaVirtual.Api.Controllers.VendedorXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
-        [HttpPatch("mis-pedidos/{subordenId:long}/estado")]
+        [HttpPatch("mis-pedidos/{subordenId:guid}/estado")]
         [Authorize(Roles = "VENDEDOR")]
         public async Task<ActionResult<ResultadoOperacion<bool>>> CambiarEstadoPedido(
-            long subordenId, [FromQuery] TipoEstadoSuborden estado)
+            Guid subordenId, [FromQuery] TipoEstadoSuborden estado)
         {
             var usuarioId = ObtenerUsuarioId();
             if (usuarioId == null) return Unauthorized();
@@ -269,10 +269,10 @@ namespace TiendaVirtual.Api.Controllers.VendedorXqm
         }
 
         // ──────────────── HELPER ────────────────
-        private int? ObtenerUsuarioId()
+        private Guid? ObtenerUsuarioId()
         {
             var claim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier);
-            return int.TryParse(claim?.Value, out var id) ? id : null;
+            return Guid.TryParse(claim?.Value, out var id) && id != Guid.Empty ? id : null;
         }
     }
 }

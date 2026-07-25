@@ -17,10 +17,10 @@ namespace TiendaVirtual.Dominio.Modelo.SeguridadXqm
 {
     public class Usuario
     {
-        public int UsuarioId { get; set; }
+        public Guid UsuarioId { get; set; }
 
         [Required]
-        public int PersonaId { get; set; }
+        public Guid PersonaId { get; set; }
 
         [Required]
         public string Correo { get; set; } = null!;

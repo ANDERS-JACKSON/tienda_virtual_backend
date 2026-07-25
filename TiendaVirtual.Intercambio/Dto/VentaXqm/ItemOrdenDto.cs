@@ -1,11 +1,11 @@
-using TiendaVirtual.Intercambio.Dto.Sistema;
+﻿using TiendaVirtual.Intercambio.Dto.Sistema;
 
 namespace TiendaVirtual.Intercambio.Dto.VentaXqm
 {
     public class ItemOrdenDto
     {
-        public long ItemOrdenId { get; set; }
-        public long SubordenId { get; set; }
+        public Guid ItemOrdenId { get; set; }
+        public Guid SubordenId { get; set; }
         public int? VarianteId { get; set; }
         public int? ProductoId { get; set; }
         public string? Slug { get; set; }

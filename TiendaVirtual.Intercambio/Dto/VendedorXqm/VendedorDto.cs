@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -10,7 +10,7 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
     public class VendedorDto
     {
         public int VendedorId { get; set; }
-        public int UsuarioId { get; set; }
+        public Guid UsuarioId { get; set; }
         public string NombreTienda { get; set; } = null!;
         public string SlugTienda { get; set; } = null!;
         public string? Biografia { get; set; }
