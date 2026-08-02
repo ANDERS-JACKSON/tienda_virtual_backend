@@ -199,6 +199,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                     Subtotal = 0,
                     TotalEnvio = 0,
                     TotalDescuento = 0,
+                    DescuentoCupon = 0,
                     Total = 0
                 };
                 _context.Ordenes.Add(orden);
@@ -304,16 +305,40 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 }
 
                 // 9. Totales de la orden (envío no forma parte del cobro).
-                //    `Subtotal` en la orden refleja el TOTAL COBRADO (ya con descuento
-                //    aplicado), consistente con la vista del carrito. `TotalDescuento`
-                //    guarda cuánto se ahorró el comprador para trazabilidad.
+                //    `Subtotal` = suma de líneas (con ofertas). `DescuentoCupon` baja
+                //    el total a pagar. `TotalDescuento` = ahorro por ofertas + cupón.
+                decimal descuentoCupon = 0m;
+                if (carrito.CuponPedidoId is int cuponPedidoId)
+                {
+                    var cupon = await _context.CuponesPedido
+                        .FirstOrDefaultAsync(c => c.CuponPedidoId == cuponPedidoId);
+
+                    if (cupon != null)
+                    {
+                        var ahora = DateTime.UtcNow;
+                        var errorDisp = CuponPedidoUtil.ValidarDisponibilidad(cupon, ahora);
+                        var errorMin = CuponPedidoUtil.ValidarMontoMinimo(cupon, subtotalOrden);
+
+                        if (errorDisp == null && errorMin == null)
+                        {
+                            descuentoCupon = CuponPedidoUtil.CalcularDescuento(cupon, subtotalOrden);
+                            orden.CuponPedidoId = cupon.CuponPedidoId;
+                            orden.CodigoCupon = cupon.Codigo;
+                            orden.DescuentoCupon = descuentoCupon;
+                            cupon.UsosRealizados += 1;
+                        }
+                    }
+                }
+
                 orden.Subtotal = subtotalOrden;
                 orden.TotalEnvio = 0m;
-                orden.TotalDescuento = descuentoOrden;
-                orden.Total = subtotalOrden;
+                orden.DescuentoCupon = descuentoCupon;
+                orden.TotalDescuento = Math.Round(descuentoOrden + descuentoCupon, 2);
+                orden.Total = Math.Round(Math.Max(0m, subtotalOrden - descuentoCupon), 2);
 
                 // 10. Vaciar carrito
                 _context.ItemsCarrito.RemoveRange(items);
+                carrito.CuponPedidoId = null;
                 carrito.FechaActualizacion = DateTime.UtcNow;
 
                 await _context.SaveChangesAsync();
@@ -455,6 +480,8 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                     Subtotal = orden.Subtotal,
                     TotalEnvio = orden.TotalEnvio,
                     TotalDescuento = orden.TotalDescuento,
+                    DescuentoCupon = orden.DescuentoCupon,
+                    CodigoCupon = orden.CodigoCupon,
                     Total = orden.Total,
                     Estado = new EnumeracionDto((int)orden.Estado, orden.Estado.GetDescription()),
                     Fecha = orden.Fecha,

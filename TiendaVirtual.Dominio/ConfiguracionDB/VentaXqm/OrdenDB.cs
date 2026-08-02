@@ -44,6 +44,17 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.VentaXqm
                 .HasColumnName("total")
                 .HasColumnType("numeric(10,2)");
 
+            builder.Property(e => e.CuponPedidoId)
+                .HasColumnName("cupon_pedido_id");
+
+            builder.Property(e => e.CodigoCupon)
+                .HasColumnName("codigo_cupon")
+                .HasMaxLength(40);
+
+            builder.Property(e => e.DescuentoCupon)
+                .HasColumnName("descuento_cupon")
+                .HasColumnType("numeric(10,2)");
+
             builder.Property(e => e.CorreoCliente)
                 .HasColumnName("correo_cliente")
                 .HasColumnType("citext")
@@ -85,6 +96,12 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.VentaXqm
                 .HasForeignKey(e => e.ClienteId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("fk_orden_cliente");
+
+            builder.HasOne(e => e.CuponPedido)
+                .WithMany(c => c.Ordenes)
+                .HasForeignKey(e => e.CuponPedidoId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("fk_orden_cupon_pedido");
         }
     }
 }

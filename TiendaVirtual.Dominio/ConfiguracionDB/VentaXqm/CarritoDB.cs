@@ -26,6 +26,9 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.VentaXqm
             builder.Property(e => e.FechaActualizacion)
                 .HasColumnName("fecha_actualizacion");
 
+            builder.Property(e => e.CuponPedidoId)
+                .HasColumnName("cupon_pedido_id");
+
             builder.HasIndex(e => e.UsuarioId)
                 .IsUnique()
                 .HasDatabaseName("uq_carrito_usuario");
@@ -35,6 +38,12 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.VentaXqm
                 .HasForeignKey(e => e.UsuarioId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("fk_carrito_usuario");
+
+            builder.HasOne(e => e.CuponPedido)
+                .WithMany(c => c.Carritos)
+                .HasForeignKey(e => e.CuponPedidoId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("fk_carrito_cupon_pedido");
         }
     }
 }

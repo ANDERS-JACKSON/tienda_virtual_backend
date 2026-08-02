@@ -68,6 +68,25 @@ namespace TiendaVirtual.Api.Controllers.VentaXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
+        [HttpPost("cupon")]
+        public async Task<ActionResult<ResultadoOperacion<CarritoDto>>> AplicarCupon(
+            [FromBody] AplicarCuponCarritoDto dto)
+        {
+            var uid = ObtenerUsuarioId();
+            if (uid == null) return Unauthorized();
+            var r = await _servicio.AplicarCuponAsync(uid.Value, dto);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
+        [HttpDelete("cupon")]
+        public async Task<ActionResult<ResultadoOperacion<CarritoDto>>> QuitarCupon()
+        {
+            var uid = ObtenerUsuarioId();
+            if (uid == null) return Unauthorized();
+            var r = await _servicio.QuitarCuponAsync(uid.Value);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
         private Guid? ObtenerUsuarioId()
         {
             var claim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier);

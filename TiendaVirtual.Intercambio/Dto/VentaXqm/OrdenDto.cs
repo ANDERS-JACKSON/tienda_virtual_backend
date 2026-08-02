@@ -34,6 +34,8 @@ namespace TiendaVirtual.Intercambio.Dto.VentaXqm
         public decimal Subtotal { get; set; }
         public decimal TotalEnvio { get; set; }
         public decimal TotalDescuento { get; set; }
+        public decimal DescuentoCupon { get; set; }
+        public string? CodigoCupon { get; set; }
         public decimal Total { get; set; }
         public EnumeracionDto Estado { get; set; } = null!;
         public DateTime Fecha { get; set; }

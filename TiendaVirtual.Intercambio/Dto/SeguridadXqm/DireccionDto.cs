@@ -14,6 +14,7 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
         public string NombreReceptor { get; set; } = null!;
         public string? DniReceptor { get; set; }
         public string? Telefono { get; set; }
+        public string? DistritoId { get; set; }
         public string Departamento { get; set; } = null!;
         public string Provincia { get; set; } = null!;
         public string Distrito { get; set; } = null!;

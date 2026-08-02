@@ -26,6 +26,10 @@ namespace TiendaVirtual.Dominio.Modelo.VentaXqm
         public decimal TotalDescuento { get; set; }
         public decimal Total { get; set; }
 
+        public int? CuponPedidoId { get; set; }
+        public string? CodigoCupon { get; set; }
+        public decimal DescuentoCupon { get; set; }
+
         [Required]
         public string CorreoCliente { get; set; } = null!;
 
@@ -40,6 +44,7 @@ namespace TiendaVirtual.Dominio.Modelo.VentaXqm
         public DateTime Fecha { get; set; }
 
         public virtual Usuario Cliente { get; set; } = null!;
+        public virtual CuponPedido? CuponPedido { get; set; }
         public virtual ICollection<Suborden> Subordenes { get; set; } = new List<Suborden>();
         public virtual ICollection<Transaccion> Transacciones { get; set; } = new List<Transaccion>();
     }

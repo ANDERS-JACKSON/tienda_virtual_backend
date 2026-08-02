@@ -84,6 +84,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 if (dto.EsPredeterminada || esPrimera)
                     await QuitarPredeterminadaAEsasOtrasAsync(personaId.Value, null);
 
+                var ubicacion = await ResolverUbigeoAsync(dto.DistritoId);
+                if (ubicacion == null)
+                    return ResultadoOperacion<DireccionDto>.SetError("Distrito ubigeo no válido.");
+
                 var direccion = new Direccion
                 {
                     DireccionId = Guid.NewGuid(),
@@ -92,9 +96,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                     NombreReceptor = dto.NombreReceptor.Trim(),
                     DniReceptor = dto.DniReceptor.Trim(),
                     Telefono = dto.Telefono?.Trim(),
-                    Departamento = dto.Departamento.Trim(),
-                    Provincia = dto.Provincia.Trim(),
-                    Distrito = dto.Distrito.Trim(),
+                    DistritoId = ubicacion.DistritoId,
+                    Departamento = ubicacion.Departamento,
+                    Provincia = ubicacion.Provincia,
+                    Distrito = ubicacion.Distrito,
                     DireccionLinea = dto.DireccionLinea.Trim(),
                     Referencia = dto.Referencia?.Trim(),
                     EsPredeterminada = dto.EsPredeterminada || esPrimera
@@ -128,13 +133,18 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 if (dto.EsPredeterminada && !d.EsPredeterminada)
                     await QuitarPredeterminadaAEsasOtrasAsync(d.PersonaId, d.DireccionId);
 
+                var ubicacion = await ResolverUbigeoAsync(dto.DistritoId);
+                if (ubicacion == null)
+                    return ResultadoOperacion<DireccionDto>.SetError("Distrito ubigeo no válido.");
+
                 d.Etiqueta = dto.Etiqueta?.Trim();
                 d.NombreReceptor = dto.NombreReceptor.Trim();
                 d.DniReceptor = dto.DniReceptor.Trim();
                 d.Telefono = dto.Telefono?.Trim();
-                d.Departamento = dto.Departamento.Trim();
-                d.Provincia = dto.Provincia.Trim();
-                d.Distrito = dto.Distrito.Trim();
+                d.DistritoId = ubicacion.DistritoId;
+                d.Departamento = ubicacion.Departamento;
+                d.Provincia = ubicacion.Provincia;
+                d.Distrito = ubicacion.Distrito;
                 d.DireccionLinea = dto.DireccionLinea.Trim();
                 d.Referencia = dto.Referencia?.Trim();
                 d.EsPredeterminada = dto.EsPredeterminada;
@@ -251,6 +261,30 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             foreach (var o in otras) o.EsPredeterminada = false;
         }
 
+        private async Task<UbicacionResuelta?> ResolverUbigeoAsync(string? distritoId)
+        {
+            var id = (distritoId ?? string.Empty).Trim();
+            if (id.Length != 6) return null;
+
+            return await (
+                from di in _context.Distritos.AsNoTracking()
+                join pr in _context.Provincias.AsNoTracking() on di.ProvinciaId equals pr.ProvinciaId
+                join de in _context.Departamentos.AsNoTracking() on pr.DepartamentoId equals de.DepartamentoId
+                where di.DistritoId == id
+                select new UbicacionResuelta(
+                    di.DistritoId,
+                    de.Nombre,
+                    pr.Nombre,
+                    di.Nombre)
+            ).FirstOrDefaultAsync();
+        }
+
+        private sealed record UbicacionResuelta(
+            string DistritoId,
+            string Departamento,
+            string Provincia,
+            string Distrito);
+
         private static DireccionDto MapearDto(Direccion d) => new()
         {
             DireccionId = d.DireccionId,
@@ -259,6 +293,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             NombreReceptor = d.NombreReceptor,
             DniReceptor = d.DniReceptor,
             Telefono = d.Telefono,
+            DistritoId = d.DistritoId,
             Departamento = d.Departamento,
             Provincia = d.Provincia,
             Distrito = d.Distrito,

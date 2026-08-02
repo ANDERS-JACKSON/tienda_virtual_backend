@@ -15,7 +15,13 @@ namespace TiendaVirtual.Intercambio.Dto.VentaXqm
     {
         public List<GrupoVendedorCarritoDto> Vendedores { get; set; } = new();
         public int TotalItems { get; set; }
+        /// <summary>Suma de líneas (ya con ofertas de producto).</summary>
         public decimal Subtotal { get; set; }
+        /// <summary>Descuento del cupón de pedido aplicado.</summary>
+        public decimal DescuentoCupon { get; set; }
+        /// <summary>Subtotal − descuento cupón.</summary>
+        public decimal Total { get; set; }
         public bool TieneItemsSinStock { get; set; }
+        public CuponPedidoAplicadoDto? Cupon { get; set; }
     }
 }

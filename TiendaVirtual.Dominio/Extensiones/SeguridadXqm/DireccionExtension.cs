@@ -22,6 +22,7 @@ namespace TiendaVirtual.Dominio.Extensiones.SeguridadXqm
             direccion.Etiqueta = dto.Etiqueta?.Normalizar_null();
             direccion.NombreReceptor = dto.NombreReceptor.Normalizar();
             direccion.Telefono = dto.Telefono?.Normalizar_null();
+            direccion.DistritoId = dto.DistritoId?.Normalizar_null();
             direccion.Departamento = dto.Departamento.Normalizar();
             direccion.Provincia = dto.Provincia.Normalizar();
             direccion.Distrito = dto.Distrito.Normalizar();
@@ -44,6 +45,7 @@ namespace TiendaVirtual.Dominio.Extensiones.SeguridadXqm
             dto.Etiqueta = entidad.Etiqueta;
             dto.NombreReceptor = entidad.NombreReceptor;
             dto.Telefono = entidad.Telefono;
+            dto.DistritoId = entidad.DistritoId;
             dto.Departamento = entidad.Departamento;
             dto.Provincia = entidad.Provincia;
             dto.Distrito = entidad.Distrito;

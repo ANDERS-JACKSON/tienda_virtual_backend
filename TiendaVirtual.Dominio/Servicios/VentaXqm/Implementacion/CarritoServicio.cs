@@ -198,6 +198,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                     .Where(i => i.CarritoId == carrito.CarritoId)
                     .ToListAsync();
                 _context.ItemsCarrito.RemoveRange(items);
+                carrito.CuponPedidoId = null;
                 carrito.FechaActualizacion = DateTime.UtcNow;
 
                 await _context.SaveChangesAsync();
@@ -207,6 +208,72 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             {
                 _logger.LogError(ex, "Error en CarritoServicio.VaciarAsync");
                 return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
+        }
+
+        public async Task<ResultadoOperacion<CarritoDto>> AplicarCuponAsync(
+            Guid usuarioId, AplicarCuponCarritoDto dto)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(dto.Codigo))
+                    return ResultadoOperacion<CarritoDto>.SetError("Ingresa un código de cupón.");
+
+                var codigo = dto.Codigo.Trim().ToUpperInvariant();
+                var carrito = await ObtenerOCrearCarritoAsync(usuarioId);
+                var preview = await ConstruirCarritoDtoAsync(carrito.CarritoId, autoLimpiarCuponInvalido: false);
+
+                if (preview.TotalItems <= 0)
+                    return ResultadoOperacion<CarritoDto>.SetError("Tu carrito está vacío.");
+
+                var cupon = await _context.CuponesPedido
+                    .FirstOrDefaultAsync(c => c.Codigo == codigo);
+
+                if (cupon == null)
+                    return ResultadoOperacion<CarritoDto>.SetError("Cupón no encontrado.");
+
+                var ahora = DateTime.UtcNow;
+                var errorDisp = CuponPedidoUtil.ValidarDisponibilidad(cupon, ahora);
+                if (errorDisp != null)
+                    return ResultadoOperacion<CarritoDto>.SetError(errorDisp);
+
+                var errorMin = CuponPedidoUtil.ValidarMontoMinimo(cupon, preview.Subtotal);
+                if (errorMin != null)
+                    return ResultadoOperacion<CarritoDto>.SetError(errorMin);
+
+                carrito.CuponPedidoId = cupon.CuponPedidoId;
+                carrito.FechaActualizacion = ahora;
+                await _context.SaveChangesAsync();
+
+                return ResultadoOperacion<CarritoDto>.SetExito(
+                    await ConstruirCarritoDtoAsync(carrito.CarritoId));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en CarritoServicio.AplicarCuponAsync");
+                return ResultadoOperacion<CarritoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
+        }
+
+        public async Task<ResultadoOperacion<CarritoDto>> QuitarCuponAsync(Guid usuarioId)
+        {
+            try
+            {
+                var carrito = await ObtenerOCrearCarritoAsync(usuarioId);
+                if (carrito.CuponPedidoId != null)
+                {
+                    carrito.CuponPedidoId = null;
+                    carrito.FechaActualizacion = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+                }
+
+                return ResultadoOperacion<CarritoDto>.SetExito(
+                    await ConstruirCarritoDtoAsync(carrito.CarritoId));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en CarritoServicio.QuitarCuponAsync");
+                return ResultadoOperacion<CarritoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
@@ -236,7 +303,9 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             return variante.Stock?.CantidadDisponible ?? 0;
         }
 
-        private async Task<CarritoDto> ConstruirCarritoDtoAsync(int carritoId)
+        private async Task<CarritoDto> ConstruirCarritoDtoAsync(
+            int carritoId,
+            bool autoLimpiarCuponInvalido = true)
         {
             // Cargamos items sin traer Producto.Variantes en el mismo grafo para evitar
             // el ciclo Variante -> Producto -> Variantes bajo AsNoTracking.
@@ -250,8 +319,25 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 .OrderByDescending(i => i.FechaAgregado)
                 .ToListAsync();
 
+            var carritoMeta = await _context.Carritos.AsNoTracking()
+                .Where(c => c.CarritoId == carritoId)
+                .Select(c => new { c.CuponPedidoId })
+                .FirstOrDefaultAsync();
+
             if (items.Count == 0)
-                return new CarritoDto();
+            {
+                if (autoLimpiarCuponInvalido && carritoMeta?.CuponPedidoId != null)
+                {
+                    await LimpiarCuponCarritoAsync(carritoId);
+                }
+
+                return new CarritoDto
+                {
+                    Subtotal = 0,
+                    DescuentoCupon = 0,
+                    Total = 0
+                };
+            }
 
             var productosIds = items.Select(i => i.Variante.ProductoId).Distinct().ToList();
             var now = DateTime.UtcNow;
@@ -343,13 +429,71 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 .OrderBy(g => g.NombreTienda)
                 .ToList();
 
+            var subtotal = Math.Round(itemsDto.Sum(i => i.Subtotal), 2);
+            CuponPedidoAplicadoDto? cuponDto = null;
+            decimal descuentoCupon = 0m;
+
+            if (carritoMeta?.CuponPedidoId is int cuponId)
+            {
+                var cupon = await _context.CuponesPedido
+                    .FirstOrDefaultAsync(c => c.CuponPedidoId == cuponId);
+
+                if (cupon == null)
+                {
+                    if (autoLimpiarCuponInvalido)
+                        await LimpiarCuponCarritoAsync(carritoId);
+                }
+                else
+                {
+                    var ahora = DateTime.UtcNow;
+                    var errorDisp = CuponPedidoUtil.ValidarDisponibilidad(cupon, ahora);
+                    var errorMin = CuponPedidoUtil.ValidarMontoMinimo(cupon, subtotal);
+
+                    if (errorDisp != null || errorMin != null)
+                    {
+                        if (autoLimpiarCuponInvalido)
+                            await LimpiarCuponCarritoAsync(carritoId);
+                    }
+                    else
+                    {
+                        descuentoCupon = CuponPedidoUtil.CalcularDescuento(cupon, subtotal);
+                        cuponDto = new CuponPedidoAplicadoDto
+                        {
+                            CuponPedidoId = cupon.CuponPedidoId,
+                            Codigo = cupon.Codigo,
+                            TipoDescuento = new EnumeracionDto
+                            {
+                                Id = (int)cupon.TipoDescuento,
+                                Nombre = cupon.TipoDescuento.GetDescription()
+                            },
+                            ValorDescuento = cupon.ValorDescuento,
+                            MontoMinimo = cupon.MontoMinimo,
+                            Descripcion = cupon.Descripcion,
+                            DescuentoAplicado = descuentoCupon
+                        };
+                    }
+                }
+            }
+
             return new CarritoDto
             {
                 Vendedores = grupos,
                 TotalItems = itemsDto.Sum(i => i.Cantidad),
-                Subtotal = Math.Round(itemsDto.Sum(i => i.Subtotal), 2),
-                TieneItemsSinStock = itemsDto.Any(i => !i.StockSuficiente)
+                Subtotal = subtotal,
+                DescuentoCupon = descuentoCupon,
+                Total = Math.Round(Math.Max(0m, subtotal - descuentoCupon), 2),
+                TieneItemsSinStock = itemsDto.Any(i => !i.StockSuficiente),
+                Cupon = cuponDto
             };
+        }
+
+        private async Task LimpiarCuponCarritoAsync(int carritoId)
+        {
+            var tracked = await _context.Carritos.FirstOrDefaultAsync(c => c.CarritoId == carritoId);
+            if (tracked == null || tracked.CuponPedidoId == null) return;
+            tracked.CuponPedidoId = null;
+            tracked.FechaActualizacion = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
         }
     }
 }

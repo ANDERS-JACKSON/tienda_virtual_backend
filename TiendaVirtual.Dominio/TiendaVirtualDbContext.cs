@@ -37,6 +37,9 @@ namespace TiendaVirtual.Dominio
         public DbSet<Rol> Roles { get; set; } = null!;
         public DbSet<UsuarioRol> UsuarioRoles { get; set; } = null!;
         public DbSet<Direccion> Direcciones { get; set; } = null!;
+        public DbSet<Departamento> Departamentos { get; set; } = null!;
+        public DbSet<Provincia> Provincias { get; set; } = null!;
+        public DbSet<Distrito> Distritos { get; set; } = null!;
         public DbSet<TokenRefresco> TokensRefresco { get; set; } = null!;
         public DbSet<UsuarioLoginExterno> UsuariosLoginExterno { get; set; } = null!;
         //----------------------------------------------------------------------
@@ -76,6 +79,7 @@ namespace TiendaVirtual.Dominio
         //----------------------------------------------------------------------
         public DbSet<Carrito> Carritos { get; set; } = null!;
         public DbSet<ItemCarrito> ItemsCarrito { get; set; } = null!;
+        public DbSet<CuponPedido> CuponesPedido { get; set; } = null!;
         public DbSet<MetodoEnvio> MetodosEnvio { get; set; } = null!;
         public DbSet<Orden> Ordenes { get; set; } = null!;
         public DbSet<Suborden> Subordenes { get; set; } = null!;
@@ -126,6 +130,9 @@ namespace TiendaVirtual.Dominio
             modelBuilder.ApplyConfiguration(new RolDB());
             modelBuilder.ApplyConfiguration(new UsuarioRolDB());
             modelBuilder.ApplyConfiguration(new DireccionDB());
+            modelBuilder.ApplyConfiguration(new DepartamentoDB());
+            modelBuilder.ApplyConfiguration(new ProvinciaDB());
+            modelBuilder.ApplyConfiguration(new DistritoDB());
             modelBuilder.ApplyConfiguration(new TokenRefrescoDB());
             modelBuilder.ApplyConfiguration(new UsuarioLoginExternoDB());
             #endregion
@@ -153,6 +160,7 @@ namespace TiendaVirtual.Dominio
             #region Venta
             modelBuilder.ApplyConfiguration(new CarritoDB());
             modelBuilder.ApplyConfiguration(new ItemCarritoDB());
+            modelBuilder.ApplyConfiguration(new CuponPedidoDB());
             modelBuilder.ApplyConfiguration(new MetodoEnvioDB());
             modelBuilder.ApplyConfiguration(new OrdenDB());
             modelBuilder.ApplyConfiguration(new SubordenDB());

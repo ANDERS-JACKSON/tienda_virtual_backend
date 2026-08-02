@@ -16,6 +16,8 @@ namespace TiendaVirtual.Api.Extensiones
             services.AddScoped<IUsuarioAdminServicio, UsuarioAdminServicio>();
             services.AddScoped<IUsuarioPerfilServicio, UsuarioPerfilServicio>();
             services.AddScoped<IEnumeracionServicio, EnumeracionServicio>();
+            services.AddScoped<IUbigeoServicio, UbigeoServicio>();
+            services.AddScoped<IUbigeoAdminServicio, UbigeoAdminServicio>();
             return services;
         }
     }

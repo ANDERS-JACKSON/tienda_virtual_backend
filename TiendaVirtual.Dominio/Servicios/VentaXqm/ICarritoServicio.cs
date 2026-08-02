@@ -11,5 +11,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm
         Task<ResultadoOperacion<CarritoDto>> ActualizarItemAsync(Guid usuarioId, int itemId, ActualizarItemCarritoDto dto);
         Task<ResultadoOperacion<CarritoDto>> QuitarItemAsync(Guid usuarioId, int itemId);
         Task<ResultadoOperacion<bool>> VaciarAsync(Guid usuarioId);
+        Task<ResultadoOperacion<CarritoDto>> AplicarCuponAsync(Guid usuarioId, AplicarCuponCarritoDto dto);
+        Task<ResultadoOperacion<CarritoDto>> QuitarCuponAsync(Guid usuarioId);
     }
 }

@@ -27,6 +27,9 @@ namespace TiendaVirtual.Dominio.Modelo.SeguridadXqm
 
         public string? Telefono { get; set; }
 
+        /// <summary>Código ubigeo INEI del distrito (6 dígitos). Fuente de verdad.</summary>
+        public string? DistritoId { get; set; }
+
         [Required]
         public string Departamento { get; set; } = null!;
 
@@ -43,5 +46,6 @@ namespace TiendaVirtual.Dominio.Modelo.SeguridadXqm
         public bool EsPredeterminada { get; set; }
 
         public virtual Persona Persona { get; set; } = null!;
+        public virtual Distrito? DistritoNav { get; set; }
     }
 }

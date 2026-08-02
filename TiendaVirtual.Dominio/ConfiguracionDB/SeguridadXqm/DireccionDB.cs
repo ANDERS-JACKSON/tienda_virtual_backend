@@ -40,6 +40,10 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.SeguridadXqm
                 .HasColumnName("telefono")
                 .HasMaxLength(20);
 
+            builder.Property(e => e.DistritoId)
+                .HasColumnName("distrito_id")
+                .HasMaxLength(6);
+
             builder.Property(e => e.Departamento)
                 .HasColumnName("departamento")
                 .HasMaxLength(100)
@@ -68,12 +72,20 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.SeguridadXqm
                 .HasColumnName("es_predeterminada");
 
             builder.HasIndex(e => e.PersonaId).HasDatabaseName("idx_direccion_persona");
+            builder.HasIndex(e => e.DistritoId).HasDatabaseName("idx_direccion_distrito");
 
             builder.HasOne(e => e.Persona)
                 .WithMany(p => p.Direcciones)
                 .HasForeignKey(e => e.PersonaId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("fk_direccion_persona");
+
+            builder.HasOne(e => e.DistritoNav)
+                .WithMany()
+                .HasForeignKey(e => e.DistritoId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_direccion_distrito")
+                .IsRequired(false);
         }
     }
 }

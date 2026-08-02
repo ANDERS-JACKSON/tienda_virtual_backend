@@ -17,14 +17,9 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
         [MaxLength(20)]
         public string? Telefono { get; set; }
 
-        [Required, MaxLength(100)]
-        public string Departamento { get; set; } = null!;
-
-        [Required, MaxLength(100)]
-        public string Provincia { get; set; } = null!;
-
-        [Required, MaxLength(100)]
-        public string Distrito { get; set; } = null!;
+        /// <summary>Código ubigeo INEI del distrito (6 dígitos).</summary>
+        [Required, MaxLength(6), MinLength(6)]
+        public string DistritoId { get; set; } = null!;
 
         [Required, MaxLength(300)]
         public string DireccionLinea { get; set; } = null!;
