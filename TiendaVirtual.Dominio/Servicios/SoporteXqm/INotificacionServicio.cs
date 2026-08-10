@@ -15,7 +15,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm
             Dictionary<string, string>? placeholdersEmail = null);
 
         Task<ResultadoOperacion<PaginacionRespuestaDto<NotificacionDto>>> ListarMisAsync(
-            Guid usuarioId, int pagina, int tamanioPagina);
+            Guid usuarioId, int pagina, int tamanioPagina, bool soloNoLeidas = false);
 
         Task<ResultadoOperacion<int>> ContarNoLeidasAsync(Guid usuarioId);
 

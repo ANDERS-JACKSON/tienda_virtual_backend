@@ -6,7 +6,10 @@
         public decimal Monto { get; set; }
         public string Moneda { get; set; } = "PEN";
         public string Concepto { get; set; } = null!;
-        public string FormToken { get; set; } = null!;
-        public string PublicKey { get; set; } = null!;
+        public string Proveedor { get; set; } = null!;
+        public string? FormToken { get; set; }
+        public string? PublicKey { get; set; }
+        public bool RequiereTokenizacionCliente { get; set; }
+        public bool PermiteConfirmacionDemo { get; set; }
     }
 }

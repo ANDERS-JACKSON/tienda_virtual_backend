@@ -1,16 +1,9 @@
-using System;
-
 namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
 {
     /// <summary>
-    /// Versión pública de <see cref="VarianteProductoDto"/> para exponer al comprador
-    /// (endpoints de catálogo y detalle de producto).
-    ///
-    /// Regla de negocio: el comprador NO debe ver la cantidad exacta de stock ni
-    /// el inventario interno (reservado, umbral). Solo si la variante tiene stock
-    /// para permitirle agregarla al carrito. La cantidad real y demás datos
-    /// operativos siguen expuestos vía <see cref="VarianteProductoDto"/> únicamente
-    /// en endpoints privados (vendedor/admin).
+    /// Versión pública de <see cref="VarianteProductoDto"/> para el comprador
+    /// (catálogo y detalle). Expone la cantidad comprable para el stepper y
+    /// validaciones de carrito. No incluye inventario interno (reservado, umbral).
     /// </summary>
     public class VarianteProductoPublicoDto
     {
@@ -23,11 +16,10 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
         public string? Atributos { get; set; }
         public bool Activa { get; set; }
 
-        /// <summary>
-        /// Indica si la variante está disponible para agregar al carrito.
-        /// Reemplaza al campo <c>CantidadDisponible</c> del DTO privado para
-        /// no filtrar información de inventario al público.
-        /// </summary>
+        /// <summary>Unidades disponibles para compra (0 si agotado).</summary>
+        public int CantidadDisponible { get; set; }
+
+        /// <summary>Conveniencia: <c>CantidadDisponible &gt; 0</c> (patrones siempre true).</summary>
         public bool TieneStock { get; set; }
     }
 }

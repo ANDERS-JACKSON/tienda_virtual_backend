@@ -375,20 +375,15 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 var imagen = producto.Imagenes.FirstOrDefault(im => im.EsPrincipal)?.Url
                              ?? producto.Imagenes.OrderBy(im => im.Orden).FirstOrDefault()?.Url;
 
-                // Stock real solo se usa dentro del servidor para decidir los
-                // flags que sí se serializan. NUNCA se expone al comprador.
                 var stockDisponible = producto.Tipo == TipoProducto.Patron
                     ? STOCK_INFINITO_PATRON
                     : (i.Variante.Stock?.CantidadDisponible ?? 0);
 
                 var stockSuficiente = i.Cantidad <= stockDisponible;
 
-                // Cuando el stock alcanza para la cantidad pedida, damos un techo
-                // razonable en el stepper para no revelar el stock total. Si NO
-                // alcanza, mostramos el máximo real (que ya conoce por la falla).
-                var cantidadMaximaPermitida = stockSuficiente
-                    ? Math.Min(i.Cantidad + 10, stockDisponible)
-                    : stockDisponible;
+                // Techo real del stepper: el comprador necesita poder subir hasta
+                // el stock disponible (antes se ocultaba y el UI quedaba en 1).
+                var cantidadMaximaPermitida = stockDisponible;
 
                 return new ItemCarritoDto
                 {

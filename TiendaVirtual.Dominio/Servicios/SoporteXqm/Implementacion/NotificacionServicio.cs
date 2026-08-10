@@ -94,7 +94,7 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<PaginacionRespuestaDto<NotificacionDto>>> ListarMisAsync(
-            Guid usuarioId, int pagina, int tamanioPagina)
+            Guid usuarioId, int pagina, int tamanioPagina, bool soloNoLeidas = false)
         {
             try
             {
@@ -102,11 +102,18 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
                 tamanioPagina = Math.Clamp(tamanioPagina, 1, 50);
 
                 var query = _context.Notificaciones.AsNoTracking()
-                    .Where(n => n.UsuarioId == usuarioId)
-                    .OrderByDescending(n => n.NotificacionId);
+                    .Where(n => n.UsuarioId == usuarioId);
 
-                var total = await query.CountAsync();
-                var items = await query
+                if (soloNoLeidas)
+                    query = query.Where(n => !n.Leida);
+
+                // Fecha real (no Guid): más recientes primero.
+                var ordenada = query
+                    .OrderByDescending(n => n.Fecha)
+                    .ThenByDescending(n => n.NotificacionId);
+
+                var total = await ordenada.CountAsync();
+                var items = await ordenada
                     .Skip((pagina - 1) * tamanioPagina)
                     .Take(tamanioPagina)
                     .Select(n => new NotificacionDto

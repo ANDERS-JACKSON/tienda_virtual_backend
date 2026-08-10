@@ -24,11 +24,13 @@ namespace TiendaVirtual.Api.Controllers.SoporteXqm
 
         [HttpGet]
         public async Task<ActionResult<ResultadoOperacion<PaginacionRespuestaDto<NotificacionDto>>>> Listar(
-            [FromQuery] int pagina = 1, [FromQuery] int tamanioPagina = 20)
+            [FromQuery] int pagina = 1,
+            [FromQuery] int tamanioPagina = 20,
+            [FromQuery] bool soloNoLeidas = false)
         {
             var uid = ObtenerUsuarioId();
             if (uid == null) return Unauthorized();
-            var r = await _servicio.ListarMisAsync(uid.Value, pagina, tamanioPagina);
+            var r = await _servicio.ListarMisAsync(uid.Value, pagina, tamanioPagina, soloNoLeidas);
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 

@@ -245,7 +245,6 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
                     Categoria = producto.Categoria.ToDto(),
                     Vendedor = producto.Vendedor.ToTiendaPublicaDto(totalProductosVendedor, totalVentasVendedor),
-                    // Público: sin exponer cantidad de stock ni datos internos.
                     Variantes = producto.Variantes.Where(v => v.Activa)
                         .Select(v => v.ToPublicDto(producto.Tipo))
                         .ToList(),

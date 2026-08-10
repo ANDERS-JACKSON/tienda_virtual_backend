@@ -1,9 +1,12 @@
+using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
+using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System.ComponentModel.DataAnnotations;
-using System.Text;
 using TiendaVirtual.Api.Extensiones;
 using TiendaVirtual.Dominio;
 using TiendaVirtual.Dominio.Utilidad;
@@ -37,7 +40,7 @@ namespace TiendaVirtual.Api
             })
             .AddJwtBearer(options =>
             {
-                options.RequireHttpsMetadata = false; // false en desarrollo, true en producci�n
+                options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
                 options.SaveToken = true;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -74,8 +77,16 @@ namespace TiendaVirtual.Api
             builder.Services.AgregarServiciosCatalogo();
             builder.Services.AgregarServiciosVenta();
             builder.Services.AgregarServiciosSuscripcion();
-            builder.Services.AgregarServiciosPago();
+            builder.Services.AgregarServiciosPago(builder.Configuration);
             builder.Services.AgregarServiciosReporte();
+
+            // Seguridad: la confirmación demo de Izipay nunca puede estar activa en Production.
+            var demoIzipay = builder.Configuration.GetValue<bool>("Izipay:PermitirConfirmacionDemo");
+            if (builder.Environment.IsProduction() && demoIzipay)
+            {
+                throw new InvalidOperationException(
+                    "Configuración insegura: Izipay:PermitirConfirmacionDemo=true no está permitido en Production.");
+            }
 
             // Controllers + JSON (enums como string, camelCase)
             builder.Services.AddControllers(mvc =>
@@ -129,6 +140,23 @@ namespace TiendaVirtual.Api
 
             builder.Services.AddOpenApi();
 
+            // Límite de intentos de cobro (anti card-testing). Clave = usuario o IP.
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                options.AddPolicy("pagos", httpContext =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: httpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                                      ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                                      ?? "anonimo",
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            Window = TimeSpan.FromMinutes(1),
+                            PermitLimit = 5,
+                            QueueLimit = 0,
+                        }));
+            });
+
             // Build & Pipeline
             var app = builder.Build();
 
@@ -146,6 +174,7 @@ namespace TiendaVirtual.Api
 
             app.UseAuthentication();
             app.UseAuthorization();
+            app.UseRateLimiter();
 
             app.MapControllers();
 

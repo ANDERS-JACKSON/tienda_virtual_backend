@@ -30,16 +30,17 @@ namespace TiendaVirtual.Dominio.Extensiones.CatalogoXqm
         }
 
         /// <summary>
-        /// Mapea a DTO público para el comprador: sin cantidad exacta.
-        /// Solo indica si la variante está disponible para agregar al carrito.
-        /// Los patrones (digitales) se consideran siempre en stock.
+        /// Mapea a DTO público para el comprador con cantidad comprable.
+        /// Los patrones digitales se tratan como stock ilimitado (techo alto).
         /// </summary>
         public static VarianteProductoPublicoDto ToPublicDto(
             this VarianteProducto v, TipoProducto tipoProducto)
         {
             if (v == null) return null!;
-            var tieneStock = tipoProducto == TipoProducto.Patron
-                || (v.Stock?.CantidadDisponible ?? 0) > 0;
+            const int stockPatron = 9999;
+            var cantidad = tipoProducto == TipoProducto.Patron
+                ? stockPatron
+                : (v.Stock?.CantidadDisponible ?? 0);
             return new VarianteProductoPublicoDto
             {
                 VarianteId = v.VarianteId,
@@ -50,7 +51,8 @@ namespace TiendaVirtual.Dominio.Extensiones.CatalogoXqm
                 PesoGramos = v.PesoGramos,
                 Atributos = v.Atributos,
                 Activa = v.Activa,
-                TieneStock = tieneStock
+                CantidadDisponible = cantidad,
+                TieneStock = cantidad > 0
             };
         }
     }

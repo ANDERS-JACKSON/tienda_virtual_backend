@@ -38,7 +38,14 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             _notificacionServicio = notificacionServicio;
         }
 
-        public async Task<ResultadoOperacion<OrdenDto>> CrearAsync(Guid usuarioId, CrearOrdenDto dto)
+        public Task<ResultadoOperacion<OrdenDto>> CrearAsync(Guid usuarioId, CrearOrdenDto dto)
+            => CrearInternoAsync(usuarioId, dto, diferirFinalizacionCarrito: false);
+
+        public Task<ResultadoOperacion<OrdenDto>> CrearReservandoParaCobroAsync(Guid usuarioId, CrearOrdenDto dto)
+            => CrearInternoAsync(usuarioId, dto, diferirFinalizacionCarrito: true);
+
+        private async Task<ResultadoOperacion<OrdenDto>> CrearInternoAsync(
+            Guid usuarioId, CrearOrdenDto dto, bool diferirFinalizacionCarrito)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -336,42 +343,50 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 orden.TotalDescuento = Math.Round(descuentoOrden + descuentoCupon, 2);
                 orden.Total = Math.Round(Math.Max(0m, subtotalOrden - descuentoCupon), 2);
 
-                // 10. Vaciar carrito
-                _context.ItemsCarrito.RemoveRange(items);
-                carrito.CuponPedidoId = null;
-                carrito.FechaActualizacion = DateTime.UtcNow;
+                // 10. Vaciar carrito (salvo cobro atómico: se vacía solo tras pago OK/pendiente).
+                if (!diferirFinalizacionCarrito)
+                {
+                    _context.ItemsCarrito.RemoveRange(items);
+                    carrito.CuponPedidoId = null;
+                    carrito.FechaActualizacion = DateTime.UtcNow;
+                }
 
                 await _context.SaveChangesAsync();
                 await trx.CommitAsync();
 
-                await _notificacionServicio.CrearAsync(
-                    usuarioId,
-                    TipoNotificacion.OrdenCreada,
-                    $"Pedido {orden.NumeroOrden} creado",
-                    $"Recibimos tu pedido. Total: S/ {orden.Total:N2}. Completa el pago para que los artesanos lo preparen.",
-                    new { ordenId = orden.OrdenId, numeroOrden = orden.NumeroOrden });
-
-                foreach (var sub in subordenesCreadas)
+                // Notificaciones solo cuando el pedido ya quedó “creado” para el comprador
+                // (flujo legado). En cobro atómico se notifica al confirmar el pago.
+                if (!diferirFinalizacionCarrito)
                 {
-                    var datosVendedor = await _context.Vendedores
-                        .Where(v => v.VendedorId == sub.VendedorId)
-                        .Select(v => new { v.UsuarioId, v.NombreTienda })
-                        .FirstAsync();
-
                     await _notificacionServicio.CrearAsync(
-                        datosVendedor.UsuarioId,
-                        TipoNotificacion.SubordenRecibida,
-                        "Nuevo pedido recibido",
-                        $"Recibiste el pedido {sub.NumeroSuborden} por S/ {sub.Subtotal:N2}.",
-                        new { subordenId = sub.SubordenId, numeroSuborden = sub.NumeroSuborden },
-                        plantillaEmail: PlantillaCorreo.NuevoPedidoVendedor,
-                        placeholdersEmail: new Dictionary<string, string>
-                        {
-                            ["vendedor"] = datosVendedor.NombreTienda,
-                            ["numeroPedido"] = sub.NumeroSuborden,
-                            ["nombreCliente"] = cliente.NombreCliente.Trim(),
-                            ["totalPedido"] = sub.Subtotal.ToString("N2")
-                        });
+                        usuarioId,
+                        TipoNotificacion.OrdenCreada,
+                        $"Pedido {orden.NumeroOrden} creado",
+                        $"Recibimos tu pedido. Total: S/ {orden.Total:N2}. Completa el pago para que los artesanos lo preparen.",
+                        new { ordenId = orden.OrdenId, numeroOrden = orden.NumeroOrden });
+
+                    foreach (var sub in subordenesCreadas)
+                    {
+                        var datosVendedor = await _context.Vendedores
+                            .Where(v => v.VendedorId == sub.VendedorId)
+                            .Select(v => new { v.UsuarioId, v.NombreTienda })
+                            .FirstAsync();
+
+                        await _notificacionServicio.CrearAsync(
+                            datosVendedor.UsuarioId,
+                            TipoNotificacion.SubordenRecibida,
+                            "Nuevo pedido recibido",
+                            $"Recibiste el pedido {sub.NumeroSuborden} por S/ {sub.Subtotal:N2}.",
+                            new { subordenId = sub.SubordenId, numeroSuborden = sub.NumeroSuborden },
+                            plantillaEmail: PlantillaCorreo.NuevoPedidoVendedor,
+                            placeholdersEmail: new Dictionary<string, string>
+                            {
+                                ["vendedor"] = datosVendedor.NombreTienda,
+                                ["numeroPedido"] = sub.NumeroSuborden,
+                                ["nombreCliente"] = cliente.NombreCliente.Trim(),
+                                ["totalPedido"] = sub.Subtotal.ToString("N2")
+                            });
+                    }
                 }
 
                 return await ObtenerMiOrdenAsync(usuarioId, orden.OrdenId);
@@ -383,6 +398,96 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 return ResultadoOperacion<OrdenDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
 
+        }
+
+        public async Task<ResultadoOperacion<bool>> AnularReservaPendientePagoAsync(Guid usuarioId, Guid ordenId)
+        {
+            await using var trx = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var orden = await _context.Ordenes
+                    .Include(o => o.Subordenes)
+                        .ThenInclude(s => s.Items)
+                            .ThenInclude(i => i.Variante!)
+                                .ThenInclude(v => v.Stock)
+                    .FirstOrDefaultAsync(o => o.OrdenId == ordenId && o.ClienteId == usuarioId);
+
+                if (orden == null)
+                    return ResultadoOperacion<bool>.SetError("Orden no encontrada.");
+
+                if (orden.Estado != TipoEstadoOrden.PendientePago)
+                    return ResultadoOperacion<bool>.SetError("Solo se pueden anular órdenes en PendientePago.");
+
+                foreach (var sub in orden.Subordenes)
+                {
+                    sub.Estado = TipoEstadoSuborden.Cancelada;
+                    foreach (var item in sub.Items)
+                    {
+                        if (item.TipoProducto == TipoProducto.Patron) continue;
+                        if (item.Variante?.Stock == null) continue;
+
+                        item.Variante.Stock.CantidadReservada =
+                            Math.Max(0, item.Variante.Stock.CantidadReservada - item.Cantidad);
+                        item.Variante.Stock.CantidadDisponible += item.Cantidad;
+                    }
+                }
+
+                if (orden.CuponPedidoId is int cuponId)
+                {
+                    var cupon = await _context.CuponesPedido
+                        .FirstOrDefaultAsync(c => c.CuponPedidoId == cuponId);
+                    if (cupon != null && cupon.UsosRealizados > 0)
+                        cupon.UsosRealizados -= 1;
+                }
+
+                var txs = await _context.Transacciones
+                    .Where(t => t.OrdenId == orden.OrdenId &&
+                                (t.Estado == TipoEstadoTransaccion.Pendiente ||
+                                 t.Estado == TipoEstadoTransaccion.Procesando ||
+                                 t.Estado == TipoEstadoTransaccion.Fallida))
+                    .ToListAsync();
+                foreach (var t in txs)
+                    t.Estado = TipoEstadoTransaccion.Cancelada;
+
+                orden.Estado = TipoEstadoOrden.Cancelada;
+
+                await _context.SaveChangesAsync();
+                await trx.CommitAsync();
+                return ResultadoOperacion<bool>.SetExito(true);
+            }
+            catch (Exception ex)
+            {
+                await trx.RollbackAsync();
+                _logger.LogError(ex, "Error en OrdenServicio.AnularReservaPendientePagoAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
+        }
+
+        public async Task<ResultadoOperacion<bool>> VaciarCarritoTrasCobroAsync(Guid usuarioId)
+        {
+            try
+            {
+                var carrito = await _context.Carritos
+                    .FirstOrDefaultAsync(c => c.UsuarioId == usuarioId);
+                if (carrito == null)
+                    return ResultadoOperacion<bool>.SetExito(true);
+
+                var items = await _context.ItemsCarrito
+                    .Where(i => i.CarritoId == carrito.CarritoId)
+                    .ToListAsync();
+                if (items.Count > 0)
+                    _context.ItemsCarrito.RemoveRange(items);
+
+                carrito.CuponPedidoId = null;
+                carrito.FechaActualizacion = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                return ResultadoOperacion<bool>.SetExito(true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en OrdenServicio.VaciarCarritoTrasCobroAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
         }
 
         public async Task<ResultadoOperacion<PaginacionRespuestaDto<OrdenListadoDto>>> ListarMisOrdenesAsync(
@@ -399,7 +504,8 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 var total = await baseQuery.CountAsync();
 
                 var ordenes = await baseQuery
-                    .OrderByDescending(o => o.OrdenId)
+                    .OrderByDescending(o => o.Fecha)
+                    .ThenByDescending(o => o.OrdenId)
                     .Skip((pagina - 1) * tamanioPagina)
                     .Take(tamanioPagina)
                     .Select(o => new

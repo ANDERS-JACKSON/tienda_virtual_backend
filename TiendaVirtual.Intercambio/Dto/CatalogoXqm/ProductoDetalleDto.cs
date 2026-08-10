@@ -30,8 +30,8 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
         public CategoriaDto Categoria { get; set; } = null!;
         public TiendaPublicaDto Vendedor { get; set; } = null!;
         /// <summary>
-        /// Variantes del producto — versión pública sin cantidades de stock.
-        /// El comprador solo ve <c>TieneStock</c> por variante.
+        /// Variantes del producto (públicas). Incluyen <c>CantidadDisponible</c>
+        /// para el selector de cantidad del comprador.
         /// </summary>
         public List<VarianteProductoPublicoDto> Variantes { get; set; } = new();
         public List<ImagenProductoDto> Imagenes { get; set; } = new();
