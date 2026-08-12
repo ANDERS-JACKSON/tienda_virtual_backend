@@ -393,7 +393,11 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             MontoReembolso = r.MontoReembolso,
             FechaApertura = r.FechaApertura,
             FechaResolucion = r.FechaResolucion,
-            Mensajes = r.Mensajes.OrderBy(m => m.MensajeId).Select(m => new MensajeReclamoDto
+            // Orden cronológico (chat): por fecha, no por Guid.
+            Mensajes = r.Mensajes
+                .OrderBy(m => m.Fecha)
+                .ThenBy(m => m.MensajeId)
+                .Select(m => new MensajeReclamoDto
             {
                 MensajeId = m.MensajeId,
                 RemitenteId = m.RemitenteId,

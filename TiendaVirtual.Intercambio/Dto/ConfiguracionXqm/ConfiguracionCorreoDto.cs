@@ -11,6 +11,7 @@ namespace TiendaVirtual.Intercambio.Dto.ConfiguracionXqm
         public PlantillaCorreoItem? CreacionUsuario { get; set; }
         public PlantillaCorreoItem? RecuperacionClave { get; set; }
         public PlantillaCorreoItem? NuevoPedidoVendedor { get; set; }
+        public PlantillaCorreoItem? PedidoPagadoCliente { get; set; }
         public PlantillaCorreoItem? PedidoEnviadoCliente { get; set; }
         public PlantillaCorreoItem? VerificacionResultado { get; set; }
         public PlantillaCorreoItem? NuevoMensajeContacto { get; set; }
@@ -36,6 +37,7 @@ namespace TiendaVirtual.Intercambio.Dto.ConfiguracionXqm
         public PlantillaCorreoItem? CreacionUsuario { get; set; }
         public PlantillaCorreoItem? RecuperacionClave { get; set; }
         public PlantillaCorreoItem? NuevoPedidoVendedor { get; set; }
+        public PlantillaCorreoItem? PedidoPagadoCliente { get; set; }
         public PlantillaCorreoItem? PedidoEnviadoCliente { get; set; }
         public PlantillaCorreoItem? VerificacionResultado { get; set; }
         public PlantillaCorreoItem? NuevoMensajeContacto { get; set; }

@@ -101,6 +101,11 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
                     config.AsuntoNuevoPedidoVendedor = dto.NuevoPedidoVendedor.Asunto;
                     config.CuerpoNuevoPedidoVendedor = dto.NuevoPedidoVendedor.Cuerpo;
                 }
+                if (dto.PedidoPagadoCliente != null)
+                {
+                    config.AsuntoPedidoPagadoCliente = dto.PedidoPagadoCliente.Asunto;
+                    config.CuerpoPedidoPagadoCliente = dto.PedidoPagadoCliente.Cuerpo;
+                }
                 if (dto.PedidoEnviadoCliente != null)
                 {
                     config.AsuntoPedidoEnviadoCliente = dto.PedidoEnviadoCliente.Asunto;
@@ -182,6 +187,11 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
                 {
                     Asunto = c.AsuntoNuevoPedidoVendedor,
                     Cuerpo = c.CuerpoNuevoPedidoVendedor
+                },
+                PedidoPagadoCliente = new PlantillaCorreoItem
+                {
+                    Asunto = c.AsuntoPedidoPagadoCliente,
+                    Cuerpo = c.CuerpoPedidoPagadoCliente
                 },
                 PedidoEnviadoCliente = new PlantillaCorreoItem
                 {

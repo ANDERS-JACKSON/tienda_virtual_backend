@@ -67,20 +67,25 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
                 return false;
             }
 
-            var (asuntoRaw, cuerpoRaw) = ObtenerPlantilla(config, plantilla);
+            var (asuntoRaw, cuerpoRaw, desdeBd) = ObtenerPlantilla(config, plantilla);
 
             if (string.IsNullOrWhiteSpace(asuntoRaw) || string.IsNullOrWhiteSpace(cuerpoRaw))
             {
                 _logger.LogWarning(
-                    "⚠️  Plantilla {Plantilla} NO está configurada en xqm_configuracion.correo " +
-                    "(asunto o cuerpo vacíos). Configurar las columnas correspondientes. " +
-                    "Email a {Destinatario} no enviado.",
+                    "⚠️  Plantilla {Plantilla} sin contenido usable. Email a {Destinatario} no enviado.",
                     plantilla, destinatario);
                 return false;
             }
 
-            var asunto = SustituirPlaceholders(asuntoRaw, placeholders);
-            var cuerpoHtml = SustituirPlaceholders(cuerpoRaw, placeholders);
+            if (!desdeBd)
+            {
+                _logger.LogInformation(
+                    "Plantilla {Plantilla} vacía en BD; usando plantilla por defecto del sistema.",
+                    plantilla);
+            }
+
+            var asunto = SustituirPlaceholders(asuntoRaw, placeholders, encodeHtml: false);
+            var cuerpoHtml = SustituirPlaceholders(cuerpoRaw, placeholders, encodeHtml: true);
             return await EnviarMensajeAsync(config, destinatario, nombreDestinatario, asunto, cuerpoHtml,
                 $"plantilla {plantilla}");
         }
@@ -153,7 +158,14 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
                 message.From.Add(new MailboxAddress(fromName, config.CorreoElectronico));
                 message.To.Add(new MailboxAddress(nombreDestinatario, destinatario));
                 message.Subject = asunto;
-                message.Body = new BodyBuilder { HtmlBody = cuerpoHtml }.ToMessageBody();
+                message.MessageId = $"<{Guid.NewGuid():N}@artesanias-peru>";
+
+                var builder = new BodyBuilder
+                {
+                    HtmlBody = cuerpoHtml,
+                    TextBody = ExtraerTextoPlano(cuerpoHtml)
+                };
+                message.Body = builder.ToMessageBody();
 
                 using var smtp = new SmtpClient();
                 await smtp.ConnectAsync(config.ServidorSmtp, config.Puerto!.Value, SecureSocketOptions.StartTls);
@@ -181,23 +193,75 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             !string.IsNullOrWhiteSpace(config.CorreoElectronico) &&
             !string.IsNullOrWhiteSpace(config.Contrasenia);
 
-        private static (string? asunto, string? cuerpo) ObtenerPlantilla(Correo c, PlantillaCorreo p) => p switch
+        private static (string? asunto, string? cuerpo, bool desdeBd) ObtenerPlantilla(Correo c, PlantillaCorreo p)
         {
-            PlantillaCorreo.CreacionUsuario => (c.AsuntoCreacionUsuario, c.CuerpoCreacionUsuario),
-            PlantillaCorreo.RecuperacionClave => (c.AsuntoRecuperacionClave, c.CuerpoRecuperacionClave),
-            PlantillaCorreo.NuevoPedidoVendedor => (c.AsuntoNuevoPedidoVendedor, c.CuerpoNuevoPedidoVendedor),
-            PlantillaCorreo.PedidoEnviadoCliente => (c.AsuntoPedidoEnviadoCliente, c.CuerpoPedidoEnviadoCliente),
-            PlantillaCorreo.VerificacionResultado => (c.AsuntoVerificacionResultado, c.CuerpoVerificacionResultado),
-            PlantillaCorreo.NuevoMensajeContacto => (c.AsuntoNuevoMensajeContacto, c.CuerpoNuevoMensajeContacto),
-            _ => (null, null)
-        };
+            var (asuntoBd, cuerpoBd) = p switch
+            {
+                PlantillaCorreo.CreacionUsuario => (c.AsuntoCreacionUsuario, c.CuerpoCreacionUsuario),
+                PlantillaCorreo.RecuperacionClave => (c.AsuntoRecuperacionClave, c.CuerpoRecuperacionClave),
+                PlantillaCorreo.NuevoPedidoVendedor => (c.AsuntoNuevoPedidoVendedor, c.CuerpoNuevoPedidoVendedor),
+                PlantillaCorreo.PedidoPagadoCliente => (c.AsuntoPedidoPagadoCliente, c.CuerpoPedidoPagadoCliente),
+                PlantillaCorreo.PedidoEnviadoCliente => (c.AsuntoPedidoEnviadoCliente, c.CuerpoPedidoEnviadoCliente),
+                PlantillaCorreo.VerificacionResultado => (c.AsuntoVerificacionResultado, c.CuerpoVerificacionResultado),
+                PlantillaCorreo.NuevoMensajeContacto => (c.AsuntoNuevoMensajeContacto, c.CuerpoNuevoMensajeContacto),
+                _ => ((string?)null, (string?)null)
+            };
 
-        private static string SustituirPlaceholders(string texto, Dictionary<string, string> placeholders)
+            // Plantillas críticas de pedidos: si la BD tiene texto desactualizado
+            // (p. ej. "te avisaremos cuando se confirme el pago" tras un pago ya hecho),
+            // forzamos la plantilla correcta del sistema.
+            if (p == PlantillaCorreo.NuevoPedidoVendedor &&
+                !string.IsNullOrWhiteSpace(cuerpoBd) &&
+                cuerpoBd.Contains("Te avisaremos cuando se confirme el pago", StringComparison.OrdinalIgnoreCase))
+            {
+                var def = PlantillasCorreoDefault.Obtener(p);
+                return (def.asunto, def.cuerpo, false);
+            }
+
+            // Plantilla de envío antigua sin clave/agencia → usar la del sistema.
+            if (p == PlantillaCorreo.PedidoEnviadoCliente &&
+                !string.IsNullOrWhiteSpace(cuerpoBd) &&
+                (!cuerpoBd.Contains("{claveRecojo}", StringComparison.Ordinal) ||
+                 !cuerpoBd.Contains("{codigoOrdenAgencia}", StringComparison.Ordinal)))
+            {
+                var def = PlantillasCorreoDefault.Obtener(p);
+                return (def.asunto, def.cuerpo, false);
+            }
+
+            if (!string.IsNullOrWhiteSpace(asuntoBd) && !string.IsNullOrWhiteSpace(cuerpoBd))
+                return (asuntoBd, cuerpoBd, true);
+
+            if (p is PlantillaCorreo.NuevoPedidoVendedor
+                or PlantillaCorreo.PedidoPagadoCliente
+                or PlantillaCorreo.PedidoEnviadoCliente)
+            {
+                var def = PlantillasCorreoDefault.Obtener(p);
+                return (def.asunto, def.cuerpo, false);
+            }
+
+            return (asuntoBd, cuerpoBd, true);
+        }
+
+        private static string SustituirPlaceholders(
+            string texto, Dictionary<string, string> placeholders, bool encodeHtml)
         {
             if (placeholders == null || placeholders.Count == 0) return texto;
             foreach (var kv in placeholders)
-                texto = texto.Replace("{" + kv.Key + "}", kv.Value ?? string.Empty);
+            {
+                var valor = kv.Value ?? string.Empty;
+                if (encodeHtml)
+                    valor = System.Net.WebUtility.HtmlEncode(valor);
+                texto = texto.Replace("{" + kv.Key + "}", valor);
+            }
             return texto;
+        }
+
+        private static string ExtraerTextoPlano(string html)
+        {
+            if (string.IsNullOrWhiteSpace(html)) return string.Empty;
+            var sinTags = System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", " ");
+            sinTags = System.Net.WebUtility.HtmlDecode(sinTags);
+            return System.Text.RegularExpressions.Regex.Replace(sinTags, @"\s+", " ").Trim();
         }
     }
 }

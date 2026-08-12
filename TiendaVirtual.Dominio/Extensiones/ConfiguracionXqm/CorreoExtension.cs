@@ -29,6 +29,8 @@ namespace TiendaVirtual.Dominio.Extensiones.ConfiguracionXqm
             correo.CuerpoRecuperacionClave = dto.CuerpoRecuperacionClave?.Normalizar_null();
             correo.AsuntoNuevoPedidoVendedor = dto.AsuntoNuevoPedidoVendedor?.Normalizar_null();
             correo.CuerpoNuevoPedidoVendedor = dto.CuerpoNuevoPedidoVendedor?.Normalizar_null();
+            correo.AsuntoPedidoPagadoCliente = dto.AsuntoPedidoPagadoCliente?.Normalizar_null();
+            correo.CuerpoPedidoPagadoCliente = dto.CuerpoPedidoPagadoCliente?.Normalizar_null();
             correo.AsuntoPedidoEnviadoCliente = dto.AsuntoPedidoEnviadoCliente?.Normalizar_null();
             correo.CuerpoPedidoEnviadoCliente = dto.CuerpoPedidoEnviadoCliente?.Normalizar_null();
             correo.AsuntoVerificacionResultado = dto.AsuntoVerificacionResultado?.Normalizar_null();
@@ -56,6 +58,8 @@ namespace TiendaVirtual.Dominio.Extensiones.ConfiguracionXqm
             dto.CuerpoRecuperacionClave = entidad.CuerpoRecuperacionClave;
             dto.AsuntoNuevoPedidoVendedor = entidad.AsuntoNuevoPedidoVendedor;
             dto.CuerpoNuevoPedidoVendedor = entidad.CuerpoNuevoPedidoVendedor;
+            dto.AsuntoPedidoPagadoCliente = entidad.AsuntoPedidoPagadoCliente;
+            dto.CuerpoPedidoPagadoCliente = entidad.CuerpoPedidoPagadoCliente;
             dto.AsuntoPedidoEnviadoCliente = entidad.AsuntoPedidoEnviadoCliente;
             dto.CuerpoPedidoEnviadoCliente = entidad.CuerpoPedidoEnviadoCliente;
             dto.AsuntoVerificacionResultado = entidad.AsuntoVerificacionResultado;

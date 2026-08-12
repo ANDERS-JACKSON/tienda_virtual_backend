@@ -57,15 +57,23 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.ConfiguracionXqm
 
             builder.Property(e => e.AsuntoNuevoPedidoVendedor)
                 .HasColumnName("asunto_nuevo_pedido_vendedor")
-                .HasMaxLength(250);
+                .HasMaxLength(1000);
 
             builder.Property(e => e.CuerpoNuevoPedidoVendedor)
                 .HasColumnName("cuerpo_nuevo_pedido_vendedor")
                 .HasColumnType("text");
 
+            builder.Property(e => e.AsuntoPedidoPagadoCliente)
+                .HasColumnName("asunto_pedido_pagado_cliente")
+                .HasMaxLength(1000);
+
+            builder.Property(e => e.CuerpoPedidoPagadoCliente)
+                .HasColumnName("cuerpo_pedido_pagado_cliente")
+                .HasColumnType("text");
+
             builder.Property(e => e.AsuntoPedidoEnviadoCliente)
                 .HasColumnName("asunto_pedido_enviado_cliente")
-                .HasMaxLength(250);
+                .HasMaxLength(1000);
 
             builder.Property(e => e.CuerpoPedidoEnviadoCliente)
                 .HasColumnName("cuerpo_pedido_enviado_cliente")

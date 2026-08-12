@@ -934,20 +934,20 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
                 if (!string.IsNullOrWhiteSpace(correoCliente))
                 {
-                    var asunto = $"Pedido {orden.NumeroOrden} confirmado";
-                    var cuerpo =
-                        $"<p>Hola {System.Net.WebUtility.HtmlEncode(nombreCliente)},</p>" +
-                        $"<p>Confirmamos el pago de tu pedido <strong>{System.Net.WebUtility.HtmlEncode(orden.NumeroOrden)}</strong> " +
-                        $"por <strong>S/ {orden.Total:N2}</strong>.</p>" +
-                        "<p>Los artesanos ya pueden prepararlo. Puedes ver el detalle en Mis pedidos.</p>" +
-                        "<p>Gracias por comprar en Artesanías.</p>";
-
                     _ = Task.Run(async () =>
                     {
                         try
                         {
-                            await _emailServicio.EnviarHtmlAsync(
-                                correoCliente!, nombreCliente, asunto, cuerpo);
+                            await _emailServicio.EnviarAsync(
+                                correoCliente!,
+                                nombreCliente,
+                                PlantillaCorreo.PedidoPagadoCliente,
+                                new Dictionary<string, string>
+                                {
+                                    ["cliente"] = nombreCliente,
+                                    ["numeroPedido"] = orden.NumeroOrden,
+                                    ["totalPedido"] = orden.Total.ToString("N2"),
+                                });
                         }
                         catch (Exception ex)
                         {

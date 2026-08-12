@@ -21,6 +21,8 @@ namespace TiendaVirtual.Dominio.Modelo.ConfiguracionXqm
         public string? CuerpoRecuperacionClave { get; set; }
         public string? AsuntoNuevoPedidoVendedor { get; set; }
         public string? CuerpoNuevoPedidoVendedor { get; set; }
+        public string? AsuntoPedidoPagadoCliente { get; set; }
+        public string? CuerpoPedidoPagadoCliente { get; set; }
         public string? AsuntoPedidoEnviadoCliente { get; set; }
         public string? CuerpoPedidoEnviadoCliente { get; set; }
         public string? AsuntoVerificacionResultado { get; set; }

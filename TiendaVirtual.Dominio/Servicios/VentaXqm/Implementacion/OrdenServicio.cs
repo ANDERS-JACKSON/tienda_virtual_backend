@@ -372,20 +372,14 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                             .Select(v => new { v.UsuarioId, v.NombreTienda })
                             .FirstAsync();
 
+                        // Solo notificación in-app: el correo al vendedor se envía
+                        // cuando el pago queda confirmado (OrdenPagoServicio).
                         await _notificacionServicio.CrearAsync(
                             datosVendedor.UsuarioId,
                             TipoNotificacion.SubordenRecibida,
                             "Nuevo pedido recibido",
-                            $"Recibiste el pedido {sub.NumeroSuborden} por S/ {sub.Subtotal:N2}.",
-                            new { subordenId = sub.SubordenId, numeroSuborden = sub.NumeroSuborden },
-                            plantillaEmail: PlantillaCorreo.NuevoPedidoVendedor,
-                            placeholdersEmail: new Dictionary<string, string>
-                            {
-                                ["vendedor"] = datosVendedor.NombreTienda,
-                                ["numeroPedido"] = sub.NumeroSuborden,
-                                ["nombreCliente"] = cliente.NombreCliente.Trim(),
-                                ["totalPedido"] = sub.Subtotal.ToString("N2")
-                            });
+                            $"Recibiste el pedido {sub.NumeroSuborden} por S/ {sub.Subtotal:N2}. El cliente aún debe completar el pago.",
+                            new { subordenId = sub.SubordenId, numeroSuborden = sub.NumeroSuborden });
                     }
                 }
 
@@ -745,24 +739,31 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                     ? $"{suborden.Orden.Cliente.Persona.Nombres} {suborden.Orden.Cliente.Persona.ApellidoPaterno ?? ""}".Trim()
                     : suborden.Orden.CorreoCliente;
 
+                static string ValorOGuion(string? valor) =>
+                    string.IsNullOrWhiteSpace(valor) ? "—" : valor.Trim();
+
                 await _notificacionServicio.CrearAsync(
                     suborden.Orden.ClienteId,
                     TipoNotificacion.SubordenEnCamino,
                     "Tu pedido está en camino",
-                    $"El pedido {suborden.NumeroSuborden} de {suborden.Vendedor.NombreTienda} fue enviado.",
+                    $"El pedido {suborden.NumeroSuborden} de {suborden.Vendedor.NombreTienda} fue enviado." +
+                    (string.IsNullOrWhiteSpace(envio.NumeroSeguimiento)
+                        ? string.Empty
+                        : $" Seguimiento: {envio.NumeroSeguimiento}.") +
+                    (string.IsNullOrWhiteSpace(envio.ClaveRecojo)
+                        ? string.Empty
+                        : $" Clave: {envio.ClaveRecojo}."),
                     new { subordenId },
                     plantillaEmail: PlantillaCorreo.PedidoEnviadoCliente,
                     placeholdersEmail: new Dictionary<string, string>
                     {
-                        ["cliente"] = nombreCliente,
+                        ["cliente"] = nombreCliente ?? "Cliente",
                         ["numeroPedido"] = suborden.NumeroSuborden,
                         ["nombreTienda"] = suborden.Vendedor.NombreTienda,
-                        ["codigoSeguimiento"] = string.IsNullOrEmpty(envio.NumeroSeguimiento)
-                            ? "Pendiente"
-                            : envio.NumeroSeguimiento,
-                        ["codigoOrdenAgencia"] = envio.CodigoOrdenAgencia ?? "",
-                        ["claveRecojo"] = envio.ClaveRecojo ?? "",
-                        ["detallesEnvio"] = envio.Detalles ?? ""
+                        ["codigoSeguimiento"] = ValorOGuion(envio.NumeroSeguimiento),
+                        ["codigoOrdenAgencia"] = ValorOGuion(envio.CodigoOrdenAgencia),
+                        ["claveRecojo"] = ValorOGuion(envio.ClaveRecojo),
+                        ["detallesEnvio"] = ValorOGuion(envio.Detalles)
                     });
 
                 return ResultadoOperacion<EnvioDto>.SetExito(envio.ToDto());
