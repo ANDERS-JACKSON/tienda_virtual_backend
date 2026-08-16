@@ -346,9 +346,9 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 // 10. Vaciar carrito (salvo cobro atómico: se vacía solo tras pago OK/pendiente).
                 if (!diferirFinalizacionCarrito)
                 {
-                    _context.ItemsCarrito.RemoveRange(items);
+                _context.ItemsCarrito.RemoveRange(items);
                     carrito.CuponPedidoId = null;
-                    carrito.FechaActualizacion = DateTime.UtcNow;
+                carrito.FechaActualizacion = DateTime.UtcNow;
                 }
 
                 await _context.SaveChangesAsync();
@@ -358,26 +358,26 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 // (flujo legado). En cobro atómico se notifica al confirmar el pago.
                 if (!diferirFinalizacionCarrito)
                 {
-                    await _notificacionServicio.CrearAsync(
-                        usuarioId,
-                        TipoNotificacion.OrdenCreada,
-                        $"Pedido {orden.NumeroOrden} creado",
-                        $"Recibimos tu pedido. Total: S/ {orden.Total:N2}. Completa el pago para que los artesanos lo preparen.",
-                        new { ordenId = orden.OrdenId, numeroOrden = orden.NumeroOrden });
+                await _notificacionServicio.CrearAsync(
+                    usuarioId,
+                    TipoNotificacion.OrdenCreada,
+                    $"Pedido {orden.NumeroOrden} creado",
+                    $"Recibimos tu pedido. Total: S/ {orden.Total:N2}. Completa el pago para que los artesanos lo preparen.",
+                    new { ordenId = orden.OrdenId, numeroOrden = orden.NumeroOrden });
 
-                    foreach (var sub in subordenesCreadas)
-                    {
-                        var datosVendedor = await _context.Vendedores
-                            .Where(v => v.VendedorId == sub.VendedorId)
-                            .Select(v => new { v.UsuarioId, v.NombreTienda })
-                            .FirstAsync();
+                foreach (var sub in subordenesCreadas)
+                {
+                    var datosVendedor = await _context.Vendedores
+                        .Where(v => v.VendedorId == sub.VendedorId)
+                        .Select(v => new { v.UsuarioId, v.NombreTienda })
+                        .FirstAsync();
 
                         // Solo notificación in-app: el correo al vendedor se envía
                         // cuando el pago queda confirmado (OrdenPagoServicio).
-                        await _notificacionServicio.CrearAsync(
-                            datosVendedor.UsuarioId,
-                            TipoNotificacion.SubordenRecibida,
-                            "Nuevo pedido recibido",
+                    await _notificacionServicio.CrearAsync(
+                        datosVendedor.UsuarioId,
+                        TipoNotificacion.SubordenRecibida,
+                        "Nuevo pedido recibido",
                             $"Recibiste el pedido {sub.NumeroSuborden} por S/ {sub.Subtotal:N2}. El cliente aún debe completar el pago.",
                             new { subordenId = sub.SubordenId, numeroSuborden = sub.NumeroSuborden });
                     }

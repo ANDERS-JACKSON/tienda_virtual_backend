@@ -8,6 +8,7 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
         public string SlugTienda { get; set; } = null!;
         public string BiografiaResumen { get; set; } = null!;
         public bool TieneTextoCompleto { get; set; }
+        /// <summary>Logo de la tienda (avatar). No usar BannerUrl.</summary>
         public string? ImagenUrl { get; set; }
         public string? CategoriaPrincipal { get; set; }
     }

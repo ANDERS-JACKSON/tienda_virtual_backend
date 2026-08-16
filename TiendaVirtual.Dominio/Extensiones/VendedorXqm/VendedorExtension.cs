@@ -122,7 +122,8 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
                 SlugTienda = entidad.SlugTienda,
                 BiografiaResumen = resumen,
                 TieneTextoCompleto = fueTruncado,
-                ImagenUrl = entidad.BannerUrl ?? entidad.LogoUrl,
+                /// <summary>Logo de la tienda (circular). Nunca el banner.</summary>
+                ImagenUrl = entidad.LogoUrl,
                 CategoriaPrincipal = categoriaPrincipal
             };
         }

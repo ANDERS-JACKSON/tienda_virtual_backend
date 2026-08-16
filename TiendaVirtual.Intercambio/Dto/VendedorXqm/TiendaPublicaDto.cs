@@ -15,6 +15,7 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
         public string? LogoUrl { get; set; }
         public string? BannerUrl { get; set; }
         public decimal CalificacionPromedio { get; set; }
+        /// <summary>Unidades de producto vendidas (suma de cantidades en pedidos pagados).</summary>
         public int TotalVentas { get; set; }
         public int TotalProductos { get; set; }
         public bool VendePatrones { get; set; }

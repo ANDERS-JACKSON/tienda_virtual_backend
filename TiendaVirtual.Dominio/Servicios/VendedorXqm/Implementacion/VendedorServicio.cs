@@ -459,9 +459,14 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
 
                 // Trae los vendedores + cuenta sus productos activos en una sola query
                 var resultados = await query
-                    .OrderByDescending(v => _context.Subordenes.Count(s =>
-                        s.VendedorId == v.VendedorId &&
-                        s.Estado == TipoEstadoSuborden.Entregada))
+                    .OrderByDescending(v =>
+                        _context.ItemsOrden
+                            .Where(i =>
+                                i.Suborden.VendedorId == v.VendedorId &&
+                                i.Suborden.Estado != TipoEstadoSuborden.Cancelada &&
+                                i.Suborden.Orden.Estado != TipoEstadoOrden.PendientePago &&
+                                i.Suborden.Orden.Estado != TipoEstadoOrden.Cancelada)
+                            .Sum(i => (int?)i.Cantidad) ?? 0)
                     .ThenByDescending(v => v.CalificacionPromedio)
                     .Skip((pagina - 1) * tamanioPagina)
                     .Take(tamanioPagina)
@@ -471,9 +476,14 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
                         TotalProductos = _context.Productos.Count(p =>
                             p.VendedorId == v.VendedorId &&
                             p.Estado == TipoEstadoProducto.Activo),
-                        TotalVentas = _context.Subordenes.Count(s =>
-                            s.VendedorId == v.VendedorId &&
-                            s.Estado == TipoEstadoSuborden.Entregada)
+                        // Unidades vendidas (suma Cantidad): 1 pedido con 3 ítems = 3.
+                        TotalVentas = _context.ItemsOrden
+                            .Where(i =>
+                                i.Suborden.VendedorId == v.VendedorId &&
+                                i.Suborden.Estado != TipoEstadoSuborden.Cancelada &&
+                                i.Suborden.Orden.Estado != TipoEstadoOrden.PendientePago &&
+                                i.Suborden.Orden.Estado != TipoEstadoOrden.Cancelada)
+                            .Sum(i => (int?)i.Cantidad) ?? 0
                     })
                     .ToListAsync();
 
@@ -516,9 +526,14 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
                         TotalProductos = _context.Productos.Count(p =>
                             p.VendedorId == v.VendedorId &&
                             p.Estado == TipoEstadoProducto.Activo),
-                        TotalVentas = _context.Subordenes.Count(s =>
-                            s.VendedorId == v.VendedorId &&
-                            s.Estado == TipoEstadoSuborden.Entregada)
+                        // Unidades vendidas (suma Cantidad): 1 pedido con 3 ítems = 3.
+                        TotalVentas = _context.ItemsOrden
+                            .Where(i =>
+                                i.Suborden.VendedorId == v.VendedorId &&
+                                i.Suborden.Estado != TipoEstadoSuborden.Cancelada &&
+                                i.Suborden.Orden.Estado != TipoEstadoOrden.PendientePago &&
+                                i.Suborden.Orden.Estado != TipoEstadoOrden.Cancelada)
+                            .Sum(i => (int?)i.Cantidad) ?? 0
                     })
                     .FirstOrDefaultAsync();
 
@@ -611,9 +626,14 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
                         TotalProductos = _context.Productos.Count(p =>
                             p.VendedorId == v.VendedorId &&
                             p.Estado == TipoEstadoProducto.Activo),
-                        TotalVentas = _context.Subordenes.Count(s =>
-                            s.VendedorId == v.VendedorId &&
-                            s.Estado == TipoEstadoSuborden.Entregada)
+                        // Unidades vendidas (suma Cantidad): 1 pedido con 3 ítems = 3.
+                        TotalVentas = _context.ItemsOrden
+                            .Where(i =>
+                                i.Suborden.VendedorId == v.VendedorId &&
+                                i.Suborden.Estado != TipoEstadoSuborden.Cancelada &&
+                                i.Suborden.Orden.Estado != TipoEstadoOrden.PendientePago &&
+                                i.Suborden.Orden.Estado != TipoEstadoOrden.Cancelada)
+                            .Sum(i => (int?)i.Cantidad) ?? 0
                     })
                     .FirstOrDefaultAsync();
 

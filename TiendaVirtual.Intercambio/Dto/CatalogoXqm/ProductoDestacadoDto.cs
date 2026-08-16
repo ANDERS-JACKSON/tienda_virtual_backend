@@ -9,9 +9,14 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
         public string Nombre { get; set; } = "";
         public string Slug { get; set; } = "";
         public string? NombreTienda { get; set; }
-        public decimal? PrecioBase { get; set; }
+        /// <summary>Precio de la variante por defecto (igual que catálogo).</summary>
+        public decimal PrecioBase { get; set; }
+        /// <summary>Precio final con descuento; null si no hay oferta vigente.</summary>
         public decimal? PrecioOferta { get; set; }
         public decimal? PorcentajeDescuento { get; set; }
+        public bool TieneOferta { get; set; }
+        /// <summary>Variante cuyo precio se muestra (misma que abre el detalle).</summary>
+        public int? VarianteIdDefecto { get; set; }
         public string? ImagenPrincipalPublicId { get; set; }
         public int Orden { get; set; }
         public EnumeracionDto Tipo { get; set; } = null!;

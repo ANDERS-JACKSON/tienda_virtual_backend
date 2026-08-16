@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using TiendaVirtual.Comun.Enumeracion;
+using TiendaVirtual.Dominio.Extensiones.CatalogoXqm;
 using TiendaVirtual.Dominio.Modelo.CatalogoXqm;
 using TiendaVirtual.Dominio.Utilidad;
 using TiendaVirtual.Intercambio;
@@ -13,7 +14,8 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
     public class ProductoDestacadoServicio : IProductoDestacadoServicio
     {
         private const int MAX_DESTACADOS = 10;
-        private const string CacheKeyPublico = "destacados:publico";
+        // v2: precio = variante por defecto + oferta (misma regla que catálogo)
+        private const string CacheKeyPublico = "destacados:publico:v2";
 
         private readonly TiendaVirtualDbContext _context;
         private readonly IMemoryCache _cache;
@@ -218,6 +220,14 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 .OrderByDescending(o => o.OfertaId)
                 .FirstOrDefault();
 
+            // Misma regla que CatalogoServicio.MapearAListadoDto:
+            // precio de la primera variante activa (menor VarianteId).
+            var variantePorDefecto = p.ObtenerVariantePorDefecto();
+            var precioVariantePorDefecto = variantePorDefecto?.Precio ?? p.PrecioBase ?? 0;
+            var soloUnaVariante = p.Variantes.Count(v => v.Activa) <= 1;
+            var precioCalc = PrecioOfertaUtil.Calcular(
+                precioVariantePorDefecto, oferta, soloUnaVariante);
+
             return new ProductoDestacadoPublicoDto
             {
                 ProductoDestacadoId = d.ProductoDestacadoId,
@@ -225,9 +235,11 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 Nombre = p.Nombre,
                 Slug = p.Slug,
                 NombreTienda = p.Vendedor?.NombreTienda,
-                PrecioBase = p.PrecioBase,
-                PrecioOferta = oferta?.PrecioOferta,
-                PorcentajeDescuento = oferta?.PorcentajeDescuento,
+                PrecioBase = precioVariantePorDefecto,
+                PrecioOferta = precioCalc.TieneDescuento ? precioCalc.PrecioActual : null,
+                PorcentajeDescuento = precioCalc.PorcentajeDescuento,
+                TieneOferta = precioCalc.TieneDescuento,
+                VarianteIdDefecto = variantePorDefecto?.VarianteId,
                 ImagenPrincipalPublicId = ObtenerImagenPrincipal(p),
                 Orden = d.Orden,
                 Tipo = new EnumeracionDto((int)p.Tipo, p.Tipo.ToString()),
