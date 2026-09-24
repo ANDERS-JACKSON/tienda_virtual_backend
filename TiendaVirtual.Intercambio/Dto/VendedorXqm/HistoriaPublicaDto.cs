@@ -27,5 +27,8 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
         public int TotalProductos { get; set; }
         public bool VendePatrones { get; set; }
         public string? CategoriaPrincipal { get; set; }
+        public string? UbicacionDepartamento { get; set; }
+        public string? UbicacionProvincia { get; set; }
+        public string? UbicacionDistrito { get; set; }
     }
 }

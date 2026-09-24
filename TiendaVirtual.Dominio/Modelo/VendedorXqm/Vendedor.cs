@@ -40,10 +40,23 @@ namespace TiendaVirtual.Dominio.Modelo.VendedorXqm
         public int? InvitadoPor { get; set; }
 
         public string? NumeroYape { get; set; }
+
+        /// <summary>Celular WhatsApp de contacto público de la tienda (9 dígitos Perú).</summary>
+        public string? NumeroWhatsapp { get; set; }
+
+        /// <summary>Código ubigeo INEI del distrito (6 dígitos). Ubicación pública de la tienda.</summary>
+        public string? DistritoId { get; set; }
+
+        /// <summary>Nombres denormalizados al guardar (como en Direccion).</summary>
+        public string? UbicacionDepartamento { get; set; }
+        public string? UbicacionProvincia { get; set; }
+        public string? UbicacionDistrito { get; set; }
+
         public bool VendePatrones { get; set; }
 
         // Relaciones
         public virtual Usuario Usuario { get; set; } = null!;
+        public virtual Distrito? DistritoNav { get; set; }
         public virtual Vendedor? InvitadoPorVendedor { get; set; }
         public virtual ICollection<Vendedor> VendedoresInvitados { get; set; } = new List<Vendedor>();
         public virtual ICollection<SolicitudVerificacion> SolicitudesVerificacion { get; set; } = new List<SolicitudVerificacion>();

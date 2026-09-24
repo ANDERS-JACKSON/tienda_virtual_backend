@@ -16,6 +16,11 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
         public string? LogoUrl { get; set; }
         public string? BannerUrl { get; set; }
         public string? NumeroYape { get; set; }
+        public string? NumeroWhatsapp { get; set; }
+        public string? DistritoId { get; set; }
+        public string? UbicacionDepartamento { get; set; }
+        public string? UbicacionProvincia { get; set; }
+        public string? UbicacionDistrito { get; set; }
         public EnumeracionDto Estado { get; set; } = null!;
         public decimal CalificacionPromedio { get; set; }
         public int TotalVentas { get; set; }

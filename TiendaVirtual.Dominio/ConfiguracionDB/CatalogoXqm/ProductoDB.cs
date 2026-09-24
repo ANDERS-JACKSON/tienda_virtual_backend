@@ -92,9 +92,14 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.CatalogoXqm
                 .HasColumnName("motivo_pausa_admin")
                 .HasMaxLength(500);
 
+            builder.Property(e => e.FechaPublicacion)
+                .HasColumnName("fecha_publicacion")
+                .HasColumnType("timestamptz");
+
             builder.HasIndex(e => e.Slug).IsUnique().HasDatabaseName("uq_producto_slug");
             builder.HasIndex(e => new { e.VendedorId, e.Estado }).HasDatabaseName("idx_producto_vendedor_estado");
             builder.HasIndex(e => e.CategoriaId).HasDatabaseName("idx_producto_categoria");
+            builder.HasIndex(e => e.FechaPublicacion).HasDatabaseName("idx_producto_fecha_publicacion");
 
             builder.HasOne(e => e.Vendedor)
                 .WithMany(v => v.Productos)

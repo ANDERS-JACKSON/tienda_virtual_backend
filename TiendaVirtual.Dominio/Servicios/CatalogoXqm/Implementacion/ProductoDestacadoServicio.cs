@@ -211,6 +211,8 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         }
         private void InvalidarCachePublico() => _cache.Remove(CacheKeyPublico);
 
+        public void InvalidarCacheListadoPublico() => InvalidarCachePublico();
+
         private static ProductoDestacadoPublicoDto MapearPublico(ProductoDestacado d)
         {
             var p = d.Producto;

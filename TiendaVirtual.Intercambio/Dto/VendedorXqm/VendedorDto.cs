@@ -21,6 +21,7 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
         public int TotalVentas { get; set; }
         public int? InvitadoPor { get; set; }
         public string? NumeroYape { get; set; }
+        public string? NumeroWhatsapp { get; set; }
         public bool VendePatrones { get; set; }
     }
 }

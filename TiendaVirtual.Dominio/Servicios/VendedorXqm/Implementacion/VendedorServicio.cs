@@ -139,6 +139,28 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
                 vendedor.NombreTienda = dto.NombreTienda?.Trim() ?? vendedor.NombreTienda;
                 vendedor.Biografia = dto.Biografia;
                 vendedor.NumeroYape = dto.NumeroYape;
+                vendedor.NumeroWhatsapp = string.IsNullOrWhiteSpace(dto.NumeroWhatsapp)
+                    ? null
+                    : dto.NumeroWhatsapp.Trim();
+
+                if (string.IsNullOrWhiteSpace(dto.DistritoId))
+                {
+                    vendedor.DistritoId = null;
+                    vendedor.UbicacionDepartamento = null;
+                    vendedor.UbicacionProvincia = null;
+                    vendedor.UbicacionDistrito = null;
+                }
+                else
+                {
+                    var ubicacion = await ResolverUbigeoTiendaAsync(dto.DistritoId.Trim());
+                    if (ubicacion == null)
+                        return ResultadoOperacion<VendedorPerfilDto>.SetError("Distrito ubigeo no válido.");
+
+                    vendedor.DistritoId = ubicacion.DistritoId;
+                    vendedor.UbicacionDepartamento = ubicacion.Departamento;
+                    vendedor.UbicacionProvincia = ubicacion.Provincia;
+                    vendedor.UbicacionDistrito = ubicacion.Distrito;
+                }
 
                 // Solo actualizar imágenes si vienen en el body (null = no enviado, conservar valor actual).
                 if (dto.LogoUrl != null)
@@ -1068,5 +1090,29 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
                     g => g.Key,
                     g => g.OrderByDescending(x => x.Total).Select(x => x.CategoriaNombre).FirstOrDefault());
         }
+
+        private async Task<UbicacionTiendaResuelta?> ResolverUbigeoTiendaAsync(string? distritoId)
+        {
+            var id = (distritoId ?? string.Empty).Trim();
+            if (id.Length != 6) return null;
+
+            return await (
+                from di in _context.Distritos.AsNoTracking()
+                join pr in _context.Provincias.AsNoTracking() on di.ProvinciaId equals pr.ProvinciaId
+                join de in _context.Departamentos.AsNoTracking() on pr.DepartamentoId equals de.DepartamentoId
+                where di.DistritoId == id
+                select new UbicacionTiendaResuelta(
+                    di.DistritoId,
+                    de.Nombre,
+                    pr.Nombre,
+                    di.Nombre)
+            ).FirstOrDefaultAsync();
+        }
+
+        private sealed record UbicacionTiendaResuelta(
+            string DistritoId,
+            string Departamento,
+            string Provincia,
+            string Distrito);
     }
 }

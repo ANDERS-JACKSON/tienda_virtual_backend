@@ -10,5 +10,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm
         Task<ResultadoOperacion<ProductoDestacadoAdminDto>> AgregarAsync(AgregarProductoDestacadoDto dto);
         Task<ResultadoOperacion<bool>> EliminarAsync(int destacadoId);
         Task<ResultadoOperacion<bool>> ReordenarAsync(ReordenarProductosDestacadosDto dto);
+
+        /// <summary>
+        /// Invalida el caché del listado público (p. ej. al crear/editar ofertas de un producto destacado).
+        /// </summary>
+        void InvalidarCacheListadoPublico();
     }
 }

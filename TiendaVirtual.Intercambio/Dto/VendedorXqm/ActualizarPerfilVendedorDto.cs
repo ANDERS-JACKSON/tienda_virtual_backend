@@ -24,5 +24,12 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
 
         [MaxLength(20)]
         public string? NumeroYape { get; set; }
+
+        [MaxLength(20)]
+        public string? NumeroWhatsapp { get; set; }
+
+        /// <summary>Código ubigeo del distrito (6 dígitos). Vacío = quitar ubicación.</summary>
+        [MaxLength(6)]
+        public string? DistritoId { get; set; }
     }
 }

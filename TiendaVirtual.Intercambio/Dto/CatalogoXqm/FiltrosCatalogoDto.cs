@@ -27,6 +27,14 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
         public bool? SoloConOferta { get; set; }
 
         /// <summary>
+        /// Si true, solo productos con FechaPublicacion en los últimos N días (ver DiasNovedad).
+        /// </summary>
+        public bool? SoloNovedades { get; set; }
+
+        /// <summary>Ventana de novedades en días (default 30). Solo aplica con SoloNovedades.</summary>
+        public int? DiasNovedad { get; set; }
+
+        /// <summary>
         /// "precio_asc", "precio_desc", "mas_vendidos",
         /// "mejor_calificados", "novedades", "relevancia"
         /// </summary>

@@ -49,6 +49,9 @@ namespace TiendaVirtual.Dominio.Modelo.CatalogoXqm
         public int TotalResenas { get; set; }
         public string? MotivoPausaAdmin { get; set; }
 
+        /// <summary>Primera vez que el producto pasó a Activo (UTC). Base de Novedades.</summary>
+        public DateTime? FechaPublicacion { get; set; }
+
         public virtual Vendedor Vendedor { get; set; } = null!;
         public virtual Categoria Categoria { get; set; } = null!;
         public virtual ICollection<VarianteProducto> Variantes { get; set; } = new List<VarianteProducto>();

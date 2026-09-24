@@ -32,5 +32,7 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
         public decimal CalificacionPromedio { get; set; }
         public int TotalResenas { get; set; }
         public bool TieneStock { get; set; }
+        /// <summary>UTC. Primera publicación del producto.</summary>
+        public DateTime? FechaPublicacion { get; set; }
     }
 }

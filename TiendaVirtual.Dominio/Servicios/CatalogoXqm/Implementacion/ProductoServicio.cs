@@ -24,15 +24,20 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         private readonly ILogger<ProductoServicio> _logger;
         private readonly ISuscripcionServicio _suscripcionServicio;
         private readonly INotificacionServicio _notificacionServicio;
+        private readonly IProductoDestacadoServicio _destacadosServicio;
 
-        public ProductoServicio(TiendaVirtualDbContext context,
+        public ProductoServicio(
+            TiendaVirtualDbContext context,
             ISuscripcionServicio suscripcionServicio,
-            INotificacionServicio notificacionServicio, ILogger<ProductoServicio> logger)
+            INotificacionServicio notificacionServicio,
+            IProductoDestacadoServicio destacadosServicio,
+            ILogger<ProductoServicio> logger)
         {
             _logger = logger;
             _context = context;
             _suscripcionServicio = suscripcionServicio;
             _notificacionServicio = notificacionServicio;
+            _destacadosServicio = destacadosServicio;
         }
 
         // ─────────────────────────────────────────────────────
@@ -413,6 +418,8 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 }
 
                 producto.Estado = TipoEstadoProducto.Activo;
+                if (producto.FechaPublicacion == null)
+                    producto.FechaPublicacion = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
                 return ResultadoOperacion<bool>.SetExito(true);
             }
@@ -800,6 +807,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 };
                 _context.Ofertas.Add(oferta);
                 await _context.SaveChangesAsync();
+                _destacadosServicio.InvalidarCacheListadoPublico();
 
                 return ResultadoOperacion<OfertaDto>.SetExito(oferta.ToDto());
             }
@@ -870,6 +878,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 oferta.FechaFin = fechaFin;
 
                 await _context.SaveChangesAsync();
+                _destacadosServicio.InvalidarCacheListadoPublico();
                 return ResultadoOperacion<OfertaDto>.SetExito(oferta.ToDto());
             }
             catch (Exception ex)
@@ -919,6 +928,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
                 oferta.Activa = true;
                 await _context.SaveChangesAsync();
+                _destacadosServicio.InvalidarCacheListadoPublico();
                 return ResultadoOperacion<bool>.SetExito(true);
             }
             catch (Exception ex)
@@ -944,6 +954,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
                 oferta.Activa = false;
                 await _context.SaveChangesAsync();
+                _destacadosServicio.InvalidarCacheListadoPublico();
                 return ResultadoOperacion<bool>.SetExito(true);
             }
             catch (Exception ex)
@@ -969,6 +980,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
                 _context.Ofertas.Remove(oferta);
                 await _context.SaveChangesAsync();
+                _destacadosServicio.InvalidarCacheListadoPublico();
                 return ResultadoOperacion<bool>.SetExito(true);
             }
             catch (Exception ex)

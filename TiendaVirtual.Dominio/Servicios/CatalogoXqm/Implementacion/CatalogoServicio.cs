@@ -110,6 +110,14 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                         o.Activa && o.FechaInicio <= now && o.FechaFin >= now));
                 }
 
+                if (filtros.SoloNovedades == true)
+                {
+                    var dias = filtros.DiasNovedad is > 0 and <= 90 ? filtros.DiasNovedad.Value : 30;
+                    var desde = now.AddDays(-dias);
+                    query = query.Where(p =>
+                        p.FechaPublicacion != null && p.FechaPublicacion >= desde);
+                }
+
                 // Precio efectivo = min variante activa o PrecioBase (mismo criterio que el filtro)
                 query = filtros.OrdenarPor switch
                 {
@@ -127,7 +135,9 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     "relevancia" => query.OrderByDescending(p => p.Ventas)
                                          .ThenByDescending(p => p.CalificacionPromedio)
                                          .ThenByDescending(p => p.ProductoId),
-                    _ => query.OrderByDescending(p => p.ProductoId) // novedades
+                    "novedades" => query.OrderByDescending(p => p.FechaPublicacion)
+                                        .ThenByDescending(p => p.ProductoId),
+                    _ => query.OrderByDescending(p => p.ProductoId)
                 };
 
                 var total = await query.CountAsync();
@@ -429,7 +439,8 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 Tipo = new EnumeracionDto { Id = (int)p.Tipo, Nombre = p.Tipo.ToString() },
                 CalificacionPromedio = p.CalificacionPromedio,
                 TotalResenas = p.TotalResenas,
-                TieneStock = tieneStock
+                TieneStock = tieneStock,
+                FechaPublicacion = p.FechaPublicacion
             };
         }
     }

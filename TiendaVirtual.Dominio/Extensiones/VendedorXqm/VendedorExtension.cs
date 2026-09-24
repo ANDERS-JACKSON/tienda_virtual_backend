@@ -32,6 +32,7 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
             vendedor.TotalVentas = dto.TotalVentas;
             vendedor.InvitadoPor = dto.InvitadoPor;
             vendedor.NumeroYape = dto.NumeroYape?.Normalizar_null();
+            vendedor.NumeroWhatsapp = dto.NumeroWhatsapp?.Normalizar_null();
             vendedor.VendePatrones = dto.VendePatrones;
 
             return vendedor;
@@ -60,6 +61,7 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
             dto.TotalVentas = entidad.TotalVentas;
             dto.InvitadoPor = entidad.InvitadoPor;
             dto.NumeroYape = entidad.NumeroYape;
+            dto.NumeroWhatsapp = entidad.NumeroWhatsapp;
             dto.VendePatrones = entidad.VendePatrones;
 
             return dto;
@@ -77,6 +79,11 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
                 LogoUrl = entidad.LogoUrl,
                 BannerUrl = entidad.BannerUrl,
                 NumeroYape = entidad.NumeroYape,
+                NumeroWhatsapp = entidad.NumeroWhatsapp,
+                DistritoId = entidad.DistritoId,
+                UbicacionDepartamento = entidad.UbicacionDepartamento,
+                UbicacionProvincia = entidad.UbicacionProvincia,
+                UbicacionDistrito = entidad.UbicacionDistrito,
                 Estado = new EnumeracionDto
                 {
                     Id = (int)entidad.Estado,
@@ -103,7 +110,11 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
                 CalificacionPromedio = entidad.CalificacionPromedio,
                 TotalVentas = totalVentas,
                 TotalProductos = totalProductos,
-                VendePatrones = entidad.VendePatrones
+                VendePatrones = entidad.VendePatrones,
+                NumeroWhatsapp = entidad.NumeroWhatsapp,
+                UbicacionDepartamento = entidad.UbicacionDepartamento,
+                UbicacionProvincia = entidad.UbicacionProvincia,
+                UbicacionDistrito = entidad.UbicacionDistrito
             };
         }
 
@@ -148,7 +159,10 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
                 TotalVentas = totalVentas,
                 TotalProductos = totalProductos,
                 VendePatrones = entidad.VendePatrones,
-                CategoriaPrincipal = categoriaPrincipal
+                CategoriaPrincipal = categoriaPrincipal,
+                UbicacionDepartamento = entidad.UbicacionDepartamento,
+                UbicacionProvincia = entidad.UbicacionProvincia,
+                UbicacionDistrito = entidad.UbicacionDistrito
             };
         }
     }

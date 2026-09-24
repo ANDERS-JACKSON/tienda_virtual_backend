@@ -65,18 +65,46 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.VendedorXqm
                 .HasColumnName("numero_yape")
                 .HasMaxLength(20);
 
+            builder.Property(e => e.NumeroWhatsapp)
+                .HasColumnName("numero_whatsapp")
+                .HasMaxLength(20);
+
+            builder.Property(e => e.DistritoId)
+                .HasColumnName("distrito_id")
+                .HasMaxLength(6);
+
+            builder.Property(e => e.UbicacionDepartamento)
+                .HasColumnName("ubicacion_departamento")
+                .HasMaxLength(100);
+
+            builder.Property(e => e.UbicacionProvincia)
+                .HasColumnName("ubicacion_provincia")
+                .HasMaxLength(100);
+
+            builder.Property(e => e.UbicacionDistrito)
+                .HasColumnName("ubicacion_distrito")
+                .HasMaxLength(100);
+
             builder.Property(e => e.VendePatrones)
                 .HasColumnName("vende_patrones");
 
             builder.HasIndex(e => e.UsuarioId).IsUnique().HasDatabaseName("uq_vendedor_usuario");
             builder.HasIndex(e => e.SlugTienda).IsUnique().HasDatabaseName("uq_vendedor_slug");
             builder.HasIndex(e => e.Estado).HasDatabaseName("idx_vendedor_estado");
+            builder.HasIndex(e => e.DistritoId).HasDatabaseName("idx_vendedor_distrito");
 
             builder.HasOne(e => e.Usuario)
                 .WithOne(u => u.Vendedor!)
                 .HasForeignKey<Vendedor>(e => e.UsuarioId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("fk_vendedor_usuario");
+
+            builder.HasOne(e => e.DistritoNav)
+                .WithMany()
+                .HasForeignKey(e => e.DistritoId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_vendedor_distrito")
+                .IsRequired(false);
 
             builder.HasOne(e => e.InvitadoPorVendedor)
                 .WithMany(v => v.VendedoresInvitados)
