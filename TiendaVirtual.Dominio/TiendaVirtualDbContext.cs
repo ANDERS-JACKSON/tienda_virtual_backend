@@ -119,6 +119,7 @@ namespace TiendaVirtual.Dominio
         public DbSet<Configuracion> Configuracion { get; set; } = null!;
         public DbSet<Correo> Correo { get; set; } = null!;
         public DbSet<AvisoBanner> AvisosBanner { get; set; } = null!;
+        public DbSet<CarruselInicio> CarruselesInicio { get; set; } = null!;
         //----------------------------------------------------------------------
         #endregion
 
@@ -188,6 +189,7 @@ namespace TiendaVirtual.Dominio
             modelBuilder.ApplyConfiguration(new ConfiguracionGeneralDB());
             modelBuilder.ApplyConfiguration(new CorreoDB());
             modelBuilder.ApplyConfiguration(new AvisoBannerDB());
+            modelBuilder.ApplyConfiguration(new CarruselInicioDB());
             #endregion
 
             base.OnModelCreating(modelBuilder);
