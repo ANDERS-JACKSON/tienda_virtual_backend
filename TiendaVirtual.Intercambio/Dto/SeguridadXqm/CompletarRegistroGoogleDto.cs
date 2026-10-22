@@ -4,5 +4,6 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
     {
         public string IdToken { get; set; } = null!;
         public PersonaDto Persona { get; set; } = null!;
+        public bool AceptaTerminos { get; set; }
     }
 }

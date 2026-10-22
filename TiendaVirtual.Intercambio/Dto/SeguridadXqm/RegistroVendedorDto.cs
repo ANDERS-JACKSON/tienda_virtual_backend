@@ -31,5 +31,7 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
 
         [MaxLength(20)]
         public string? NumeroYape { get; set; }
+
+        public bool AceptaTerminos { get; set; }
     }
 }

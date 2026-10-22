@@ -13,6 +13,7 @@ namespace TiendaVirtual.Intercambio.Dto.VentaXqm
         public int UsosRealizados { get; set; }
         public DateTime? ValidoHasta { get; set; }
         public bool Activo { get; set; }
+        public bool RequiereAutenticacion { get; set; }
         public string? Descripcion { get; set; }
         public DateTime FechaCreacion { get; set; }
     }
@@ -25,6 +26,7 @@ namespace TiendaVirtual.Intercambio.Dto.VentaXqm
         public decimal? MontoMinimo { get; set; }
         public int? UsosMaximos { get; set; }
         public DateTime? ValidoHasta { get; set; }
+        public bool RequiereAutenticacion { get; set; }
         public string? Descripcion { get; set; }
     }
 
@@ -35,6 +37,7 @@ namespace TiendaVirtual.Intercambio.Dto.VentaXqm
         public int? UsosMaximos { get; set; }
         public DateTime? ValidoHasta { get; set; }
         public bool Activo { get; set; }
+        public bool RequiereAutenticacion { get; set; }
         public string? Descripcion { get; set; }
     }
 }

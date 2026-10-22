@@ -20,8 +20,17 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
         public string? SecretoManual { get; set; }
         public string? Mensaje { get; set; }
 
-        /// <summary>Usuario nuevo en Google: debe completar DNI y datos de persona.</summary>
+        /// <summary>Usuario nuevo en Google o código de correo: debe completar sus datos.</summary>
         public bool RequiereCompletarRegistro { get; set; }
         public RegistroGooglePendienteDto? RegistroPendiente { get; set; }
+
+        /// <summary>
+        /// El correo ya tiene cuenta. Hay que confirmar el código de 4 dígitos
+        /// antes de emitir una sesión (compra como invitado).
+        /// </summary>
+        public bool RequiereCodigo { get; set; }
+
+        /// <summary>Prueba de que el correo fue verificado. No es una sesión.</summary>
+        public string? TicketRegistro { get; set; }
     }
 }

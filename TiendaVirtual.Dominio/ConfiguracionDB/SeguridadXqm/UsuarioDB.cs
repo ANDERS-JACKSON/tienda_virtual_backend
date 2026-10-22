@@ -57,6 +57,14 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.SeguridadXqm
             builder.Property(e => e.TwoFactorEnabled)
                 .HasColumnName("two_factor_enabled");
 
+            builder.Property(e => e.EsInvitado)
+                .HasColumnName("es_invitado")
+                .HasDefaultValue(false);
+
+            builder.Property(e => e.FechaAceptacionTerminos)
+                .HasColumnName("fecha_aceptacion_terminos")
+                .HasColumnType("timestamptz");
+
             builder.HasIndex(e => e.Correo).IsUnique().HasDatabaseName("uq_usuario_correo");
             builder.HasIndex(e => e.PersonaId).HasDatabaseName("idx_usuario_persona");
 

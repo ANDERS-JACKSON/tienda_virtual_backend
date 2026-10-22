@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using TiendaVirtual.Dominio.Servicios.SeguridadXqm;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.SeguridadXqm;
@@ -132,6 +133,58 @@ namespace TiendaVirtual.Api.Controllers.SeguridadXqm
         /// genera una clave nueva (que invalida la anterior) y se la envía
         /// al correo registrado.
         /// </summary>
+        /// <summary>
+        /// Envía un código de 4 dígitos. La respuesta no indica si el correo tiene cuenta.
+        /// </summary>
+        [HttpPost("codigo/solicitar")]
+        [AllowAnonymous]
+        [EnableRateLimiting("codigos")]
+        public async Task<ActionResult<ResultadoOperacion<string>>> SolicitarCodigo(
+            [FromBody] SolicitarCodigoAccesoDto dto)
+        {
+            var (ip, _) = ObtenerDatosCliente();
+            var resultado = await _servicio.SolicitarCodigoAccesoAsync(dto?.Correo ?? string.Empty, ip);
+            return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
+        }
+
+        [HttpPost("codigo/verificar")]
+        [AllowAnonymous]
+        [EnableRateLimiting("codigos")]
+        public async Task<ActionResult<ResultadoOperacion<LoginRespuestaDto>>> VerificarCodigo(
+            [FromBody] VerificarCodigoAccesoDto dto)
+        {
+            var (ip, agente) = ObtenerDatosCliente();
+            var resultado = await _servicio.VerificarCodigoAccesoAsync(
+                dto?.Correo ?? string.Empty, dto?.Codigo ?? string.Empty, ip, agente);
+            return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
+        }
+
+        [HttpPost("codigo/completar-registro")]
+        [AllowAnonymous]
+        [EnableRateLimiting("codigos")]
+        public async Task<ActionResult<ResultadoOperacion<LoginRespuestaDto>>> CompletarRegistroCodigo(
+            [FromBody] CompletarRegistroCodigoDto dto)
+        {
+            var (ip, agente) = ObtenerDatosCliente();
+            var resultado = await _servicio.CompletarRegistroCodigoAsync(dto, ip, agente);
+            return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
+        }
+
+        /// <summary>
+        /// Compra sin cuenta. Si el correo es nuevo, abre sesión de cliente.
+        /// Si ya existe, exige el código de un solo uso antes de entrar a esa cuenta.
+        /// </summary>
+        [HttpPost("compra-invitado")]
+        [AllowAnonymous]
+        [EnableRateLimiting("codigos")]
+        public async Task<ActionResult<ResultadoOperacion<LoginRespuestaDto>>> PrepararCompraInvitado(
+            [FromBody] PrepararCompraInvitadoDto dto)
+        {
+            var (ip, agente) = ObtenerDatosCliente();
+            var resultado = await _servicio.PrepararCompraInvitadoAsync(dto, ip, agente);
+            return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
+        }
+
         [HttpPost("recuperar-clave")]
         [AllowAnonymous]
         public async Task<ActionResult<ResultadoOperacion<string>>> RecuperarClave(

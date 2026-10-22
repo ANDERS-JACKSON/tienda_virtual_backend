@@ -277,6 +277,281 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
         }
 
+        public async Task<ResultadoOperacion<RevisionCuponCarritoDto>> RevisarCuponAsync(RevisarCuponCarritoDto dto)
+        {
+            try
+            {
+                if (dto == null || string.IsNullOrWhiteSpace(dto.Codigo))
+                    return ResultadoOperacion<RevisionCuponCarritoDto>.SetError("Ingresa un código de cupón.");
+
+                var codigo = dto.Codigo.Trim().ToUpperInvariant();
+                var cupon = await _context.CuponesPedido.AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.Codigo == codigo);
+                if (cupon == null)
+                    return ResultadoOperacion<RevisionCuponCarritoDto>.SetError("Cupón no encontrado.");
+
+                var error = CuponPedidoUtil.ValidarDisponibilidad(cupon, DateTime.UtcNow)
+                    ?? CuponPedidoUtil.ValidarMontoMinimo(cupon, dto.Subtotal);
+                if (error != null)
+                    return ResultadoOperacion<RevisionCuponCarritoDto>.SetError(error);
+
+                return ResultadoOperacion<RevisionCuponCarritoDto>.SetExito(new RevisionCuponCarritoDto
+                {
+                    Codigo = cupon.Codigo,
+                    RequiereAutenticacion = cupon.RequiereAutenticacion
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en CarritoServicio.RevisarCuponAsync");
+                return ResultadoOperacion<RevisionCuponCarritoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
+        }
+
+        public async Task<ResultadoOperacion<CarritoDto>> CotizarAsync(CotizarCarritoDto dto)
+        {
+            try
+            {
+                var lineas = NormalizarLineasCotizacion(dto);
+                if (lineas.Count == 0)
+                {
+                    return ResultadoOperacion<CarritoDto>.SetExito(new CarritoDto
+                    {
+                        Subtotal = 0,
+                        DescuentoCupon = 0,
+                        Total = 0
+                    });
+                }
+
+                var ids = lineas.Select(l => l.VarianteId).ToList();
+                var variantes = await _context.VariantesProducto
+                    .AsNoTracking()
+                    .AsSplitQuery()
+                    .Include(v => v.Stock)
+                    .Include(v => v.Producto).ThenInclude(p => p.Vendedor)
+                    .Include(v => v.Producto).ThenInclude(p => p.Imagenes)
+                    .Where(v => ids.Contains(v.VarianteId))
+                    .ToListAsync();
+
+                var productosIds = variantes.Select(v => v.ProductoId).Distinct().ToList();
+                var now = DateTime.UtcNow;
+                var ofertas = await _context.Ofertas.AsNoTracking()
+                    .Where(o => productosIds.Contains(o.ProductoId)
+                                && o.Activa
+                                && o.FechaInicio <= now
+                                && o.FechaFin >= now)
+                    .OrderByDescending(o => o.OfertaId)
+                    .ToListAsync();
+
+                var conteoVariantesActivas = await _context.VariantesProducto.AsNoTracking()
+                    .Where(v => productosIds.Contains(v.ProductoId) && v.Activa)
+                    .GroupBy(v => v.ProductoId)
+                    .Select(g => new { ProductoId = g.Key, Total = g.Count() })
+                    .ToDictionaryAsync(x => x.ProductoId, x => x.Total);
+
+                var vendedorIds = variantes.Select(v => v.Producto.VendedorId).Distinct().ToList();
+                var tiendasActivas = await _context.Suscripciones.AsNoTracking()
+                    .Where(s => vendedorIds.Contains(s.VendedorId) &&
+                                ((s.Estado == TipoEstadoSuscripcion.EnPrueba &&
+                                  s.PruebaTerminaEn.HasValue &&
+                                  s.PruebaTerminaEn > now) ||
+                                 (s.Estado == TipoEstadoSuscripcion.Activa &&
+                                  (!s.PeriodoFin.HasValue || s.PeriodoFin > now))))
+                    .Select(s => s.VendedorId)
+                    .Distinct()
+                    .ToListAsync();
+
+                var itemsDto = new List<ItemCarritoDto>();
+                foreach (var linea in lineas)
+                {
+                    var variante = variantes.FirstOrDefault(v => v.VarianteId == linea.VarianteId);
+                    if (variante == null)
+                        continue;
+
+                    var producto = variante.Producto;
+                    var oferta = ofertas.FirstOrDefault(o => o.ProductoId == producto.ProductoId);
+                    var totalActivas = conteoVariantesActivas.TryGetValue(producto.ProductoId, out var c) ? c : 0;
+                    var precioCalc = PrecioOfertaUtil.Calcular(
+                        variante.Precio, oferta, totalActivas <= 1);
+
+                    var imagen = producto.Imagenes.FirstOrDefault(im => im.EsPrincipal)?.Url
+                                 ?? producto.Imagenes.OrderBy(im => im.Orden).FirstOrDefault()?.Url;
+
+                    var tiendaActiva = tiendasActivas.Contains(producto.VendedorId);
+                    var publicado = variante.Activa && producto.Estado == TipoEstadoProducto.Activo && tiendaActiva;
+                    var stockDisponible = !publicado
+                        ? 0
+                        : producto.Tipo == TipoProducto.Patron
+                            ? STOCK_INFINITO_PATRON
+                            : (variante.Stock?.CantidadDisponible ?? 0);
+
+                    itemsDto.Add(new ItemCarritoDto
+                    {
+                        ItemCarritoId = variante.VarianteId,
+                        VarianteId = variante.VarianteId,
+                        ProductoId = producto.ProductoId,
+                        Slug = producto.Slug,
+                        NombreProducto = producto.Nombre,
+                        NombreVariante = variante.Nombre,
+                        ImagenUrl = imagen,
+                        PrecioUnitario = precioCalc.PrecioActual,
+                        PrecioOriginal = precioCalc.TieneDescuento ? precioCalc.PrecioOriginal : null,
+                        Cantidad = linea.Cantidad,
+                        StockSuficiente = publicado && linea.Cantidad <= stockDisponible,
+                        CantidadMaximaPermitida = stockDisponible,
+                        Subtotal = Math.Round(precioCalc.PrecioActual * linea.Cantidad, 2),
+                        TipoProducto = new EnumeracionDto
+                        {
+                            Id = (int)producto.Tipo,
+                            Nombre = producto.Tipo.ToString()
+                        },
+                        VendedorIdInterno = producto.VendedorId,
+                        NombreTiendaInterno = producto.Vendedor.NombreTienda,
+                        SlugTiendaInterno = producto.Vendedor.SlugTienda
+                    });
+                }
+
+                var grupos = itemsDto
+                    .GroupBy(i => i.VendedorIdInterno)
+                    .Select(g => new GrupoVendedorCarritoDto
+                    {
+                        VendedorId = g.Key,
+                        NombreTienda = g.First().NombreTiendaInterno,
+                        SlugTienda = g.First().SlugTiendaInterno,
+                        Items = g.ToList(),
+                        SubtotalGrupo = Math.Round(g.Sum(i => i.Subtotal), 2)
+                    })
+                    .OrderBy(g => g.NombreTienda)
+                    .ToList();
+
+                var subtotal = Math.Round(itemsDto.Sum(i => i.Subtotal), 2);
+                var (descuentoCupon, cuponDto) = await ResolverCuponSinCuentaAsync(dto.CodigoCupon, subtotal);
+                return ResultadoOperacion<CarritoDto>.SetExito(new CarritoDto
+                {
+                    Vendedores = grupos,
+                    TotalItems = itemsDto.Sum(i => i.Cantidad),
+                    Subtotal = subtotal,
+                    DescuentoCupon = descuentoCupon,
+                    Total = Math.Round(Math.Max(0m, subtotal - descuentoCupon), 2),
+                    TieneItemsSinStock = itemsDto.Any(i => !i.StockSuficiente),
+                    Cupon = cuponDto
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en CarritoServicio.CotizarAsync");
+                return ResultadoOperacion<CarritoDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
+        }
+
+        public async Task<ResultadoOperacion<ResultadoFusionCarritoDto>> FusionarAsync(
+            Guid usuarioId, CotizarCarritoDto dto)
+        {
+            try
+            {
+                var lineas = NormalizarLineasCotizacion(dto);
+                var agregadas = new List<int>();
+                var advertencias = new List<string>();
+
+                foreach (var linea in lineas)
+                {
+                    var resultado = await AgregarItemAsync(usuarioId, new AgregarItemCarritoDto
+                    {
+                        VarianteId = linea.VarianteId,
+                        Cantidad = linea.Cantidad
+                    });
+
+                    if (resultado.Exito)
+                        agregadas.Add(linea.VarianteId);
+                    else if (!string.IsNullOrWhiteSpace(resultado.Mensaje))
+                        advertencias.Add(resultado.Mensaje);
+                }
+
+                var carrito = await ObtenerMiCarritoAsync(usuarioId);
+                if (!carrito.Exito || carrito.Datos == null)
+                    return ResultadoOperacion<ResultadoFusionCarritoDto>.SetError(carrito.Mensaje);
+
+                var carritoFinal = carrito.Datos;
+                if (!string.IsNullOrWhiteSpace(dto.CodigoCupon))
+                {
+                    var aplicado = await AplicarCuponAsync(usuarioId, new AplicarCuponCarritoDto
+                    {
+                        Codigo = dto.CodigoCupon
+                    });
+                    if (aplicado.Exito && aplicado.Datos != null)
+                        carritoFinal = aplicado.Datos;
+                    else if (!string.IsNullOrWhiteSpace(aplicado.Mensaje))
+                        advertencias.Add(aplicado.Mensaje);
+                }
+
+                return ResultadoOperacion<ResultadoFusionCarritoDto>.SetExito(new ResultadoFusionCarritoDto
+                {
+                    Carrito = carritoFinal,
+                    VariantesAgregadas = agregadas,
+                    Advertencias = advertencias.Distinct().ToList()
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en CarritoServicio.FusionarAsync");
+                return ResultadoOperacion<ResultadoFusionCarritoDto>.SetError(
+                    "Ocurrió un error inesperado. Intente nuevamente.");
+            }
+        }
+
+        /// <summary>
+        /// Aplica el cupón en la cotización pública solo si no exige iniciar sesión.
+        /// Un código que sí la exige se ignora: no se descuenta sin cuenta.
+        /// </summary>
+        private async Task<(decimal descuento, CuponPedidoAplicadoDto? cupon)> ResolverCuponSinCuentaAsync(
+            string? codigo, decimal subtotal)
+        {
+            if (string.IsNullOrWhiteSpace(codigo) || subtotal <= 0)
+                return (0m, null);
+
+            var normalizado = codigo.Trim().ToUpperInvariant();
+            var cupon = await _context.CuponesPedido.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Codigo == normalizado);
+            if (cupon == null || cupon.RequiereAutenticacion)
+                return (0m, null);
+
+            var error = CuponPedidoUtil.ValidarDisponibilidad(cupon, DateTime.UtcNow)
+                ?? CuponPedidoUtil.ValidarMontoMinimo(cupon, subtotal);
+            if (error != null)
+                return (0m, null);
+
+            var descuento = CuponPedidoUtil.CalcularDescuento(cupon, subtotal);
+            return (descuento, new CuponPedidoAplicadoDto
+            {
+                CuponPedidoId = cupon.CuponPedidoId,
+                Codigo = cupon.Codigo,
+                TipoDescuento = new EnumeracionDto
+                {
+                    Id = (int)cupon.TipoDescuento,
+                    Nombre = cupon.TipoDescuento.GetDescription()
+                },
+                ValorDescuento = cupon.ValorDescuento,
+                MontoMinimo = cupon.MontoMinimo,
+                Descripcion = cupon.Descripcion,
+                DescuentoAplicado = descuento
+            });
+        }
+
+        private static List<AgregarItemCarritoDto> NormalizarLineasCotizacion(CotizarCarritoDto? dto)
+        {
+            const int maxLineas = 40;
+            return (dto?.Items ?? new List<AgregarItemCarritoDto>())
+                .Where(i => i.VarianteId > 0 && i.Cantidad > 0)
+                .GroupBy(i => i.VarianteId)
+                .Select(g => new AgregarItemCarritoDto
+                {
+                    VarianteId = g.Key,
+                    Cantidad = Math.Min(999, g.Sum(i => i.Cantidad))
+                })
+                .Take(maxLineas)
+                .ToList();
+        }
+
         // ─────────────────────────────────────────────────────
         // Helpers
         // ─────────────────────────────────────────────────────

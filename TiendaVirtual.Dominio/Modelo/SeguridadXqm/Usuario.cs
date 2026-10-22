@@ -40,6 +40,11 @@ namespace TiendaVirtual.Dominio.Modelo.SeguridadXqm
         public string? TwoFactorSecret { get; set; }
         public bool TwoFactorEnabled { get; set; }
 
+        /// <summary>Cuenta creada al comprar sin registro. Entra con código al correo.</summary>
+        public bool EsInvitado { get; set; }
+
+        public DateTime? FechaAceptacionTerminos { get; set; }
+
         // Relaciones
         public virtual Persona Persona { get; set; } = null!;
         public virtual ICollection<UsuarioRol> UsuarioRoles { get; set; } = new List<UsuarioRol>();

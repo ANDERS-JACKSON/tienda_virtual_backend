@@ -57,5 +57,16 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm
         Task<ResultadoOperacion<bool>> VincularGoogleAsync(Guid usuarioId, GoogleLoginDto dto);
 
         Task<ResultadoOperacion<bool>> DesvincularGoogleAsync(Guid usuarioId, string contrasena);
+
+        Task<ResultadoOperacion<string>> SolicitarCodigoAccesoAsync(string correo, string? direccionIp);
+
+        Task<ResultadoOperacion<LoginRespuestaDto>> VerificarCodigoAccesoAsync(
+            string correo, string codigo, string? direccionIp, string? agenteUsuario);
+
+        Task<ResultadoOperacion<LoginRespuestaDto>> CompletarRegistroCodigoAsync(
+            CompletarRegistroCodigoDto dto, string? direccionIp, string? agenteUsuario);
+
+        Task<ResultadoOperacion<LoginRespuestaDto>> PrepararCompraInvitadoAsync(
+            PrepararCompraInvitadoDto dto, string? direccionIp, string? agenteUsuario);
     }
 }

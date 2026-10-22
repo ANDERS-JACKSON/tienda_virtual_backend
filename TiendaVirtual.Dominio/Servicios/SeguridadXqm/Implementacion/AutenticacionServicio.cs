@@ -16,6 +16,7 @@ using TiendaVirtual.Dominio.Servicios.Sistema;
 using TiendaVirtual.Dominio.Servicios.Sistema.Implementacion;
 using TiendaVirtual.Dominio.Servicios.SoporteXqm;
 using TiendaVirtual.Dominio.Utilidad;
+using EmailTransaccional = TiendaVirtual.Dominio.Servicios.SoporteXqm.IEmailServicio;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.SeguridadXqm;
 
@@ -30,6 +31,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
         protected readonly IConfiguration _configuration;
         protected readonly INotificacionServicio _notificacionServicio;
         protected readonly IGoogleAuthServicio _googleAuth;
+        protected readonly EmailTransaccional _email;
 
         private const int DURACION_TOKEN_MINUTOS = 60;
         private const int DURACION_REFRESH_DIAS = 30;
@@ -43,7 +45,9 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             ITwoFactorService twoFactorService,
             IConfiguration configuration,
             INotificacionServicio notificacionServicio,
-            IGoogleAuthServicio googleAuth, ILogger<AutenticacionServicio> logger)
+            IGoogleAuthServicio googleAuth,
+            EmailTransaccional email,
+            ILogger<AutenticacionServicio> logger)
         {
             _logger = logger;
             _context = context;
@@ -52,6 +56,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             _configuration = configuration;
             _notificacionServicio = notificacionServicio;
             _googleAuth = googleAuth;
+            _email = email;
         }
 
         // LOGIN (paso 1)
@@ -178,6 +183,10 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 if (dto == null)
                     return ResultadoOperacion<RegistroRespuestaDto>.SetError("El DTO es nulo.");
 
+                var terminos = ValidarAceptacionTerminos(dto.AceptaTerminos);
+                if (!terminos.Exito)
+                    return ResultadoOperacion<RegistroRespuestaDto>.SetError(terminos.Mensaje);
+
                 var validacionComun = await ValidarRegistroComunAsync(dto.Correo, dto.Persona);
                 if (!validacionComun.Exito)
                     return ResultadoOperacion<RegistroRespuestaDto>.SetError(validacionComun.Mensaje);
@@ -190,6 +199,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 var claveAuto = GenerarClaveNumerica(LONGITUD_CLAVE_AUTO);
 
                 var usuario = CrearUsuario(persona.PersonaId, dto.Correo, claveAuto, forzarCambioClave: true);
+                usuario.FechaAceptacionTerminos = DateTime.UtcNow;
                 _context.Usuarios.Add(usuario);
                 await _context.SaveChangesAsync();
 
@@ -237,6 +247,10 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 if (dto == null)
                     return ResultadoOperacion<RegistroRespuestaDto>.SetError("El DTO es nulo.");
 
+                var terminos = ValidarAceptacionTerminos(dto.AceptaTerminos);
+                if (!terminos.Exito)
+                    return ResultadoOperacion<RegistroRespuestaDto>.SetError(terminos.Mensaje);
+
                 var validacionComun = await ValidarRegistroComunAsync(dto.Correo, dto.Persona);
                 if (!validacionComun.Exito)
                     return ResultadoOperacion<RegistroRespuestaDto>.SetError(validacionComun.Mensaje);
@@ -253,6 +267,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 var claveAuto = GenerarClaveNumerica(LONGITUD_CLAVE_AUTO);
 
                 var usuario = CrearUsuario(persona.PersonaId, dto.Correo, claveAuto, forzarCambioClave: true);
+                usuario.FechaAceptacionTerminos = DateTime.UtcNow;
                 _context.Usuarios.Add(usuario);
                 await _context.SaveChangesAsync();
 
@@ -614,6 +629,15 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
         // ═════════════════════════════════════════════════════════════
         // HELPERS PRIVADOS
         // ═════════════════════════════════════════════════════════════
+
+        private static ResultadoOperacion<bool> ValidarAceptacionTerminos(bool aceptaTerminos)
+        {
+            if (!aceptaTerminos)
+                return ResultadoOperacion<bool>.SetError(
+                    "Debes aceptar los términos y condiciones para crear la cuenta.");
+
+            return ResultadoOperacion<bool>.SetExito(true);
+        }
 
         private async Task<ResultadoOperacion<bool>> ValidarRegistroComunAsync(string correo, PersonaDto personaDto)
         {

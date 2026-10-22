@@ -31,6 +31,9 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.VentaXqm
             builder.Property(e => e.UsosRealizados).HasColumnName("usos_realizados");
             builder.Property(e => e.ValidoHasta).HasColumnName("valido_hasta");
             builder.Property(e => e.Activo).HasColumnName("activo");
+            builder.Property(e => e.RequiereAutenticacion)
+                .HasColumnName("requiere_autenticacion")
+                .HasDefaultValue(false);
             builder.Property(e => e.Descripcion)
                 .HasColumnName("descripcion")
                 .HasMaxLength(200);

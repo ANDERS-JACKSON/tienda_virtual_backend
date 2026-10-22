@@ -13,5 +13,12 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm
         Task<ResultadoOperacion<bool>> VaciarAsync(Guid usuarioId);
         Task<ResultadoOperacion<CarritoDto>> AplicarCuponAsync(Guid usuarioId, AplicarCuponCarritoDto dto);
         Task<ResultadoOperacion<CarritoDto>> QuitarCuponAsync(Guid usuarioId);
+        Task<ResultadoOperacion<RevisionCuponCarritoDto>> RevisarCuponAsync(RevisarCuponCarritoDto dto);
+
+        /// <summary>Precio y stock actuales de un carrito que aún no tiene cuenta.</summary>
+        Task<ResultadoOperacion<CarritoDto>> CotizarAsync(CotizarCarritoDto dto);
+
+        /// <summary>Suma el carrito del navegador al carrito de la cuenta, sin duplicar líneas.</summary>
+        Task<ResultadoOperacion<ResultadoFusionCarritoDto>> FusionarAsync(Guid usuarioId, CotizarCarritoDto dto);
     }
 }

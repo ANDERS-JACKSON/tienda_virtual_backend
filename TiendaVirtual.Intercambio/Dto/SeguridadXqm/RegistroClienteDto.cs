@@ -15,5 +15,8 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
 
         [Required]
         public PersonaDto Persona { get; set; } = null!;
+
+        /// <summary>Debe ser true. Un bool en false pasa el [Required] del modelo.</summary>
+        public bool AceptaTerminos { get; set; }
     }
 }

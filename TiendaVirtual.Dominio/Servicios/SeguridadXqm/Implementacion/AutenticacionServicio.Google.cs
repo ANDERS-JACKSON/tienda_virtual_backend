@@ -75,6 +75,10 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 if (dto == null)
                     return ResultadoOperacion<LoginRespuestaDto>.SetError("Datos inválidos.");
 
+                var terminos = ValidarAceptacionTerminos(dto.AceptaTerminos);
+                if (!terminos.Exito)
+                    return ResultadoOperacion<LoginRespuestaDto>.SetError(terminos.Mensaje);
+
                 var validacion = await ValidarTokenGoogleAsync(dto.IdToken);
                 if (!validacion.Exito || validacion.Datos == null)
                     return ResultadoOperacion<LoginRespuestaDto>.SetError(validacion.Mensaje);
@@ -99,6 +103,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 await _context.SaveChangesAsync();
 
                 var usuario = CrearUsuarioOAuth(persona.PersonaId, payload.Email);
+                usuario.FechaAceptacionTerminos = DateTime.UtcNow;
                 _context.Usuarios.Add(usuario);
                 await _context.SaveChangesAsync();
 

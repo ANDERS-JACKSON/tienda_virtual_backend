@@ -128,6 +128,55 @@ namespace TiendaVirtual.Dominio.Servicios.Sistema.Implementacion
         }
 
         /// <summary>
+        /// Ticket corto que solo prueba que el correo recibió el código.
+        /// No incluye roles ni identificador de usuario: no abre sesión.
+        /// </summary>
+        public string GenerarTicketRegistroCorreo(string correo, int duracionMinutos = 20)
+        {
+            var jwtSettings = _configuration.GetSection("Jwt");
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]!));
+            var correoNorm = correo.Trim().ToLowerInvariant();
+
+            var claims = new List<Claim>
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, correoNorm),
+                new Claim(JwtRegisteredClaimNames.Email, correoNorm),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim("correo", correoNorm),
+                new Claim("scope", "registro_correo")
+            };
+
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var token = new JwtSecurityToken(
+                issuer: jwtSettings["Issuer"],
+                audience: jwtSettings["Audience"],
+                claims: claims,
+                notBefore: DateTime.UtcNow,
+                expires: DateTime.UtcNow.AddMinutes(duracionMinutos),
+                signingCredentials: creds);
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        public string? LeerCorreoTicketRegistro(string? token)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+                return null;
+
+            var principal = ValidarToken(token);
+            if (principal == null)
+                return null;
+
+            if (principal.FindFirst("scope")?.Value != "registro_correo")
+                return null;
+
+            var correo = principal.FindFirst(JwtRegisteredClaimNames.Email)?.Value
+                         ?? principal.FindFirst("correo")?.Value;
+
+            return string.IsNullOrWhiteSpace(correo) ? null : correo.Trim().ToLowerInvariant();
+        }
+
+        /// <summary>
         /// Valida un token y devuelve sus claims. Devuelve null si es inválido o expiró.
         /// </summary>
         public ClaimsPrincipal? ValidarToken(string token)

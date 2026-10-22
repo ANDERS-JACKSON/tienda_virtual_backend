@@ -68,6 +68,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                     UsosRealizados = 0,
                     ValidoHasta = NormalizarValidoHasta(dto.ValidoHasta),
                     Activo = true,
+                    RequiereAutenticacion = dto.RequiereAutenticacion,
                     Descripcion = string.IsNullOrWhiteSpace(dto.Descripcion) ? null : dto.Descripcion.Trim(),
                     FechaCreacion = DateTime.UtcNow
                 };
@@ -111,6 +112,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 cupon.UsosMaximos = usosMax;
                 cupon.ValidoHasta = NormalizarValidoHasta(dto.ValidoHasta);
                 cupon.Activo = dto.Activo;
+                cupon.RequiereAutenticacion = dto.RequiereAutenticacion;
                 cupon.Descripcion = string.IsNullOrWhiteSpace(dto.Descripcion) ? null : dto.Descripcion.Trim();
 
                 await _context.SaveChangesAsync();
@@ -194,6 +196,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             UsosRealizados = c.UsosRealizados,
             ValidoHasta = c.ValidoHasta,
             Activo = c.Activo,
+            RequiereAutenticacion = c.RequiereAutenticacion,
             Descripcion = c.Descripcion,
             FechaCreacion = c.FechaCreacion
         };

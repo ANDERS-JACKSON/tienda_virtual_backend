@@ -155,6 +155,26 @@ namespace TiendaVirtual.Api
                             PermitLimit = 5,
                             QueueLimit = 0,
                         }));
+
+                options.AddPolicy("codigos", httpContext =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonimo",
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            Window = TimeSpan.FromMinutes(10),
+                            PermitLimit = 12,
+                            QueueLimit = 0,
+                        }));
+
+                options.AddPolicy("cotizar", httpContext =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonimo",
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            Window = TimeSpan.FromMinutes(1),
+                            PermitLimit = 60,
+                            QueueLimit = 0,
+                        }));
             });
 
             // Build & Pipeline

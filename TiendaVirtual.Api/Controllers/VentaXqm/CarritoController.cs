@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using TiendaVirtual.Dominio.Servicios.VentaXqm;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.VentaXqm;
@@ -68,6 +69,19 @@ namespace TiendaVirtual.Api.Controllers.VentaXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
+        /// <summary>
+        /// Dice si el código existe y si exige iniciar sesión. No lo aplica.
+        /// </summary>
+        [AllowAnonymous]
+        [EnableRateLimiting("cotizar")]
+        [HttpPost("cupon/revisar")]
+        public async Task<ActionResult<ResultadoOperacion<RevisionCuponCarritoDto>>> RevisarCupon(
+            [FromBody] RevisarCuponCarritoDto dto)
+        {
+            var r = await _servicio.RevisarCuponAsync(dto ?? new RevisarCuponCarritoDto());
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
         [HttpPost("cupon")]
         public async Task<ActionResult<ResultadoOperacion<CarritoDto>>> AplicarCupon(
             [FromBody] AplicarCuponCarritoDto dto)
@@ -75,6 +89,32 @@ namespace TiendaVirtual.Api.Controllers.VentaXqm
             var uid = ObtenerUsuarioId();
             if (uid == null) return Unauthorized();
             var r = await _servicio.AplicarCuponAsync(uid.Value, dto);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
+        /// <summary>
+        /// Precios y stock de un carrito guardado en el navegador, sin cuenta.
+        /// </summary>
+        [AllowAnonymous]
+        [EnableRateLimiting("cotizar")]
+        [HttpPost("cotizar")]
+        public async Task<ActionResult<ResultadoOperacion<CarritoDto>>> Cotizar(
+            [FromBody] CotizarCarritoDto dto)
+        {
+            var r = await _servicio.CotizarAsync(dto ?? new CotizarCarritoDto());
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
+        /// <summary>
+        /// Pasa el carrito del navegador a la cuenta. Las cantidades se suman.
+        /// </summary>
+        [HttpPost("fusionar")]
+        public async Task<ActionResult<ResultadoOperacion<ResultadoFusionCarritoDto>>> Fusionar(
+            [FromBody] CotizarCarritoDto dto)
+        {
+            var uid = ObtenerUsuarioId();
+            if (uid == null) return Unauthorized();
+            var r = await _servicio.FusionarAsync(uid.Value, dto ?? new CotizarCarritoDto());
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 

@@ -23,6 +23,12 @@ namespace TiendaVirtual.Dominio.Modelo.VentaXqm
         public int UsosRealizados { get; set; }
         public DateTime? ValidoHasta { get; set; }
         public bool Activo { get; set; }
+
+        /// <summary>
+        /// Si es true, el cupón solo se aplica con una sesión iniciada.
+        /// </summary>
+        public bool RequiereAutenticacion { get; set; }
+
         public string? Descripcion { get; set; }
         public DateTime FechaCreacion { get; set; }
 
