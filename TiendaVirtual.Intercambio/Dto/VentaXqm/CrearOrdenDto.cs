@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace TiendaVirtual.Intercambio.Dto.VentaXqm
@@ -20,5 +20,17 @@ namespace TiendaVirtual.Intercambio.Dto.VentaXqm
         /// del envío NO se cobra en la orden — el comprador paga en la agencia.
         /// </summary>
         public List<MetodoEnvioPorVendedorDto>? MetodosEnvio { get; set; }
+
+        /// <summary>Si es true, otra persona retira el pedido en la agencia.</summary>
+        public bool RetiraOtraPersona { get; set; }
+
+        [MaxLength(200)]
+        public string? NombreReceptor { get; set; }
+
+        [MaxLength(20)]
+        public string? DniReceptor { get; set; }
+
+        [MaxLength(20)]
+        public string? TelefonoReceptor { get; set; }
     }
 }

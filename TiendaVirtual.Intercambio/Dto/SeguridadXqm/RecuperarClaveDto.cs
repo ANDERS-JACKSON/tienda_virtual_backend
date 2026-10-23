@@ -3,13 +3,35 @@ using System.ComponentModel.DataAnnotations;
 namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
 {
     /// <summary>
-    /// Solicitud "olvidé mi contraseña": el usuario solo provee su correo.
-    /// El servidor genera una clave aleatoria y la envía a esa dirección.
+    /// Pide un código de 6 dígitos para elegir una contraseña nueva.
     /// </summary>
     public class RecuperarClaveDto
     {
         [Required(ErrorMessage = "El correo es obligatorio.")]
         [EmailAddress(ErrorMessage = "Formato de correo inválido.")]
         public string Correo { get; set; } = null!;
+    }
+
+    public class VerificarRecuperacionClaveDto
+    {
+        [Required]
+        [EmailAddress]
+        public string Correo { get; set; } = null!;
+
+        [Required]
+        public string Codigo { get; set; } = null!;
+    }
+
+    public class ConfirmarRecuperacionClaveDto
+    {
+        [Required]
+        [EmailAddress]
+        public string Correo { get; set; } = null!;
+
+        [Required]
+        public string Ticket { get; set; } = null!;
+
+        [Required]
+        public string ContrasenaNueva { get; set; } = null!;
     }
 }

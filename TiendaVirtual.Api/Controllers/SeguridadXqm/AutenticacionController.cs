@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -134,7 +134,7 @@ namespace TiendaVirtual.Api.Controllers.SeguridadXqm
         /// al correo registrado.
         /// </summary>
         /// <summary>
-        /// Envía un código de 4 dígitos. La respuesta no indica si el correo tiene cuenta.
+        /// Envía un código de 6 dígitos. La respuesta no indica si el correo tiene cuenta.
         /// </summary>
         [HttpPost("codigo/solicitar")]
         [AllowAnonymous]
@@ -187,10 +187,34 @@ namespace TiendaVirtual.Api.Controllers.SeguridadXqm
 
         [HttpPost("recuperar-clave")]
         [AllowAnonymous]
+        [EnableRateLimiting("codigos")]
         public async Task<ActionResult<ResultadoOperacion<string>>> RecuperarClave(
             [FromBody] RecuperarClaveDto dto)
         {
-            var resultado = await _servicio.RecuperarClaveAsync(dto?.Correo ?? string.Empty);
+            var (ip, _) = ObtenerDatosCliente();
+            var resultado = await _servicio.RecuperarClaveAsync(dto?.Correo ?? string.Empty, ip);
+            return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
+        }
+
+        [HttpPost("recuperar-clave/verificar")]
+        [AllowAnonymous]
+        [EnableRateLimiting("codigos")]
+        public async Task<ActionResult<ResultadoOperacion<string>>> VerificarRecuperacionClave(
+            [FromBody] VerificarRecuperacionClaveDto dto)
+        {
+            var resultado = await _servicio.VerificarRecuperacionClaveAsync(
+                dto?.Correo ?? string.Empty, dto?.Codigo ?? string.Empty);
+            return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
+        }
+
+        [HttpPost("recuperar-clave/confirmar")]
+        [AllowAnonymous]
+        [EnableRateLimiting("codigos")]
+        public async Task<ActionResult<ResultadoOperacion<bool>>> ConfirmarRecuperacionClave(
+            [FromBody] ConfirmarRecuperacionClaveDto dto)
+        {
+            var resultado = await _servicio.ConfirmarRecuperacionClaveAsync(
+                dto?.Correo ?? string.Empty, dto?.Ticket ?? string.Empty, dto?.ContrasenaNueva ?? string.Empty);
             return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
         }
 

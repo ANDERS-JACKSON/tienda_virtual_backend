@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using TiendaVirtual.Comun.Enumeracion;
@@ -59,7 +60,8 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                         u.Correo,
                         u.PersonaId,
                         TelefonoPersona = u.Persona.Telefono,
-                        NombreCliente = u.Persona.Nombres + " " + (u.Persona.ApellidoPaterno ?? "")
+                        Documento = u.Persona.NumeroDocumento,
+                        NombreCliente = (u.Persona.Nombres + " " + (u.Persona.ApellidoPaterno ?? "") + " " + (u.Persona.ApellidoMaterno ?? "")).Trim()
                     })
                     .FirstOrDefaultAsync();
 
@@ -179,13 +181,17 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
                 // 7. Crear orden (cabecera). Snapshot COMPLETO de la dirección de envío
                 //    con DNI del receptor (imprescindible para envíos por agencia).
+                var retiro = ResolverRetiro(dto, cliente.NombreCliente, cliente.Documento, cliente.TelefonoPersona);
+                if (retiro.Error != null)
+                    return ResultadoOperacion<OrdenDto>.SetError(retiro.Error);
+
                 var numeroOrden = GenerarNumero("ORD");
                 var direccionJson = JsonSerializer.Serialize(new
                 {
                     direccion.Etiqueta,
-                    direccion.NombreReceptor,
-                    direccion.DniReceptor,
-                    direccion.Telefono,
+                    NombreReceptor = retiro.Nombre,
+                    DniReceptor = retiro.Documento,
+                    Telefono = retiro.Telefono,
                     direccion.Departamento,
                     direccion.Provincia,
                     direccion.Distrito,
@@ -912,6 +918,37 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
         // ─────────────────────────────────────────────────────
         // Helpers
         // ─────────────────────────────────────────────────────
+        private static (string Nombre, string Documento, string? Telefono, string? Error) ResolverRetiro(
+            CrearOrdenDto dto, string nombreCuenta, string? documentoCuenta, string? telefonoCuenta)
+        {
+            if (!dto.RetiraOtraPersona)
+            {
+                var nombre = (nombreCuenta ?? string.Empty).Trim();
+                var documento = new string((documentoCuenta ?? string.Empty).Where(char.IsDigit).ToArray());
+                if (nombre.Length < 3)
+                    return ("", "", null, "Tu cuenta no tiene un nombre para el retiro.");
+                if (documento.Length < 8)
+                    return ("", "", null, "Tu cuenta no tiene un documento para el retiro.");
+                return (nombre, documento, telefonoCuenta, null);
+            }
+
+            var nombreOtro = Regex.Replace((dto.NombreReceptor ?? string.Empty).Trim(), @"\s+", " ");
+            var dni = new string((dto.DniReceptor ?? string.Empty).Where(char.IsDigit).ToArray());
+            var telefono = new string((dto.TelefonoReceptor ?? string.Empty).Where(char.IsDigit).ToArray());
+            if (telefono.StartsWith("51") && telefono.Length == 11)
+                telefono = telefono[2..];
+
+            if (!Regex.IsMatch(nombreOtro, @"^[\p{L}][\p{L}'.\- ]{1,118}[\p{L}.]$")
+                || nombreOtro.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length < 2)
+                return ("", "", null, "Ingresa el nombre y apellidos de quien retira.");
+            if (dni.Length != 8)
+                return ("", "", null, "El DNI de quien retira debe tener 8 dígitos.");
+            if (telefono.Length != 9 || telefono[0] != '9')
+                return ("", "", null, "El celular de quien retira debe tener 9 dígitos y empezar con 9.");
+
+            return (nombreOtro, dni, telefono, null);
+        }
+
         private static string GenerarNumero(string prefijo)
         {
             // Formato: PREFIJO-yyMMdd-XXXXXX  (longitud ≤ 20)

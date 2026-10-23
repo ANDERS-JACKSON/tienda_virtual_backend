@@ -1,4 +1,6 @@
-﻿using System.Data;
+using System.Data;
+using System.Net;
+using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
@@ -7,6 +9,7 @@ using Microsoft.Extensions.Options;
 using Npgsql;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Modelo.PagoXqm;
+using TiendaVirtual.Dominio.Modelo.VentaXqm;
 using TiendaVirtual.Dominio.Opciones;
 using TiendaVirtual.Dominio.Servicios.PagoXqm;
 using TiendaVirtual.Dominio.Servicios.PagoXqm.Modelos;
@@ -105,7 +108,14 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             {
                 var creada = await _ordenServicio.CrearReservandoParaCobroAsync(
                     usuarioId,
-                    new CrearOrdenDto { DireccionId = dto.DireccionId });
+                    new CrearOrdenDto
+                    {
+                        DireccionId = dto.DireccionId,
+                        RetiraOtraPersona = dto.RetiraOtraPersona,
+                        NombreReceptor = dto.NombreReceptor,
+                        DniReceptor = dto.DniReceptor,
+                        TelefonoReceptor = dto.TelefonoReceptor,
+                    });
 
                 if (!creada.Exito || creada.Datos == null)
                     return ResultadoOperacion<ResultadoCobrarCarritoDto>.SetError(
@@ -918,12 +928,16 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 var orden = await _context.Ordenes
                     .Include(o => o.Cliente).ThenInclude(c => c.Persona)
                     .Include(o => o.Subordenes).ThenInclude(s => s.Vendedor)
+                    .Include(o => o.Subordenes).ThenInclude(s => s.Items)
+                    .Include(o => o.Transacciones)
                     .FirstOrDefaultAsync(o => o.OrdenId == ordenId);
 
                 if (orden == null) return;
 
-                var nombreCliente = orden.Cliente?.Persona != null
-                    ? $"{orden.Cliente.Persona.Nombres} {orden.Cliente.Persona.ApellidoPaterno}".Trim()
+                var persona = orden.Cliente?.Persona;
+                var nombreCliente = persona != null
+                    ? string.Join(" ", new[] { persona.Nombres, persona.ApellidoPaterno, persona.ApellidoMaterno }
+                        .Where(s => !string.IsNullOrWhiteSpace(s)))
                     : "Cliente";
 
                 var correoCliente = orden.CorreoCliente
@@ -931,6 +945,8 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                         .Where(u => u.UsuarioId == orden.ClienteId)
                         .Select(u => u.Correo)
                         .FirstOrDefaultAsync();
+
+                var detalleCliente = ConstruirDetallePedidoHtml(orden, nombreCliente, orden.Subordenes.SelectMany(s => s.Items));
 
                 if (!string.IsNullOrWhiteSpace(correoCliente))
                 {
@@ -947,6 +963,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                                     ["cliente"] = nombreCliente,
                                     ["numeroPedido"] = orden.NumeroOrden,
                                     ["totalPedido"] = orden.Total.ToString("N2"),
+                                    ["detallePedidoHtml"] = detalleCliente,
                                 });
                         }
                         catch (Exception ex)
@@ -974,6 +991,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                             ["numeroPedido"] = sub.NumeroSuborden,
                             ["nombreCliente"] = nombreCliente,
                             ["totalPedido"] = sub.Subtotal.ToString("N2"),
+                            ["detallePedidoHtml"] = ConstruirDetallePedidoHtml(orden, nombreCliente, sub.Items, sub.Subtotal),
                         });
                 }
             }
@@ -981,6 +999,85 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             {
                 _logger.LogError(ex, "Error en NotificarVendedoresYCorreosTrasPagoAsync OrdenId={OrdenId}", ordenId);
             }
+        }
+
+        private static string ConstruirDetallePedidoHtml(
+            Orden orden, string nombreCliente, IEnumerable<ItemOrden> items, decimal? totalMostrar = null)
+        {
+            DireccionSnapshotDto? direccion = null;
+            try
+            {
+                direccion = JsonSerializer.Deserialize<DireccionSnapshotDto>(
+                    orden.DireccionEnvio,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+            catch (JsonException)
+            {
+                direccion = null;
+            }
+
+            var persona = orden.Cliente?.Persona;
+            var documento = persona?.NumeroDocumento ?? direccion?.DniReceptor ?? "";
+            var telefono = orden.TelefonoCliente ?? persona?.Telefono ?? direccion?.Telefono ?? "";
+            var pago = orden.Transacciones
+                .OrderByDescending(t => t.Fecha)
+                .Select(t => t.MetodoPago)
+                .FirstOrDefault(m => !string.IsNullOrWhiteSpace(m));
+
+            TimeZoneInfo zona;
+            try { zona = TimeZoneInfo.FindSystemTimeZoneById("America/Lima"); }
+            catch (TimeZoneNotFoundException) { zona = TimeZoneInfo.FindSystemTimeZoneById("SA Pacific Standard Time"); }
+            var fecha = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(orden.Fecha, DateTimeKind.Utc), zona);
+
+            string Fila(string etiqueta, string? valor)
+            {
+                if (string.IsNullOrWhiteSpace(valor)) return "";
+                return $"<tr><td style=\"padding:3px 16px 3px 0;color:#555555;vertical-align:top;width:130px;\">{etiqueta}</td><td style=\"padding:3px 0;\">{WebUtility.HtmlEncode(valor)}</td></tr>";
+            }
+
+            string Bloque(string titulo, string filas) =>
+                $"<p style=\"margin:18px 0 6px;font-weight:700;color:#222222;\">{titulo}</p><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"font-size:14px;\">{filas}</table>";
+
+            var html = new StringBuilder();
+            html.Append(Bloque("Información",
+                Fila("Finalizada:", fecha.ToString("dd/MM/yyyy HH:mm")) +
+                Fila("Estado:", "Pago realizado") +
+                Fila("Pago:", string.IsNullOrWhiteSpace(pago) ? "Pago confirmado" : pago)));
+
+            html.Append(Bloque("Comprador",
+                Fila("Cliente:", nombreCliente) +
+                Fila("Documento:", documento) +
+                Fila("E-mail:", orden.CorreoCliente) +
+                Fila("Teléfono:", telefono)));
+
+            if (direccion != null)
+            {
+                var localidad = string.Join(" - ", new[] { direccion.Distrito, direccion.Provincia, direccion.Departamento }
+                    .Where(s => !string.IsNullOrWhiteSpace(s)));
+                html.Append(Bloque("Envío a domicilio",
+                    Fila("Tipo envío:", "Agencia. El envío se paga al recoger.") +
+                    Fila("A nombre de:", direccion.NombreReceptor) +
+                    Fila("Documento:", direccion.DniReceptor) +
+                    Fila("Localidad:", localidad) +
+                    Fila("Dirección:", direccion.Direccion) +
+                    Fila("Obs.:", direccion.Referencia)));
+            }
+
+            html.Append("<p style=\"margin:22px 0 8px;font-weight:700;color:#222222;\">Artículos</p>");
+            html.Append("<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"font-size:14px;border-top:1px solid #e6e6e6;\">");
+            foreach (var item in items)
+            {
+                var variante = string.IsNullOrWhiteSpace(item.NombreVariante) ? "" : $" · {WebUtility.HtmlEncode(item.NombreVariante)}";
+                html.Append("<tr><td style=\"padding:10px 8px 10px 0;border-bottom:1px solid #eeeeee;\">")
+                    .Append(WebUtility.HtmlEncode(item.NombreProducto)).Append(variante)
+                    .Append("<br><span style=\"color:#777777;\">").Append(item.Cantidad).Append(" uni.</span></td>")
+                    .Append("<td style=\"padding:10px 0;border-bottom:1px solid #eeeeee;text-align:right;white-space:nowrap;\">S/ ")
+                    .Append(item.TotalLinea.ToString("N2")).Append("</td></tr>");
+            }
+            html.Append("<tr><td style=\"padding:14px 8px 0 0;text-align:right;font-weight:700;\">Importe total</td>")
+                .Append("<td style=\"padding:14px 0 0;text-align:right;font-weight:700;white-space:nowrap;\">S/ ")
+                .Append((totalMostrar ?? orden.Total).ToString("N2")).Append("</td></tr></table>");
+            return html.ToString();
         }
 
         private async Task<ResultadoOperacion<ResultadoProcesarPagoOrdenDto>> AplicarConsultaYMapearAsync(

@@ -3,26 +3,28 @@ using TiendaVirtual.Comun.Enumeracion;
 namespace TiendaVirtual.Dominio.Servicios.SoporteXqm
 {
     /// <summary>
-    /// Plantillas HTML de respaldo cuando la fila en xqm_configuracion.correo
-    /// no tiene asunto/cuerpo para esa plantilla. Evita correos rotos o texto incorrecto en producción.
+    /// Plantillas HTML de respaldo. El diseño es el mismo para todos los correos:
+    /// hoja blanca, marca centrada y el detalle del mensaje debajo.
     /// </summary>
     public static class PlantillasCorreoDefault
     {
+        public const string MarcaDiseno = "data-correo=\"tienda\"";
+
         private const string EstiloBase = @"
 <!DOCTYPE html>
 <html lang=""es"">
-  <body style=""margin:0;padding:0;background:#f4f4f5;font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#27272a;"">
-    <table role=""presentation"" width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""padding:32px 0;"">
+  <body style=""margin:0;padding:0;background:#e6e6e6;font-family:Montserrat,Segoe UI,Helvetica,Arial,sans-serif;color:#222222;"">
+    <table role=""presentation"" width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""padding:28px 12px;background:#e6e6e6;"">
       <tr><td align=""center"">
-        <table role=""presentation"" width=""560"" cellpadding=""0"" cellspacing=""0"" style=""background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e4e4e7;"">
-          <tr><td style=""background:#1e3a8a;padding:28px 32px;text-align:center;"">
-            <h1 style=""margin:0;color:#ffffff;font-size:22px;letter-spacing:.02em;"">Artesanías Perú</h1>
+        <table role=""presentation"" width=""640"" cellpadding=""0"" cellspacing=""0"" data-correo=""tienda"" style=""max-width:640px;width:100%;background:#ffffff;border:1px solid #e6e6e6;"">
+          <tr><td style=""padding:36px 40px 8px;text-align:center;"">
+            <p style=""margin:0;font-size:22px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;"">Artesanías Perú</p>
           </td></tr>
-          <tr><td style=""padding:32px;"">
+          <tr><td style=""padding:18px 40px 36px;font-size:14px;line-height:1.6;color:#333333;"">
             {CONTENIDO}
           </td></tr>
-          <tr><td style=""background:#f4f4f5;padding:16px 32px;text-align:center;font-size:12px;color:#71717a;"">
-            © Artesanías Perú — Hecho a mano, con historia
+          <tr><td style=""padding:16px 40px 28px;text-align:center;font-size:12px;color:#777777;"">
+            Artesanías Perú
           </td></tr>
         </table>
       </td></tr>
@@ -30,93 +32,75 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm
   </body>
 </html>";
 
+        public static string Envolver(string contenido) =>
+            EstiloBase.Replace("{CONTENIDO}", contenido.Trim(), StringComparison.Ordinal);
+
         public static (string asunto, string cuerpo) Obtener(PlantillaCorreo plantilla) => plantilla switch
         {
-            PlantillaCorreo.NuevoPedidoVendedor => (
-                "¡Pedido pagado! - {numeroPedido}",
+            PlantillaCorreo.CreacionUsuario => (
+                "Te hemos creado una cuenta",
                 Envolver(@"
-            <h2 style=""margin:0 0 12px;font-size:24px;color:#0f172a;"">¡Tienes un pedido pagado!</h2>
-            <p style=""margin:0 0 16px;line-height:1.55;"">Hola <strong>{vendedor}</strong>, recibiste un nuevo pedido en tu tienda y <strong>el pago ya está confirmado</strong>.</p>
-            <table role=""presentation"" width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""margin:20px 0;"">
-              <tr>
-                <td style=""padding:10px 0;border-bottom:1px solid #e4e4e7;color:#71717a;font-size:14px;"">Número de pedido</td>
-                <td style=""padding:10px 0;border-bottom:1px solid #e4e4e7;color:#0f172a;font-weight:600;text-align:right;"">{numeroPedido}</td>
-              </tr>
-              <tr>
-                <td style=""padding:10px 0;border-bottom:1px solid #e4e4e7;color:#71717a;font-size:14px;"">Cliente</td>
-                <td style=""padding:10px 0;border-bottom:1px solid #e4e4e7;color:#0f172a;font-weight:600;text-align:right;"">{nombreCliente}</td>
-              </tr>
-              <tr>
-                <td style=""padding:10px 0;color:#71717a;font-size:14px;"">Total</td>
-                <td style=""padding:10px 0;color:#1e3a8a;font-weight:700;text-align:right;"">S/ {totalPedido}</td>
-              </tr>
-            </table>
-            <div style=""margin:20px 0;padding:14px 18px;background:#ecfdf5;border-left:4px solid #059669;border-radius:8px;"">
-              <p style=""margin:0;line-height:1.55;color:#065f46;""><strong>Pago confirmado.</strong> Ya puedes preparar el envío con confianza.</p>
-            </div>
-            <p style=""margin:24px 0 0;font-size:13px;color:#71717a;"">Ingresa a tu panel para gestionar este pedido.</p>")),
+            <p style=""margin:0 0 18px;text-align:center;"">Te hemos creado una cuenta en nuestra tienda.</p>
+            <p style=""margin:0 0 8px;text-align:center;"">Estos son los datos de acceso:</p>
+            <p style=""margin:0;text-align:center;"">Correo: <strong>{usuario}</strong></p>
+            <p style=""margin:4px 0 18px;text-align:center;"">Contraseña: <strong>{clave}</strong></p>
+            <p style=""margin:0;text-align:center;font-size:13px;color:#555555;"">Esta contraseña fue generada automáticamente. Puedes cambiarla cuando entres.</p>")),
+
+            PlantillaCorreo.RecuperacionClave => (
+                "Tu nueva contraseña",
+                Envolver(@"
+            <p style=""margin:0 0 18px;text-align:center;"">Recibimos tu solicitud para restablecer la contraseña.</p>
+            <p style=""margin:0;text-align:center;"">Correo: <strong>{usuario}</strong></p>
+            <p style=""margin:4px 0 18px;text-align:center;"">Nueva contraseña: <strong>{clave}</strong></p>
+            <p style=""margin:0;text-align:center;font-size:13px;color:#555555;"">Al entrar te pediremos cambiarla.</p>")),
+
+            PlantillaCorreo.NuevoPedidoVendedor => (
+                "Nuevo pedido pagado {numeroPedido}",
+                Envolver(@"
+            <p style=""margin:0 0 16px;text-align:center;"">Hola <strong>{vendedor}</strong>, tienes un pedido pagado en tu tienda.</p>
+            <p style=""margin:0 0 16px;text-align:center;background:#efefef;padding:10px 12px;font-weight:700;letter-spacing:0.06em;"">PEDIDO {numeroPedido}</p>
+            <p style=""margin:0 0 8px;"">Cliente: <strong>{nombreCliente}</strong></p>
+            <p style=""margin:0 0 16px;"">Total: <strong>S/ {totalPedido}</strong></p>
+            {detallePedidoHtml}
+            <p style=""margin:18px 0 0;text-align:center;font-size:13px;color:#555555;"">El pago ya está confirmado. Puedes preparar el envío.</p>")),
 
             PlantillaCorreo.PedidoPagadoCliente => (
-                "Pago confirmado — pedido {numeroPedido}",
+                "Detalle pedido {numeroPedido}",
                 Envolver(@"
-            <h2 style=""margin:0 0 12px;font-size:24px;color:#0f172a;"">¡Pago confirmado!</h2>
-            <p style=""margin:0 0 16px;line-height:1.55;"">Hola <strong>{cliente}</strong>, recibimos el pago de tu pedido correctamente.</p>
-            <table role=""presentation"" width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""margin:20px 0;"">
-              <tr>
-                <td style=""padding:10px 0;border-bottom:1px solid #e4e4e7;color:#71717a;font-size:14px;"">Número de pedido</td>
-                <td style=""padding:10px 0;border-bottom:1px solid #e4e4e7;color:#0f172a;font-weight:600;text-align:right;"">{numeroPedido}</td>
-              </tr>
-              <tr>
-                <td style=""padding:10px 0;color:#71717a;font-size:14px;"">Total pagado</td>
-                <td style=""padding:10px 0;color:#1e3a8a;font-weight:700;text-align:right;"">S/ {totalPedido}</td>
-              </tr>
-            </table>
-            <div style=""margin:20px 0;padding:14px 18px;background:#eff6ff;border-left:4px solid #1e3a8a;border-radius:8px;"">
-              <p style=""margin:0;line-height:1.55;color:#1e3a8a;"">Los artesanos ya pueden prepararlo. Te avisaremos cuando tu pedido sea enviado.</p>
-            </div>
-            <p style=""margin:0 0 8px;line-height:1.55;"">Puedes ver el detalle en <strong>Mis pedidos</strong>.</p>
-            <p style=""margin:24px 0 0;font-size:13px;color:#71717a;"">Gracias por comprar en Artesanías Perú.</p>")),
+            <p style=""margin:0 0 12px;text-align:center;""><strong>{cliente}</strong>, tu pago se realizó con éxito.</p>
+            <p style=""margin:0 0 18px;text-align:center;"">Hemos recibido tu pedido y empezaremos a prepararlo.</p>
+            <p style=""margin:0 0 22px;text-align:center;font-weight:700;"">¡Gracias por tu compra!</p>
+            <p style=""margin:0 0 18px;text-align:center;background:#efefef;padding:10px 12px;font-weight:700;letter-spacing:0.08em;"">PEDIDO {numeroPedido}</p>
+            {detallePedidoHtml}")),
 
             PlantillaCorreo.PedidoEnviadoCliente => (
-                "Tu pedido {numeroPedido} está en camino",
+                "Tu pedido {numeroPedido} va en camino",
                 Envolver(@"
-            <h2 style=""margin:0 0 12px;font-size:24px;color:#0f172a;"">¡Tu pedido está en camino!</h2>
-            <p style=""margin:0 0 16px;line-height:1.55;"">Hola <strong>{cliente}</strong>, el artesano de <strong>{nombreTienda}</strong> ya envió tu pedido.</p>
-            <table role=""presentation"" width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""margin:20px 0;"">
-              <tr>
-                <td style=""padding:10px 0;border-bottom:1px solid #e4e4e7;color:#71717a;font-size:14px;"">Número de pedido</td>
-                <td style=""padding:10px 0;border-bottom:1px solid #e4e4e7;color:#0f172a;font-weight:600;text-align:right;"">{numeroPedido}</td>
-              </tr>
-              <tr>
-                <td style=""padding:10px 0;border-bottom:1px solid #e4e4e7;color:#71717a;font-size:14px;"">Tienda</td>
-                <td style=""padding:10px 0;border-bottom:1px solid #e4e4e7;color:#0f172a;font-weight:600;text-align:right;"">{nombreTienda}</td>
-              </tr>
-              <tr>
-                <td style=""padding:10px 0;border-bottom:1px solid #e4e4e7;color:#71717a;font-size:14px;"">Código de seguimiento</td>
-                <td style=""padding:10px 0;border-bottom:1px solid #e4e4e7;color:#1e3a8a;font-weight:700;text-align:right;font-family:Consolas,Menlo,monospace;"">{codigoSeguimiento}</td>
-              </tr>
-              <tr>
-                <td style=""padding:10px 0;border-bottom:1px solid #e4e4e7;color:#71717a;font-size:14px;"">Código de orden (agencia)</td>
-                <td style=""padding:10px 0;border-bottom:1px solid #e4e4e7;color:#0f172a;font-weight:600;text-align:right;font-family:Consolas,Menlo,monospace;"">{codigoOrdenAgencia}</td>
-              </tr>
-              <tr>
-                <td style=""padding:10px 0;color:#71717a;font-size:14px;"">Clave de recojo</td>
-                <td style=""padding:10px 0;color:#1e3a8a;font-weight:700;text-align:right;font-family:Consolas,Menlo,monospace;letter-spacing:.08em;"">{claveRecojo}</td>
-              </tr>
-            </table>
-            <div style=""margin:16px 0;padding:14px 18px;background:#f4f4f5;border-radius:8px;"">
-              <p style=""margin:0 0 6px;font-size:13px;color:#71717a;"">Detalles del envío</p>
-              <p style=""margin:0;line-height:1.55;color:#27272a;white-space:pre-line;"">{detallesEnvio}</p>
-            </div>
-            <p style=""margin:0 0 8px;line-height:1.55;"">Guarda estos datos para reclamar tu paquete en la agencia.</p>
-            <p style=""margin:24px 0 0;font-size:13px;color:#71717a;"">Si tienes preguntas, contacta al artesano desde tu panel.</p>")),
+            <p style=""margin:0 0 12px;text-align:center;""><strong>{cliente}</strong>, tu pedido se ha actualizado.</p>
+            <p style=""margin:0 0 18px;text-align:center;"">La tienda <strong>{nombreTienda}</strong> ya lo envió.</p>
+            <p style=""margin:0 0 18px;text-align:center;background:#efefef;padding:10px 12px;font-weight:700;letter-spacing:0.08em;"">PEDIDO {numeroPedido}</p>
+            <p style=""margin:0 0 6px;"">Seguimiento: <strong>{codigoSeguimiento}</strong></p>
+            <p style=""margin:0 0 6px;"">Código de agencia: <strong>{codigoOrdenAgencia}</strong></p>
+            <p style=""margin:0 0 14px;"">Clave de recojo: <strong>{claveRecojo}</strong></p>
+            <p style=""margin:0;white-space:pre-line;"">{detallesEnvio}</p>")),
+
+            PlantillaCorreo.VerificacionResultado => (
+                "{titulo}",
+                Envolver(@"
+            <p style=""margin:0 0 14px;text-align:center;"">Hola <strong>{vendedor}</strong>.</p>
+            <p style=""margin:0 0 8px;text-align:center;font-weight:700;"">{titulo}</p>
+            <p style=""margin:0;text-align:center;"">{mensaje}</p>
+            <p style=""margin:16px 0 0;text-align:center;"">Resultado: <strong>{resultado}</strong></p>")),
+
+            PlantillaCorreo.NuevoMensajeContacto => (
+                "Nuevo mensaje de contacto",
+                Envolver(@"
+            <p style=""margin:0 0 12px;text-align:center;"">Llegó un mensaje desde la tienda.</p>
+            <p style=""margin:0;"">{mensaje}</p>")),
 
             _ => (
-                "Notificación — Artesanías Perú",
-                Envolver("<p style=\"margin:0;line-height:1.55;\">Tienes una nueva notificación en Artesanías Perú.</p>"))
+                "Notificación",
+                Envolver("<p style=\"margin:0;text-align:center;\">Tienes una nueva notificación.</p>"))
         };
-
-        private static string Envolver(string contenido) =>
-            EstiloBase.Replace("{CONTENIDO}", contenido.Trim(), StringComparison.Ordinal);
     }
 }

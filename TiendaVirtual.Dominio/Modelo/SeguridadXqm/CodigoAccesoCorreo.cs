@@ -15,5 +15,9 @@ namespace TiendaVirtual.Dominio.Modelo.SeguridadXqm
         public bool Usado { get; set; }
         public DateTime FechaCreacion { get; set; }
         public string? DireccionIp { get; set; }
+        /// <summary>acceso = entrar. recuperacion = cambiar la contraseña.</summary>
+        public string Proposito { get; set; } = "acceso";
+        public string? TicketHash { get; set; }
+        public DateTime? TicketExpira { get; set; }
     }
 }

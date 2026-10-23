@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace TiendaVirtual.Intercambio.Dto.VentaXqm
 {
@@ -24,6 +24,17 @@ namespace TiendaVirtual.Intercambio.Dto.VentaXqm
     {
         [Required]
         public Guid DireccionId { get; set; }
+
+        public bool RetiraOtraPersona { get; set; }
+
+        [MaxLength(200)]
+        public string? NombreReceptor { get; set; }
+
+        [MaxLength(20)]
+        public string? DniReceptor { get; set; }
+
+        [MaxLength(20)]
+        public string? TelefonoReceptor { get; set; }
 
         /// <summary>
         /// Token de un solo uso (MercadoPago.js). Opcional solo si el proveedor

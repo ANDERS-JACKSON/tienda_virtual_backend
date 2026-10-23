@@ -207,39 +207,18 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
                 _ => ((string?)null, (string?)null)
             };
 
-            // Plantillas críticas de pedidos: si la BD tiene texto desactualizado
-            // (p. ej. "te avisaremos cuando se confirme el pago" tras un pago ya hecho),
-            // forzamos la plantilla correcta del sistema.
-            if (p == PlantillaCorreo.NuevoPedidoVendedor &&
-                !string.IsNullOrWhiteSpace(cuerpoBd) &&
-                cuerpoBd.Contains("Te avisaremos cuando se confirme el pago", StringComparison.OrdinalIgnoreCase))
-            {
-                var def = PlantillasCorreoDefault.Obtener(p);
-                return (def.asunto, def.cuerpo, false);
-            }
+            if (!string.IsNullOrWhiteSpace(asuntoBd) && !string.IsNullOrWhiteSpace(cuerpoBd)
+                && cuerpoBd.Contains(PlantillasCorreoDefault.MarcaDiseno, StringComparison.Ordinal))
+                return (asuntoBd, cuerpoBd, true);
 
-            // Plantilla de envío antigua sin clave/agencia → usar la del sistema.
-            if (p == PlantillaCorreo.PedidoEnviadoCliente &&
-                !string.IsNullOrWhiteSpace(cuerpoBd) &&
-                (!cuerpoBd.Contains("{claveRecojo}", StringComparison.Ordinal) ||
-                 !cuerpoBd.Contains("{codigoOrdenAgencia}", StringComparison.Ordinal)))
-            {
-                var def = PlantillasCorreoDefault.Obtener(p);
+            var def = PlantillasCorreoDefault.Obtener(p);
+            if (def.cuerpo.Contains(PlantillasCorreoDefault.MarcaDiseno, StringComparison.Ordinal))
                 return (def.asunto, def.cuerpo, false);
-            }
 
             if (!string.IsNullOrWhiteSpace(asuntoBd) && !string.IsNullOrWhiteSpace(cuerpoBd))
                 return (asuntoBd, cuerpoBd, true);
 
-            if (p is PlantillaCorreo.NuevoPedidoVendedor
-                or PlantillaCorreo.PedidoPagadoCliente
-                or PlantillaCorreo.PedidoEnviadoCliente)
-            {
-                var def = PlantillasCorreoDefault.Obtener(p);
-                return (def.asunto, def.cuerpo, false);
-            }
-
-            return (asuntoBd, cuerpoBd, true);
+            return (def.asunto, def.cuerpo, false);
         }
 
         private static string SustituirPlaceholders(
@@ -249,7 +228,8 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
             foreach (var kv in placeholders)
             {
                 var valor = kv.Value ?? string.Empty;
-                if (encodeHtml)
+                var esHtml = kv.Key.EndsWith("Html", StringComparison.Ordinal);
+                if (encodeHtml && !esHtml)
                     valor = System.Net.WebUtility.HtmlEncode(valor);
                 texto = texto.Replace("{" + kv.Key + "}", valor);
             }

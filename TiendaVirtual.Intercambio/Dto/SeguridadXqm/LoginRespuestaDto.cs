@@ -25,7 +25,7 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
         public RegistroGooglePendienteDto? RegistroPendiente { get; set; }
 
         /// <summary>
-        /// El correo ya tiene cuenta. Hay que confirmar el código de 4 dígitos
+        /// El correo ya tiene cuenta. Hay que confirmar el código de 6 dígitos
         /// antes de emitir una sesión (compra como invitado).
         /// </summary>
         public bool RequiereCodigo { get; set; }

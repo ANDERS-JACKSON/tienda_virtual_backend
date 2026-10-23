@@ -18,7 +18,7 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
         public string Correo { get; set; } = null!;
 
         [Required]
-        [RegularExpression(@"^\d{4}$", ErrorMessage = "El código debe tener 4 dígitos.")]
+        [RegularExpression(@"^\d{6}$", ErrorMessage = "El código debe tener 6 dígitos.")]
         public string Codigo { get; set; } = null!;
     }
 

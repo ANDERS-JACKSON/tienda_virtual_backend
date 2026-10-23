@@ -1,10 +1,11 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using TiendaVirtual.Comun.Enumeracion;
@@ -386,61 +387,177 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
         }
 
         // ─────────────────────────────────────────────────────────────
-        // RECUPERAR CLAVE (olvidé mi contraseña)
+        // RECUPERAR CLAVE: código de 6 dígitos y contraseña elegida
         // ─────────────────────────────────────────────────────────────
-        public async Task<ResultadoOperacion<string>> RecuperarClaveAsync(string correo)
+        public async Task<ResultadoOperacion<string>> RecuperarClaveAsync(string correo, string? direccionIp)
         {
+            const string mensajeOk =
+                "Si el correo está registrado, te enviamos un código. Vence en 5 minutos.";
+
             try
             {
-                if (string.IsNullOrWhiteSpace(correo))
-                    return ResultadoOperacion<string>.SetError("El correo es obligatorio.");
+                var correoNorm = NormalizarCorreo(correo);
+                if (correoNorm == null)
+                    return ResultadoOperacion<string>.SetError("Ingresa un correo electrónico válido.");
 
-                var correoNorm = correo.Trim().ToLower();
+                var limite = await ValidarLimiteCodigosAsync(correoNorm, direccionIp);
+                if (!limite.Exito)
+                    return ResultadoOperacion<string>.SetError(limite.Mensaje);
 
+                var codigo = GenerarCodigoNumerico(RECUPERACION_DIGITOS);
                 var usuario = await _context.Usuarios
-                    .Include(u => u.Persona)
-                    .FirstOrDefaultAsync(u => u.Correo == correoNorm);
-
-                // Mensaje genérico: NO revelamos si el correo está registrado
-                // (defensa contra enumeración de usuarios).
-                const string MENSAJE_OK =
-                    "Si el correo está registrado, te enviamos un código de 6 dígitos en unos segundos.";
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Correo == correoNorm && u.Estado == TipoEstadoUsuario.Activo);
 
                 if (usuario == null)
-                    return ResultadoOperacion<string>.SetExito(MENSAJE_OK);
+                {
+                    await GuardarCodigoAsync(
+                        correoNorm, codigo, direccionIp, PROPOSITO_RECUPERACION, RECUPERACION_MINUTOS);
+                    return ResultadoOperacion<string>.SetExito(mensajeOk);
+                }
 
-                if (usuario.Estado != TipoEstadoUsuario.Activo)
-                    return ResultadoOperacion<string>.SetExito(MENSAJE_OK);
+                var enviado = await EnviarCodigoRecuperacionAsync(correoNorm, codigo);
+                if (!enviado)
+                    return ResultadoOperacion<string>.SetError(
+                        "No pudimos enviar el código. Intenta de nuevo en unos minutos.");
 
-                var nuevaClave = GenerarClaveNumerica(LONGITUD_CLAVE_AUTO);
-                usuario.Contrasena = BCrypt.Net.BCrypt.HashPassword(nuevaClave);
-                usuario.ForzarCambioClave = true;
-                await _context.SaveChangesAsync();
+                await GuardarCodigoAsync(
+                    correoNorm, codigo, direccionIp, PROPOSITO_RECUPERACION, RECUPERACION_MINUTOS);
 
-                var nombre = usuario.Persona != null
-                    ? $"{usuario.Persona.Nombres} {usuario.Persona.ApellidoPaterno}".Trim()
-                    : usuario.Correo;
-
-                await _notificacionServicio.CrearAsync(
-                    usuario.UsuarioId,
-                    TipoNotificacion.RecuperacionClaveSolicitada,
-                    "Recuperación de contraseña",
-                    "Recibimos tu solicitud para restablecer la contraseña.",
-                    null,
-                    plantillaEmail: PlantillaCorreo.RecuperacionClave,
-                    placeholdersEmail: new Dictionary<string, string>
-                    {
-                        ["usuario"] = usuario.Correo,
-                        ["clave"] = nuevaClave
-                    });
-
-                return ResultadoOperacion<string>.SetExito(MENSAJE_OK);
+                return ResultadoOperacion<string>.SetExito(mensajeOk);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error en AutenticacionServicio.RecuperarContrasenaAsync");
+                _logger.LogError(ex, "Error al solicitar recuperación de clave");
+                return ResultadoOperacion<string>.SetError(
+                    "No pudimos enviar el código. Intenta de nuevo en unos minutos.");
+            }
+        }
+
+        public async Task<ResultadoOperacion<string>> VerificarRecuperacionClaveAsync(string correo, string codigo)
+        {
+            try
+            {
+                var correoNorm = NormalizarCorreo(correo);
+                var codigoNorm = new string((codigo ?? string.Empty).Where(char.IsDigit).ToArray());
+                if (correoNorm == null || codigoNorm.Length != RECUPERACION_DIGITOS)
+                    return ResultadoOperacion<string>.SetError("Código incorrecto o vencido.");
+
+                var registro = await _context.CodigosAccesoCorreo
+                    .Where(c => c.Correo == correoNorm && !c.Usado && c.Proposito == PROPOSITO_RECUPERACION)
+                    .OrderByDescending(c => c.FechaCreacion)
+                    .FirstOrDefaultAsync();
+
+                var hashReferencia = registro?.CodigoHash
+                    ?? HashearSecreto(correoNorm, PROPOSITO_RECUPERACION, "000000");
+                var coincide = SecretoCoincide(hashReferencia, correoNorm, PROPOSITO_RECUPERACION, codigoNorm);
+                var vencido = registro == null
+                    || registro.ExpiraEn < DateTime.UtcNow
+                    || registro.Intentos >= OTP_MAX_INTENTOS;
+
+                if (!coincide || vencido)
+                {
+                    if (registro != null)
+                    {
+                        registro.Intentos++;
+                        if (registro.Intentos >= OTP_MAX_INTENTOS || registro.ExpiraEn < DateTime.UtcNow)
+                            registro.Usado = true;
+                        await _context.SaveChangesAsync();
+                    }
+
+                    return ResultadoOperacion<string>.SetError(
+                        registro != null && registro.Usado && registro.Intentos >= OTP_MAX_INTENTOS
+                            ? "Demasiados intentos. Solicita un código nuevo."
+                            : "Código incorrecto o vencido.");
+                }
+
+                var cuentaActiva = await _context.Usuarios.AnyAsync(u =>
+                    u.Correo == correoNorm && u.Estado == TipoEstadoUsuario.Activo);
+                if (!cuentaActiva)
+                {
+                    registro!.Usado = true;
+                    await _context.SaveChangesAsync();
+                    return ResultadoOperacion<string>.SetError("Código incorrecto o vencido.");
+                }
+
+                var ticket = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+                    .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+                registro!.Usado = true;
+                registro.TicketHash = HashearSecreto(correoNorm, "ticket-recuperacion", ticket);
+                registro.TicketExpira = DateTime.UtcNow.AddMinutes(RECUPERACION_MINUTOS);
+                await _context.SaveChangesAsync();
+
+                return ResultadoOperacion<string>.SetExito(ticket);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al verificar código de recuperación");
                 return ResultadoOperacion<string>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+        }
+
+        public async Task<ResultadoOperacion<bool>> ConfirmarRecuperacionClaveAsync(
+            string correo, string ticket, string contrasenaNueva)
+        {
+            try
+            {
+                var correoNorm = NormalizarCorreo(correo);
+                var ticketNorm = (ticket ?? string.Empty).Trim();
+                if (correoNorm == null || ticketNorm.Length < 20)
+                    return ResultadoOperacion<bool>.SetError("El código venció. Solicita uno nuevo.");
+
+                var validacion = ContrasenaValidador.Validar(contrasenaNueva);
+                if (!validacion.Exito)
+                    return ResultadoOperacion<bool>.SetError(validacion.Mensaje);
+
+                var ticketHash = HashearSecreto(correoNorm, "ticket-recuperacion", ticketNorm);
+                var registro = await _context.CodigosAccesoCorreo
+                    .Where(c => c.Correo == correoNorm
+                        && c.Proposito == PROPOSITO_RECUPERACION
+                        && c.TicketHash == ticketHash)
+                    .FirstOrDefaultAsync();
+
+                if (registro == null || registro.TicketExpira == null || registro.TicketExpira < DateTime.UtcNow)
+                    return ResultadoOperacion<bool>.SetError("El código venció. Solicita uno nuevo.");
+
+                var usuario = await _context.Usuarios
+                    .FirstOrDefaultAsync(u => u.Correo == correoNorm && u.Estado == TipoEstadoUsuario.Activo);
+                if (usuario == null)
+                    return ResultadoOperacion<bool>.SetError("El código venció. Solicita uno nuevo.");
+
+                usuario.Contrasena = BCrypt.Net.BCrypt.HashPassword(contrasenaNueva);
+                usuario.ForzarCambioClave = false;
+                usuario.CorreoConfirmado = true;
+                registro.TicketHash = null;
+                registro.TicketExpira = null;
+
+                var sesiones = await _context.TokensRefresco
+                    .Where(t => t.UsuarioId == usuario.UsuarioId && !t.Revocado)
+                    .ToListAsync();
+                foreach (var sesion in sesiones)
+                    sesion.Revocado = true;
+
+                await _context.SaveChangesAsync();
+                return ResultadoOperacion<bool>.SetExito(true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al confirmar recuperación de clave");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
+        }
+
+        private async Task<bool> EnviarCodigoRecuperacionAsync(string correo, string codigo)
+        {
+            var cuerpo = PlantillasCorreoDefault.Envolver($@"
+            <p style=""margin:0 0 8px;text-align:center;"">Tu código para recuperar la contraseña es</p>
+            <p style=""margin:0 0 16px;text-align:center;font-size:32px;letter-spacing:0.35em;font-weight:700;"">{System.Net.WebUtility.HtmlEncode(codigo)}</p>
+            <p style=""margin:0;text-align:center;font-size:13px;color:#555555;"">
+              Vence en 5 minutos. Si pides otro, este deja de servir.
+              Si no pediste este código, ignora este mensaje.
+            </p>");
+
+            return await _email.EnviarHtmlAsync(correo, correo, "Código para recuperar tu contraseña", cuerpo);
         }
 
         // ─────────────────────────────────────────────────────────────

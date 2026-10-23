@@ -7,12 +7,14 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
         [MaxLength(50)]
         public string? Etiqueta { get; set; }
 
-        [Required, MaxLength(200)]
-        public string NombreReceptor { get; set; } = null!;
+        [MaxLength(200)]
+        public string? NombreReceptor { get; set; }
 
-        /// <summary>DNI (u otro documento) del receptor. Requerido para envíos por agencia.</summary>
-        [Required, MaxLength(20), MinLength(8)]
-        public string DniReceptor { get; set; } = null!;
+        /// <summary>
+        /// Documento de quien retira. Si no se envía, se usa el de la cuenta.
+        /// </summary>
+        [MaxLength(20)]
+        public string? DniReceptor { get; set; }
 
         [MaxLength(20)]
         public string? Telefono { get; set; }

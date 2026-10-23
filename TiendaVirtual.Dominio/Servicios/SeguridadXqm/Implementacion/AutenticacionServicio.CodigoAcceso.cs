@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones.SeguridadXqm;
 using TiendaVirtual.Dominio.Modelo.SeguridadXqm;
+using TiendaVirtual.Dominio.Servicios.SoporteXqm;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.SeguridadXqm;
 
@@ -16,12 +17,16 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 {
     public partial class AutenticacionServicio
     {
-        private const int OTP_DIGITOS = 4;
+        private const int OTP_DIGITOS = 6;
         private const int OTP_MINUTOS = 10;
         private const int OTP_MAX_INTENTOS = 5;
         private const int OTP_MAX_POR_CORREO_HORA = 5;
         private const int OTP_MAX_POR_IP_HORA = 20;
         private const int OTP_ESPERA_SEGUNDOS = 60;
+        private const string PROPOSITO_ACCESO = "acceso";
+        private const string PROPOSITO_RECUPERACION = "recuperacion";
+        private const int RECUPERACION_DIGITOS = 6;
+        private const int RECUPERACION_MINUTOS = 5;
 
         public async Task<ResultadoOperacion<string>> SolicitarCodigoAccesoAsync(
             string correo, string? direccionIp)
@@ -42,10 +47,10 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                     return ResultadoOperacion<string>.SetError(
                         "No pudimos enviar el código. Intenta de nuevo en unos minutos.");
 
-                await GuardarCodigoAsync(correoNorm, codigo, direccionIp);
+                await GuardarCodigoAsync(correoNorm, codigo, direccionIp, PROPOSITO_ACCESO, OTP_MINUTOS);
 
                 return ResultadoOperacion<string>.SetExito(
-                    "Te enviamos un código de 4 dígitos. Revisa también la carpeta de spam. Vence en 10 minutos.");
+                    "Te enviamos un código de 6 dígitos. Revisa también la carpeta de spam. Vence en 10 minutos.");
             }
             catch (Exception ex)
             {
@@ -67,11 +72,11 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                         "Código incorrecto o vencido. Solicita uno nuevo.");
 
                 var registro = await _context.CodigosAccesoCorreo
-                    .Where(c => c.Correo == correoNorm && !c.Usado)
+                    .Where(c => c.Correo == correoNorm && !c.Usado && c.Proposito == PROPOSITO_ACCESO)
                     .OrderByDescending(c => c.FechaCreacion)
                     .FirstOrDefaultAsync();
 
-                var hashReferencia = registro?.CodigoHash ?? HashearCodigo(correoNorm, "0000");
+                var hashReferencia = registro?.CodigoHash ?? HashearCodigo(correoNorm, "000000");
                 var coincide = CodigoCoincide(hashReferencia, correoNorm, codigoNorm);
                 var vencido = registro == null
                     || registro.ExpiraEn < DateTime.UtcNow
@@ -226,7 +231,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                     return ResultadoOperacion<LoginRespuestaDto>.SetExito(new LoginRespuestaDto
                     {
                         RequiereCodigo = true,
-                        Mensaje = "Este correo ya está registrado. Te enviamos un código de 4 dígitos para continuar la compra con tu cuenta."
+                        Mensaje = "Este correo ya está registrado. Te enviamos un código de 6 dígitos para continuar la compra con tu cuenta."
                     });
                 }
 
@@ -326,7 +331,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             return ResultadoOperacion<bool>.SetExito(true);
         }
 
-        private async Task GuardarCodigoAsync(string correo, string codigo, string? direccionIp)
+        private async Task GuardarCodigoAsync(
+            string correo, string codigo, string? direccionIp, string proposito, int minutos)
         {
             var limite = DateTime.UtcNow.AddDays(-2);
             await _context.CodigosAccesoCorreo
@@ -334,7 +340,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 .ExecuteDeleteAsync();
 
             var previos = await _context.CodigosAccesoCorreo
-                .Where(c => c.Correo == correo && !c.Usado)
+                .Where(c => c.Correo == correo && c.Proposito == proposito && !c.Usado)
                 .ToListAsync();
             foreach (var previo in previos)
                 previo.Usado = true;
@@ -343,8 +349,11 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             {
                 CodigoAccesoId = Guid.NewGuid(),
                 Correo = correo,
-                CodigoHash = HashearCodigo(correo, codigo),
-                ExpiraEn = DateTime.UtcNow.AddMinutes(OTP_MINUTOS),
+                Proposito = proposito,
+                CodigoHash = proposito == PROPOSITO_ACCESO
+                    ? HashearCodigo(correo, codigo)
+                    : HashearSecreto(correo, proposito, codigo),
+                ExpiraEn = DateTime.UtcNow.AddMinutes(minutos),
                 Intentos = 0,
                 Usado = false,
                 FechaCreacion = DateTime.UtcNow,
@@ -356,34 +365,43 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
         private async Task<bool> EnviarCodigoPorCorreoAsync(string correo, string codigo)
         {
-            var cuerpo = $@"<!DOCTYPE html>
-<html lang=""es"">
-<body style=""margin:0;padding:0;background:#f4f4f5;font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#27272a;"">
-  <table role=""presentation"" width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""padding:32px 0;"">
-    <tr><td align=""center"">
-      <table role=""presentation"" width=""560"" cellpadding=""0"" cellspacing=""0"" style=""background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e4e4e7;"">
-        <tr><td style=""background:#1e3a8a;padding:28px 32px;text-align:center;"">
-          <h1 style=""margin:0;color:#ffffff;font-size:22px;"">Artesanías Perú</h1>
-        </td></tr>
-        <tr><td style=""padding:32px;"">
-          <p style=""margin:0 0 12px;font-size:16px;"">Tu código para entrar es:</p>
-          <p style=""margin:0 0 16px;font-size:36px;letter-spacing:0.35em;font-weight:700;color:#1e3a8a;"">{WebUtility.HtmlEncode(codigo)}</p>
-          <p style=""margin:0;font-size:14px;line-height:1.5;color:#52525b;"">
-            Vence en 10 minutos y solo puede usarse una vez.
-            Si no pediste este código, ignora este mensaje.
-          </p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>";
+            var cuerpo = PlantillasCorreoDefault.Envolver($@"
+            <p style=""margin:0 0 8px;text-align:center;"">Tu código para entrar es</p>
+            <p style=""margin:0 0 16px;text-align:center;font-size:32px;letter-spacing:0.35em;font-weight:700;"">{WebUtility.HtmlEncode(codigo)}</p>
+            <p style=""margin:0;text-align:center;font-size:13px;color:#555555;"">
+              Vence en 10 minutos y solo puede usarse una vez.
+              Si no pediste este código, ignora este mensaje.
+            </p>");
 
             return await _email.EnviarHtmlAsync(
                 correo,
                 correo,
                 "Tu código de acceso",
                 cuerpo);
+        }
+
+        private string HashearSecreto(string correo, string proposito, string valor)
+        {
+            var pepper = _configuration["Jwt:Key"] ?? string.Empty;
+            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(pepper));
+            var bytes = hmac.ComputeHash(Encoding.UTF8.GetBytes($"{proposito}:{correo}:{valor}"));
+            return Convert.ToBase64String(bytes);
+        }
+
+        private bool SecretoCoincide(string hashGuardado, string correo, string proposito, string valor)
+        {
+            try
+            {
+                var calculado = Convert.FromBase64String(HashearSecreto(correo, proposito, valor));
+                var guardado = Convert.FromBase64String(hashGuardado);
+                if (calculado.Length != guardado.Length)
+                    return false;
+                return CryptographicOperations.FixedTimeEquals(calculado, guardado);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private string HashearCodigo(string correo, string codigo)
@@ -429,8 +447,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
         private static string? NormalizarTelefonoObligatorio(string? telefono, out string normalizado)
         {
             normalizado = SoloDigitosTelefono(telefono);
-            if (normalizado.Length != 9)
-                return "Ingresa un teléfono de 9 dígitos.";
+            if (normalizado.Length != 9 || normalizado[0] != '9')
+                return "Ingresa un celular de 9 dígitos que empiece con 9.";
             return null;
         }
 

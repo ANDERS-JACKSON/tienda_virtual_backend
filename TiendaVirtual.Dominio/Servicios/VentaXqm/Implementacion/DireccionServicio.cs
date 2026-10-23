@@ -1,9 +1,10 @@
 ﻿using System;
-using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TiendaVirtual.Dominio.Modelo.SeguridadXqm;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.SeguridadXqm;
@@ -78,6 +79,14 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 if (personaId == null)
                     return ResultadoOperacion<DireccionDto>.SetError("Usuario sin persona asociada.");
 
+                var datosCuenta = await CompletarReceptorDesdePersonaAsync(personaId.Value, dto);
+                if (datosCuenta != null)
+                    return ResultadoOperacion<DireccionDto>.SetError(datosCuenta);
+
+                var error = ValidarCampos(dto);
+                if (error != null)
+                    return ResultadoOperacion<DireccionDto>.SetError(error);
+
                 // La primera dirección siempre es predeterminada.
                 var esPrimera = !await _context.Direcciones.AnyAsync(d => d.PersonaId == personaId);
 
@@ -93,8 +102,8 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                     DireccionId = Guid.NewGuid(),
                     PersonaId = personaId.Value,
                     Etiqueta = dto.Etiqueta?.Trim(),
-                    NombreReceptor = dto.NombreReceptor.Trim(),
-                    DniReceptor = dto.DniReceptor.Trim(),
+                    NombreReceptor = dto.NombreReceptor!.Trim(),
+                    DniReceptor = dto.DniReceptor!.Trim(),
                     Telefono = dto.Telefono?.Trim(),
                     DistritoId = ubicacion.DistritoId,
                     Departamento = ubicacion.Departamento,
@@ -121,7 +130,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
         }
 
         public async Task<ResultadoOperacion<DireccionDto>> ActualizarAsync(
-            Guid usuarioId, Guid direccionId, ActualizarDireccionDto dto)
+            Guid usuarioId,             Guid direccionId, ActualizarDireccionDto dto)
         {
             using var trx = await _context.Database.BeginTransactionAsync();
             try
@@ -129,6 +138,21 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 var d = await CargarDireccionPropiaAsync(usuarioId, direccionId);
                 if (d == null)
                     return ResultadoOperacion<DireccionDto>.SetError("Dirección no encontrada.");
+
+                // El formulario del lugar no reenvía al receptor. Si ya hay alguien
+                // guardado en esta dirección, se conserva.
+                if (string.IsNullOrWhiteSpace(dto.NombreReceptor))
+                    dto.NombreReceptor = d.NombreReceptor;
+                if (string.IsNullOrWhiteSpace(dto.DniReceptor))
+                    dto.DniReceptor = d.DniReceptor;
+
+                var datosCuenta = await CompletarReceptorDesdePersonaAsync(d.PersonaId, dto);
+                if (datosCuenta != null)
+                    return ResultadoOperacion<DireccionDto>.SetError(datosCuenta);
+
+                var error = ValidarCampos(dto);
+                if (error != null)
+                    return ResultadoOperacion<DireccionDto>.SetError(error);
 
                 if (dto.EsPredeterminada && !d.EsPredeterminada)
                     await QuitarPredeterminadaAEsasOtrasAsync(d.PersonaId, d.DireccionId);
@@ -138,8 +162,8 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                     return ResultadoOperacion<DireccionDto>.SetError("Distrito ubigeo no válido.");
 
                 d.Etiqueta = dto.Etiqueta?.Trim();
-                d.NombreReceptor = dto.NombreReceptor.Trim();
-                d.DniReceptor = dto.DniReceptor.Trim();
+                d.NombreReceptor = dto.NombreReceptor!.Trim();
+                d.DniReceptor = dto.DniReceptor!.Trim();
                 d.Telefono = dto.Telefono?.Trim();
                 d.DistritoId = ubicacion.DistritoId;
                 d.Departamento = ubicacion.Departamento;
@@ -233,6 +257,64 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
         // ─────────────────────────────────────────────────────
         // Helpers
         // ─────────────────────────────────────────────────────
+        private static string? ValidarCampos(CrearDireccionDto dto)
+        {
+            dto.NombreReceptor = Regex.Replace(dto.NombreReceptor ?? string.Empty, @"\s+", " ").Trim();
+            dto.DniReceptor = new string((dto.DniReceptor ?? string.Empty).Where(char.IsDigit).ToArray());
+            dto.Telefono = new string((dto.Telefono ?? string.Empty).Where(char.IsDigit).ToArray());
+            if (dto.Telefono.StartsWith("51") && dto.Telefono.Length == 11)
+                dto.Telefono = dto.Telefono[2..];
+            dto.DireccionLinea = (dto.DireccionLinea ?? string.Empty).Trim();
+            dto.DistritoId = (dto.DistritoId ?? string.Empty).Trim();
+            dto.Etiqueta = string.IsNullOrWhiteSpace(dto.Etiqueta) ? null : dto.Etiqueta.Trim();
+            dto.Referencia = string.IsNullOrWhiteSpace(dto.Referencia) ? null : dto.Referencia.Trim();
+
+            if (dto.Telefono.Length != 9 || dto.Telefono[0] != '9')
+                return "El celular debe tener 9 dígitos y empezar con 9.";
+
+            if (dto.DistritoId.Length != 6 || dto.DistritoId.Any(c => !char.IsDigit(c)))
+                return "Selecciona un distrito.";
+
+            if (dto.DireccionLinea.Length < 8 || !Regex.IsMatch(dto.DireccionLinea, @"\p{L}{3}"))
+                return "Ingresa una dirección válida, con calle.";
+
+            if (dto.Etiqueta != null
+                && !Regex.IsMatch(dto.Etiqueta, @"^[\p{L}\d][\p{L}\d\s'.\-]{0,48}$"))
+                return "La etiqueta solo puede tener letras y números.";
+
+            if (dto.Referencia != null && (dto.Referencia.Length < 3 || !Regex.IsMatch(dto.Referencia, @"\p{L}")))
+                return "Escribe una referencia más clara.";
+
+            return null;
+        }
+
+        private async Task<string?> CompletarReceptorDesdePersonaAsync(Guid personaId, CrearDireccionDto dto)
+        {
+            if (!string.IsNullOrWhiteSpace(dto.NombreReceptor) && !string.IsNullOrWhiteSpace(dto.DniReceptor))
+                return null;
+
+            var persona = await _context.Personas.AsNoTracking()
+                .Where(p => p.PersonaId == personaId)
+                .Select(p => new { p.Nombres, p.ApellidoPaterno, p.ApellidoMaterno, p.NumeroDocumento })
+                .FirstOrDefaultAsync();
+            if (persona == null)
+                return "No encontramos los datos de tu cuenta.";
+
+            if (string.IsNullOrWhiteSpace(dto.NombreReceptor))
+            {
+                dto.NombreReceptor = string.Join(' ', new[] { persona.Nombres, persona.ApellidoPaterno, persona.ApellidoMaterno }
+                    .Where(s => !string.IsNullOrWhiteSpace(s)));
+            }
+
+            if (string.IsNullOrWhiteSpace(dto.DniReceptor))
+                dto.DniReceptor = new string((persona.NumeroDocumento ?? string.Empty).Where(char.IsDigit).ToArray());
+
+            if (string.IsNullOrWhiteSpace(dto.NombreReceptor) || string.IsNullOrWhiteSpace(dto.DniReceptor))
+                return "Completa tu nombre y documento en tu cuenta antes de guardar una dirección.";
+
+            return null;
+        }
+
         private async Task<Guid?> ObtenerPersonaIdAsync(Guid usuarioId)
         {
             return await _context.Usuarios

@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones;
 using TiendaVirtual.Dominio.Extensiones.SeguridadXqm;
 using TiendaVirtual.Intercambio;
@@ -56,19 +57,38 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                     return ResultadoOperacion<UsuarioPerfilDto>.SetError("Usuario no encontrado.");
 
                 var persona = usuario.Persona;
+                if (!Enum.IsDefined(typeof(TipoDocumentoIdentidad), (int)dto.TipoDocumentoId))
+                    return ResultadoOperacion<UsuarioPerfilDto>.SetError("Selecciona un tipo de documento válido.");
+
+                var documento = new string((dto.NumeroDocumento ?? string.Empty).Where(char.IsDigit).ToArray());
                 persona.Nombres = dto.Nombres.Normalizar();
                 persona.ApellidoPaterno = dto.ApellidoPaterno?.Normalizar_null();
                 persona.ApellidoMaterno = dto.ApellidoMaterno?.Normalizar_null();
                 persona.Telefono = string.IsNullOrWhiteSpace(dto.Telefono)
                     ? null
                     : dto.Telefono.Trim();
+                persona.TipoDocumento = (TipoDocumentoIdentidad)dto.TipoDocumentoId;
+                persona.NumeroDocumento = documento;
 
                 var validacion = persona.Validar();
                 if (!validacion.Exito)
                     return ResultadoOperacion<UsuarioPerfilDto>.SetError(validacion.Mensaje ?? "Datos inválidos.");
 
+                var documentoOcupado = await _context.Personas.AnyAsync(p =>
+                    p.PersonaId != persona.PersonaId
+                    && p.TipoDocumento == persona.TipoDocumento
+                    && p.NumeroDocumento == documento);
+                if (documentoOcupado)
+                    return ResultadoOperacion<UsuarioPerfilDto>.SetError(
+                        "Ya hay una cuenta registrada con este documento.");
+
                 await _context.SaveChangesAsync();
                 return ResultadoOperacion<UsuarioPerfilDto>.SetExito(MapPerfil(usuario));
+            }
+            catch (DbUpdateException)
+            {
+                return ResultadoOperacion<UsuarioPerfilDto>.SetError(
+                    "Ya hay una cuenta registrada con este documento.");
             }
             catch (Exception ex)
             {

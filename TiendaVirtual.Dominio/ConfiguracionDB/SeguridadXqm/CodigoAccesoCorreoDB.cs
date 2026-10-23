@@ -43,6 +43,19 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.SeguridadXqm
                 .HasColumnName("direccion_ip")
                 .HasMaxLength(64);
 
+            builder.Property(e => e.Proposito)
+                .HasColumnName("proposito")
+                .HasMaxLength(32)
+                .IsRequired();
+
+            builder.Property(e => e.TicketHash)
+                .HasColumnName("ticket_hash")
+                .HasMaxLength(128);
+
+            builder.Property(e => e.TicketExpira)
+                .HasColumnName("ticket_expira")
+                .HasColumnType("timestamptz");
+
             builder.HasIndex(e => new { e.Correo, e.FechaCreacion })
                 .HasDatabaseName("idx_codigo_acceso_correo_lookup");
 
