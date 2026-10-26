@@ -516,11 +516,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                         o.Estado,
                         o.Fecha,
                         TotalItems = o.Subordenes.SelectMany(s => s.Items).Sum(i => (int?)i.Cantidad) ?? 0,
-                        TotalVendedores = o.Subordenes.Count,
-                        ImagenPrincipalUrl = o.Subordenes
-                            .SelectMany(s => s.Items)
-                            .Select(i => i.ImagenUrl)
-                            .FirstOrDefault()
+                        TotalVendedores = o.Subordenes.Count
                     })
                     .ToListAsync();
 
@@ -532,8 +528,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                     Estado = new EnumeracionDto((int)o.Estado, o.Estado.GetDescription()),
                     Fecha = o.Fecha,
                     TotalItems = o.TotalItems,
-                    TotalVendedores = o.TotalVendedores,
-                    ImagenPrincipalUrl = o.ImagenPrincipalUrl
+                    TotalVendedores = o.TotalVendedores
                 }).ToList();
 
                 return ResultadoOperacion<PaginacionRespuestaDto<OrdenListadoDto>>.SetExito(

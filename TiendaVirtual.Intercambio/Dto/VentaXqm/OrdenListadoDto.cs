@@ -12,6 +12,5 @@ namespace TiendaVirtual.Intercambio.Dto.VentaXqm
         public DateTime Fecha { get; set; }
         public int TotalItems { get; set; }
         public int TotalVendedores { get; set; }
-        public string? ImagenPrincipalUrl { get; set; }
     }
 }
