@@ -98,6 +98,28 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm
             <p style=""margin:0 0 12px;text-align:center;"">Llegó un mensaje desde la tienda.</p>
             <p style=""margin:0;"">{mensaje}</p>")),
 
+            PlantillaCorreo.SuscripcionPagada => (
+                "Pago confirmado: plan {plan}",
+                Envolver(@"
+            <p style=""margin:0 0 12px;text-align:center;"">Hola <strong>{vendedor}</strong>, recibimos tu pago.</p>
+            <p style=""margin:0 0 18px;text-align:center;"">Tu plan <strong>{plan}</strong> está activo.</p>
+            <p style=""margin:0 0 18px;text-align:center;background:#efefef;padding:10px 12px;font-weight:700;letter-spacing:0.08em;"">PLAN {plan}</p>
+            <p style=""margin:0 0 6px;"">Concepto: <strong>{concepto}</strong></p>
+            <p style=""margin:0 0 6px;"">Monto pagado: <strong>{monto}</strong></p>
+            <p style=""margin:0 0 6px;"">Fecha de pago: <strong>{fechaPago}</strong></p>
+            <p style=""margin:0 0 18px;"">Vigente hasta: <strong>{vigenteHasta}</strong></p>
+            <p style=""margin:0;text-align:center;font-size:13px;color:#555555;"">Gracias por vender con nosotros.</p>")),
+
+            PlantillaCorreo.SuscripcionPorVencer => (
+                "Tu plan {plan} vence el {venceEl}",
+                Envolver(@"
+            <p style=""margin:0 0 12px;text-align:center;"">Hola <strong>{vendedor}</strong>.</p>
+            <p style=""margin:0 0 18px;text-align:center;"">{detalle}</p>
+            <p style=""margin:0 0 18px;text-align:center;background:#efefef;padding:10px 12px;font-weight:700;letter-spacing:0.08em;"">VENCE EL {venceEl}</p>
+            <p style=""margin:0 0 6px;"">Plan: <strong>{plan}</strong></p>
+            <p style=""margin:0 0 18px;"">Monto de renovación: <strong>{monto}</strong></p>
+            <p style=""margin:0;text-align:center;font-size:13px;color:#555555;"">Ya puedes renovar desde <strong>Mi suscripción</strong> en tu panel. El tiempo pagado se suma a tu fecha actual.</p>")),
+
             _ => (
                 "Notificación",
                 Envolver("<p style=\"margin:0;text-align:center;\">Tienes una nueva notificación.</p>"))

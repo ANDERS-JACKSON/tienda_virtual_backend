@@ -33,7 +33,9 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                     return ResultadoOperacion<SuscripcionDto?>.SetError("No tienes perfil de vendedor.");
 
                 var now = DateTime.UtcNow;
-                var sus = await _context.Suscripciones.AsNoTracking()
+                // Tracked: si la prueba/periodo ya venció, pasamos a PendientePago al consultar
+                // (no depende solo del job admin de vencimientos).
+                var sus = await _context.Suscripciones
                     .Include(s => s.Plan)
                     .Include(s => s.Cupon)
                     .Where(s => s.VendedorId == vendedor.VendedorId)
@@ -44,6 +46,12 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                         s.Estado == TipoEstadoSuscripcion.PendientePago ||
                         (s.Estado == TipoEstadoSuscripcion.Cancelada &&
                          s.PeriodoFin.HasValue && s.PeriodoFin > now));
+
+                if (sus != null &&
+                    SuscripcionBeneficiosHelper.AplicarVencimientoSiCorresponde(sus, now))
+                {
+                    await _context.SaveChangesAsync();
+                }
 
                 return ResultadoOperacion<SuscripcionDto?>.SetExito(
                     sus == null ? null : sus.ToDto(nombresPlanes: await MapaNombresPlanesAsync()));
@@ -76,6 +84,7 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
 
                 var puedeContratar = !bloqueante || tieneCanceladaConAcceso;
                 var requierePago = !elegibleMesesGratis;
+                var planEntrada = await SuscripcionBeneficiosHelper.ObtenerPlanEntradaAsync(_context);
 
                 string mensaje;
                 if (tieneCanceladaConAcceso)
@@ -85,9 +94,13 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                 else if (requierePago)
                     mensaje =
                         "Al contratar de nuevo no hay meses gratis: deberás pagar el plan para activar la suscripción.";
-                else
+                else if (planEntrada != null)
                     mensaje =
-                        $"Tu primera suscripción incluye {SuscripcionBeneficiosHelper.MesesPruebaPrimeraVez} meses de prueba gratis.";
+                        $"Tu primera suscripción al plan {planEntrada.Nombre} incluye " +
+                        $"{SuscripcionBeneficiosHelper.MesesPruebaPrimeraVez} meses de prueba gratis. " +
+                        "Los demás planes se pagan desde el inicio.";
+                else
+                    mensaje = "Elige un plan para empezar a vender.";
 
                 return ResultadoOperacion<SuscripcionElegibilidadDto>.SetExito(new SuscripcionElegibilidadDto
                 {
@@ -95,7 +108,10 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                     PuedeContratarNueva = puedeContratar,
                     RequierePagoInmediato = requierePago,
                     TieneCanceladaConAcceso = tieneCanceladaConAcceso,
-                    Mensaje = mensaje
+                    Mensaje = mensaje,
+                    PlanPruebaId = planEntrada?.PlanId,
+                    PlanPruebaNombre = planEntrada?.Nombre,
+                    MesesPrueba = SuscripcionBeneficiosHelper.MesesPruebaPrimeraVez,
                 });
             }
             catch (Exception ex)
@@ -166,6 +182,80 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
 
         }
 
+        public async Task<ResultadoOperacion<CotizacionCambioPlanDto>> CotizarCambioPlanAsync(
+            Guid usuarioId, CotizarCambioPlanDto dto)
+        {
+            try
+            {
+                var vendedor = await _context.Vendedores.AsNoTracking()
+                    .FirstOrDefaultAsync(v => v.UsuarioId == usuarioId);
+                if (vendedor == null)
+                    return ResultadoOperacion<CotizacionCambioPlanDto>.SetError("No tienes perfil de vendedor.");
+
+                var now = DateTime.UtcNow;
+                var sus = await ObtenerSuscripcionGestionableAsync(vendedor.VendedorId);
+                if (sus == null)
+                    return ResultadoOperacion<CotizacionCambioPlanDto>.SetError("No tienes una suscripción activa.");
+
+                if (SuscripcionBeneficiosHelper.AplicarVencimientoSiCorresponde(sus, now))
+                    await _context.SaveChangesAsync();
+
+                var (nuevoPlan, error) = await ObtenerPlanDestinoAsync(sus, dto.NuevoPlanId);
+                if (nuevoPlan == null)
+                    return ResultadoOperacion<CotizacionCambioPlanDto>.SetError(error!);
+
+                var cotizacion = CambioPlanCalculadora.Cotizar(sus, nuevoPlan, now);
+                var enUso = await LimiteProductosPlanHelper.ContarEnUsoAsync(_context, vendedor.VendedorId);
+                var excedeCupo = nuevoPlan.MaxProductos.HasValue && enUso > nuevoPlan.MaxProductos.Value;
+
+                if (excedeCupo && cotizacion.RequierePago)
+                    return ResultadoOperacion<CotizacionCambioPlanDto>.SetError(
+                        $"El plan {nuevoPlan.Nombre} permite {nuevoPlan.MaxProductos} productos y tienes {enUso}. " +
+                        "Pausa productos antes de cambiar.");
+
+                var finAcceso = SuscripcionBeneficiosHelper.FechaFinAcceso(sus);
+                var diasRestantes = finAcceso.HasValue && finAcceso > now
+                    ? (int)(finAcceso.Value - now).TotalDays
+                    : 0;
+                var precioNuevo = SuscripcionBeneficiosHelper.PrecioPorPeriodo(nuevoPlan, null, sus.Cupon);
+
+                return ResultadoOperacion<CotizacionCambioPlanDto>.SetExito(new CotizacionCambioPlanDto
+                {
+                    SuscripcionId = sus.SuscripcionId,
+                    PlanActualId = sus.PlanId,
+                    PlanActualNombre = sus.Plan.Nombre,
+                    NuevoPlanId = nuevoPlan.PlanId,
+                    NuevoPlanNombre = nuevoPlan.Nombre,
+                    Tipo = new EnumeracionDto
+                    {
+                        Id = (int)cotizacion.Tipo,
+                        Nombre = cotizacion.Tipo.GetDescription(),
+                    },
+                    RequierePago = cotizacion.RequierePago,
+                    Monto = cotizacion.Monto,
+                    PrecioNuevo = precioNuevo,
+                    TerminaPrueba = cotizacion.MotivoCobro == TipoMotivoPagoSuscripcion.UpgradeDesdePrueba,
+                    DiasRestantes = diasRestantes,
+                    Resumen = ResumenCambio(sus, nuevoPlan, cotizacion, precioNuevo, diasRestantes),
+                    ProductosEnUso = enUso,
+                    MaxProductosNuevo = nuevoPlan.MaxProductos,
+                    RequiereSeleccionProductos = excedeCupo,
+                    Productos = excedeCupo
+                        ? await ListarProductosEnUsoAsync(vendedor.VendedorId)
+                        : new List<ProductoCupoPlanDto>(),
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en SuscripcionServicio.CotizarCambioPlanAsync");
+                return ResultadoOperacion<CotizacionCambioPlanDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
+        }
+
+        /// <summary>
+        /// Aplica de inmediato los cambios sin cobro (downgrade, upgrade sin diferencia o con pago pendiente).
+        /// Los upgrades con cobro se completan en el checkout y se aplican al confirmarse el pago.
+        /// </summary>
         public async Task<ResultadoOperacion<SuscripcionDto>> CambiarPlanAsync(Guid usuarioId, CambiarPlanDto dto)
         {
             await using var trx = await _context.Database.BeginTransactionAsync();
@@ -175,26 +265,77 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                 if (vendedor == null)
                     return ResultadoOperacion<SuscripcionDto>.SetError("No tienes perfil de vendedor.");
 
+                var now = DateTime.UtcNow;
                 var sus = await ObtenerSuscripcionGestionableAsync(vendedor.VendedorId);
                 if (sus == null)
                     return ResultadoOperacion<SuscripcionDto>.SetError("No tienes una suscripción activa.");
 
-                if (sus.PlanId == dto.NuevoPlanId)
-                    return ResultadoOperacion<SuscripcionDto>.SetError("Ya estás en ese plan.");
+                SuscripcionBeneficiosHelper.AplicarVencimientoSiCorresponde(sus, now);
 
-                var nuevoPlan = await _context.Planes.FirstOrDefaultAsync(p => p.PlanId == dto.NuevoPlanId && p.Activo);
+                var (nuevoPlan, error) = await ObtenerPlanDestinoAsync(sus, dto.NuevoPlanId);
                 if (nuevoPlan == null)
-                    return ResultadoOperacion<SuscripcionDto>.SetError("Plan no encontrado o inactivo.");
+                    return ResultadoOperacion<SuscripcionDto>.SetError(error!);
 
-                sus.PlanId = nuevoPlan.PlanId;
+                var cobroEnCurso = await _context.Transacciones.AnyAsync(t =>
+                    t.SuscripcionId == sus.SuscripcionId &&
+                    t.Tipo == TipoTransaccion.PagoSuscripcion &&
+                    t.Estado == TipoEstadoTransaccion.Procesando);
+                if (cobroEnCurso)
+                    return ResultadoOperacion<SuscripcionDto>.SetError(
+                        "Tienes un pago en verificación. Espera a que se confirme antes de cambiar de plan.");
+
+                var cotizacion = CambioPlanCalculadora.Cotizar(sus, nuevoPlan, now);
+                if (cotizacion.RequierePago)
+                    return ResultadoOperacion<SuscripcionDto>.SetError(
+                        "Este cambio requiere un pago. Continúa al checkout para completarlo.");
+
+                var pausados = 0;
+                if (nuevoPlan.MaxProductos is int max)
+                {
+                    var enUso = await _context.Productos
+                        .Where(p => p.VendedorId == vendedor.VendedorId &&
+                                    (p.Estado == TipoEstadoProducto.Activo ||
+                                     p.Estado == TipoEstadoProducto.Borrador))
+                        .ToListAsync();
+
+                    if (enUso.Count > max)
+                    {
+                        if (dto.ProductoIdsConservar == null)
+                            return ResultadoOperacion<SuscripcionDto>.SetError(
+                                $"El plan {nuevoPlan.Nombre} permite {max} productos y tienes {enUso.Count}. " +
+                                "Elige cuáles conservar.");
+
+                        var conservar = dto.ProductoIdsConservar.ToHashSet();
+                        if (conservar.Count > max)
+                            return ResultadoOperacion<SuscripcionDto>.SetError(
+                                $"Solo puedes conservar hasta {max} productos en el plan {nuevoPlan.Nombre}.");
+
+                        if (!conservar.IsSubsetOf(enUso.Select(p => p.ProductoId)))
+                            return ResultadoOperacion<SuscripcionDto>.SetError(
+                                "La selección incluye productos que no son tuyos o ya están pausados.");
+
+                        foreach (var producto in enUso.Where(p => !conservar.Contains(p.ProductoId)))
+                        {
+                            producto.Estado = TipoEstadoProducto.Pausado;
+                            pausados++;
+                        }
+                    }
+                }
+
+                var planAnterior = sus.Plan.Nombre;
+                CambioPlanCalculadora.AplicarPlan(sus, nuevoPlan);
                 await _context.SaveChangesAsync();
                 await trx.CommitAsync();
+
+                var cuerpo = $"Tu plan cambió de {planAnterior} a {nuevoPlan.Nombre}.";
+                if (pausados > 0)
+                    cuerpo += $" Pausamos {pausados} producto(s) para ajustarte al nuevo límite.";
 
                 await _notificacionServicio.CrearAsync(
                     usuarioId,
                     TipoNotificacion.SuscripcionPlanCambiado,
-                    "Cambio de plan agendado",
-                    $"Tu suscripción cambiará a {nuevoPlan.Nombre} al inicio del próximo periodo.");
+                    "Plan actualizado",
+                    cuerpo);
 
                 return await CargarSuscripcionAsync(sus.SuscripcionId);
             }
@@ -377,6 +518,68 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             }
         }
 
+        public async Task<ResultadoOperacion<int>> EnviarAvisosVencimientoAsync()
+        {
+            try
+            {
+                var now = DateTime.UtcNow;
+                var limite = now.AddDays(SuscripcionBeneficiosHelper.DiasVentanaRenovacion);
+
+                var porVencer = await _context.Suscripciones
+                    .Include(s => s.Plan)
+                    .Include(s => s.Cupon)
+                    .Include(s => s.Vendedor)
+                    .Where(s => s.AvisoVencimientoEnviadoEn == null &&
+                                ((s.Estado == TipoEstadoSuscripcion.EnPrueba &&
+                                  s.PruebaTerminaEn > now && s.PruebaTerminaEn <= limite) ||
+                                 (s.Estado == TipoEstadoSuscripcion.Activa &&
+                                  s.PeriodoFin > now && s.PeriodoFin <= limite)))
+                    .ToListAsync();
+
+                if (porVencer.Count == 0)
+                    return ResultadoOperacion<int>.SetExito(0);
+
+                // Se marca antes de notificar: si el ciclo se repite no se duplican avisos.
+                foreach (var s in porVencer)
+                    s.AvisoVencimientoEnviadoEn = now;
+                await _context.SaveChangesAsync();
+
+                foreach (var s in porVencer)
+                {
+                    var vence = SuscripcionBeneficiosHelper.FechaFinAcceso(s)!.Value;
+                    var dias = Math.Max(1, (int)Math.Ceiling((vence - now).TotalDays));
+                    var detalle = s.Estado == TipoEstadoSuscripcion.EnPrueba
+                        ? $"Tu prueba gratis del plan {s.Plan.Nombre} termina en {dias} día(s). " +
+                          "Si pagas ahora, el periodo pagado se suma al final de tu prueba."
+                        : $"Tu plan {s.Plan.Nombre} vence en {dias} día(s). " +
+                          "Renueva ahora para que tu tienda siga visible; el periodo pagado se suma a tu fecha actual.";
+
+                    await _notificacionServicio.CrearAsync(
+                        s.Vendedor.UsuarioId,
+                        TipoNotificacion.SuscripcionPorVencer,
+                        "Tu plan está por vencer",
+                        detalle,
+                        plantillaEmail: PlantillaCorreo.SuscripcionPorVencer,
+                        placeholdersEmail: new Dictionary<string, string>
+                        {
+                            ["vendedor"] = s.Vendedor.NombreTienda,
+                            ["plan"] = s.Plan.Nombre,
+                            ["venceEl"] = SuscripcionBeneficiosHelper.FormatoFechaPeru(vence),
+                            ["monto"] = SuscripcionBeneficiosHelper.FormatoSoles(
+                                SuscripcionBeneficiosHelper.PrecioPorPeriodo(s.Plan, s.PrecioPersonalizado, s.Cupon)),
+                            ["detalle"] = detalle,
+                        });
+                }
+
+                return ResultadoOperacion<int>.SetExito(porVencer.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en SuscripcionServicio.EnviarAvisosVencimientoAsync");
+                return ResultadoOperacion<int>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
+        }
+
         private async Task<bool> TieneSuscripcionBloqueanteAsync(int vendedorId, DateTime now) =>
             await _context.Suscripciones.AnyAsync(s =>
                 s.VendedorId == vendedorId &&
@@ -387,12 +590,82 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                   s.PeriodoFin.HasValue && s.PeriodoFin > now)));
 
         private async Task<Suscripcion?> ObtenerSuscripcionGestionableAsync(int vendedorId) =>
-            await _context.Suscripciones.Include(s => s.Plan)
+            await _context.Suscripciones
+                .Include(s => s.Plan)
+                .Include(s => s.Cupon)
                 .OrderByDescending(s => s.SuscripcionId)
                 .FirstOrDefaultAsync(s => s.VendedorId == vendedorId &&
                     (s.Estado == TipoEstadoSuscripcion.EnPrueba ||
                      s.Estado == TipoEstadoSuscripcion.Activa ||
                      s.Estado == TipoEstadoSuscripcion.PendientePago));
+
+        private async Task<(Plan? Plan, string? Error)> ObtenerPlanDestinoAsync(Suscripcion sus, int nuevoPlanId)
+        {
+            if (sus.PlanId == nuevoPlanId)
+                return (null, "Ya estás en ese plan.");
+
+            var plan = await _context.Planes.FirstOrDefaultAsync(p => p.PlanId == nuevoPlanId && p.Activo);
+            return plan == null ? (null, "Plan no encontrado o inactivo.") : (plan, null);
+        }
+
+        private async Task<List<ProductoCupoPlanDto>> ListarProductosEnUsoAsync(int vendedorId)
+        {
+            var filas = await _context.Productos.AsNoTracking()
+                .Where(p => p.VendedorId == vendedorId &&
+                            (p.Estado == TipoEstadoProducto.Activo || p.Estado == TipoEstadoProducto.Borrador))
+                .OrderBy(p => p.Estado == TipoEstadoProducto.Activo ? 0 : 1)
+                .ThenByDescending(p => p.ProductoId)
+                .Select(p => new
+                {
+                    p.ProductoId,
+                    p.Nombre,
+                    p.Estado,
+                    ImagenUrl = p.Imagenes
+                        .OrderByDescending(i => i.EsPrincipal)
+                        .ThenBy(i => i.Orden)
+                        .Select(i => i.Url)
+                        .FirstOrDefault(),
+                })
+                .ToListAsync();
+
+            return filas.Select(f => new ProductoCupoPlanDto
+            {
+                ProductoId = f.ProductoId,
+                Nombre = f.Nombre,
+                Estado = new EnumeracionDto { Id = (int)f.Estado, Nombre = f.Estado.GetDescription() },
+                ImagenUrl = f.ImagenUrl,
+            }).ToList();
+        }
+
+        private static string ResumenCambio(
+            Suscripcion sus,
+            Plan nuevoPlan,
+            CotizacionCambioPlan cotizacion,
+            decimal precioNuevo,
+            int diasRestantes)
+        {
+            var precio = SuscripcionBeneficiosHelper.FormatoSoles(precioNuevo);
+            var monto = SuscripcionBeneficiosHelper.FormatoSoles(cotizacion.Monto);
+
+            return cotizacion.MotivoCobro switch
+            {
+                TipoMotivoPagoSuscripcion.UpgradeDesdePrueba =>
+                    $"Tu prueba gratis termina al confirmar el pago. Pagas {monto} y el plan {nuevoPlan.Nombre} " +
+                    "queda activo por un periodo completo desde hoy.",
+                TipoMotivoPagoSuscripcion.UpgradeProrrateo =>
+                    $"Pagas solo la diferencia por los {diasRestantes} días que quedan de tu periodo: {monto}. " +
+                    $"Tu fecha de renovación no cambia; desde entonces pagarás {precio} por periodo.",
+                _ when sus.Estado == TipoEstadoSuscripcion.PendientePago =>
+                    $"El plan cambia ahora. Al completar tu pago pendiente pagarás {precio} por periodo.",
+                _ when cotizacion.Tipo == TipoCambioPlan.Upgrade =>
+                    $"La diferencia por los días restantes es mínima: el cambio a {nuevoPlan.Nombre} es inmediato y sin costo.",
+                _ when sus.Estado == TipoEstadoSuscripcion.EnPrueba =>
+                    $"El cambio es inmediato y sigues en tu prueba gratis. Al terminar pagarás {precio} por periodo.",
+                _ =>
+                    "El cambio es inmediato y conservas tu fecha de renovación. No hay reembolso del periodo actual; " +
+                    $"desde la renovación pagarás {precio} por periodo.",
+            };
+        }
 
         private async Task<ResultadoOperacion<SuscripcionDto>> CargarSuscripcionAsync(int suscripcionId)
         {
@@ -439,9 +712,10 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
             if (plan == null)
                 return ResultadoOperacion<SuscripcionDto>.SetError("Plan no encontrado o inactivo.");
 
-            var elegibleMesesGratis = forzarPago
-                ? false
-                : await SuscripcionBeneficiosHelper.ElegibleMesesGratisAsync(_context, vendedor.VendedorId);
+            var planEntrada = await SuscripcionBeneficiosHelper.ObtenerPlanEntradaAsync(_context);
+            var esPlanEntrada = planEntrada?.PlanId == plan.PlanId;
+            var elegibleMesesGratis = !forzarPago && esPlanEntrada &&
+                await SuscripcionBeneficiosHelper.ElegibleMesesGratisAsync(_context, vendedor.VendedorId);
 
             Cupon? cupon = null;
             if (!string.IsNullOrWhiteSpace(dto.CodigoCupon))
@@ -460,6 +734,10 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                     s.VendedorId == vendedor.VendedorId && s.CuponId == cupon.CuponId);
                 if (yaUsado)
                     return ResultadoOperacion<SuscripcionDto>.SetError("Ya usaste este cupón antes.");
+
+                if (cupon.TipoDescuento == TipoDescuentoCupon.MesesGratis && !esPlanEntrada)
+                    return ResultadoOperacion<SuscripcionDto>.SetError(
+                        $"Los cupones de meses gratis solo aplican al plan {planEntrada?.Nombre ?? "de entrada"}.");
             }
 
             var (mesesPruebaBase, mesesExtraCupon, errorMesesGratis) =
@@ -497,7 +775,7 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                 : $"¡Suscripción al plan {plan.Nombre} iniciada!";
             var cuerpo = estado == TipoEstadoSuscripcion.EnPrueba
                 ? $"Tienes {mesesGratisTotal} mes(es) gratis hasta {pruebaTerminaEn:dd/MM/yyyy}."
-                : "Tu suscripción está pendiente de pago. Completa el pago para volver a publicar productos.";
+                : "Tu suscripción está pendiente de pago. Completa el pago para activar tu plan y publicar productos.";
 
             await trx.CommitAsync();
 

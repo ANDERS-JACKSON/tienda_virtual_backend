@@ -30,6 +30,9 @@ namespace TiendaVirtual.Dominio.Modelo.VendedorXqm
         public DateTime? PeriodoInicio { get; set; }
         public DateTime? PeriodoFin { get; set; }
 
+        /// <summary>Último aviso de “por vencer”. Se limpia al extender el periodo.</summary>
+        public DateTime? AvisoVencimientoEnviadoEn { get; set; }
+
         public virtual Vendedor Vendedor { get; set; } = null!;
         public virtual Plan Plan { get; set; } = null!;
         public virtual Cupon? Cupon { get; set; }

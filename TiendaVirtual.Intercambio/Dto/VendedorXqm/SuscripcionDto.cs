@@ -16,6 +16,10 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
         public DateTime? PeriodoInicio { get; set; }
         public DateTime? PeriodoFin { get; set; }
         public bool RequierePago { get; set; }
+
+        /// <summary>En prueba vigente o dentro de la ventana de renovación del periodo pagado.</summary>
+        public bool PuedePagarAnticipado { get; set; }
+
         public bool PuedePublicar { get; set; }
         public int DiasRestantes { get; set; }
 

@@ -15,7 +15,8 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
     {
         private const int MAX_DESTACADOS = 10;
         // v2: precio = variante por defecto + oferta (misma regla que catálogo)
-        private const string CacheKeyPublico = "destacados:publico:v2";
+        // v3: también exige vendedor activo + plan comercial + stock (o patrón)
+        private const string CacheKeyPublico = "destacados:publico:v3";
 
         private readonly TiendaVirtualDbContext _context;
         private readonly IMemoryCache _cache;
@@ -54,10 +55,14 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     .Take(MAX_DESTACADOS)
                     .ToListAsync();
 
+                var vendedorIds = destacados
+                    .Select(d => d.Producto.VendedorId)
+                    .Distinct()
+                    .ToList();
+                var tiendasConPlan = await ObtenerVendedorIdsConPlanActivoAsync(vendedorIds, now);
+
                 var items = destacados
-                    .Where(d =>
-                        d.Producto.Estado == TipoEstadoProducto.Activo &&
-                        string.IsNullOrEmpty(d.Producto.MotivoPausaAdmin))
+                    .Where(d => EsElegibleParaHome(d.Producto, tiendasConPlan))
                     .Select(MapearPublico)
                     .ToList();
 
@@ -101,11 +106,41 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 if (dto == null || dto.ProductoId <= 0)
                     return ResultadoOperacion<ProductoDestacadoAdminDto>.SetError("Producto no válido.");
 
-                var productoExiste = await _context.Productos
+                var producto = await _context.Productos
                     .AsNoTracking()
-                    .AnyAsync(p => p.ProductoId == dto.ProductoId);
-                if (!productoExiste)
+                    .Include(p => p.Vendedor)
+                    .Include(p => p.Variantes).ThenInclude(v => v.Stock)
+                    .FirstOrDefaultAsync(p => p.ProductoId == dto.ProductoId);
+                if (producto == null)
                     return ResultadoOperacion<ProductoDestacadoAdminDto>.SetError("Producto no encontrado.");
+
+                if (producto.Estado != TipoEstadoProducto.Activo ||
+                    !string.IsNullOrEmpty(producto.MotivoPausaAdmin))
+                {
+                    return ResultadoOperacion<ProductoDestacadoAdminDto>.SetError(
+                        "Solo se pueden destacar productos activos y visibles en el catálogo.");
+                }
+
+                if (producto.Vendedor.Estado != TipoEstadoVendedor.Activo)
+                {
+                    return ResultadoOperacion<ProductoDestacadoAdminDto>.SetError(
+                        "No se puede destacar: la tienda del vendedor no está activa.");
+                }
+
+                var now = DateTime.UtcNow;
+                var tiendaConPlan = await ObtenerVendedorIdsConPlanActivoAsync(
+                    new List<int> { producto.VendedorId }, now);
+                if (!tiendaConPlan.Contains(producto.VendedorId))
+                {
+                    return ResultadoOperacion<ProductoDestacadoAdminDto>.SetError(
+                        "No se puede destacar: la tienda no tiene un plan activo.");
+                }
+
+                if (!ProductoTieneStockPublicable(producto))
+                {
+                    return ResultadoOperacion<ProductoDestacadoAdminDto>.SetError(
+                        "No se puede destacar: el producto no tiene stock disponible.");
+                }
 
                 var yaDestacado = await _context.ProductosDestacados
                     .AsNoTracking()
@@ -212,6 +247,43 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         private void InvalidarCachePublico() => _cache.Remove(CacheKeyPublico);
 
         public void InvalidarCacheListadoPublico() => InvalidarCachePublico();
+
+        private async Task<HashSet<int>> ObtenerVendedorIdsConPlanActivoAsync(
+            IReadOnlyCollection<int> vendedorIds,
+            DateTime now)
+        {
+            if (vendedorIds.Count == 0)
+                return new HashSet<int>();
+
+            var ids = await _context.Suscripciones.AsNoTracking()
+                .Where(s => vendedorIds.Contains(s.VendedorId) &&
+                            ((s.Estado == TipoEstadoSuscripcion.EnPrueba &&
+                              s.PruebaTerminaEn.HasValue &&
+                              s.PruebaTerminaEn > now) ||
+                             (s.Estado == TipoEstadoSuscripcion.Activa &&
+                              (!s.PeriodoFin.HasValue || s.PeriodoFin > now))))
+                .Select(s => s.VendedorId)
+                .Distinct()
+                .ToListAsync();
+
+            return ids.ToHashSet();
+        }
+
+        private static bool ProductoTieneStockPublicable(Producto producto)
+        {
+            if (producto.Tipo == TipoProducto.Patron)
+                return true;
+
+            return producto.Variantes.Any(v =>
+                v.Activa && v.Stock != null && v.Stock.CantidadDisponible > 0);
+        }
+
+        private static bool EsElegibleParaHome(Producto producto, HashSet<int> tiendasConPlan) =>
+            producto.Estado == TipoEstadoProducto.Activo &&
+            string.IsNullOrEmpty(producto.MotivoPausaAdmin) &&
+            producto.Vendedor.Estado == TipoEstadoVendedor.Activo &&
+            tiendasConPlan.Contains(producto.VendedorId) &&
+            ProductoTieneStockPublicable(producto);
 
         private static ProductoDestacadoPublicoDto MapearPublico(ProductoDestacado d)
         {

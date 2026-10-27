@@ -63,6 +63,14 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.PagoXqm
             builder.Property(e => e.Fecha)
                 .HasColumnName("fecha");
 
+            builder.Property(e => e.MotivoSuscripcion)
+                .HasConversion<short?>()
+                .HasColumnType("int2")
+                .HasColumnName("motivo_suscripcion");
+
+            builder.Property(e => e.PlanDestinoId)
+                .HasColumnName("plan_destino_id");
+
             builder.HasIndex(e => e.OrdenId)
                 .HasDatabaseName("idx_transaccion_orden");
 

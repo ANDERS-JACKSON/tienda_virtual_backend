@@ -268,6 +268,24 @@ namespace TiendaVirtual.Api.Controllers.VendedorXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
+        [HttpPut("admin/{vendedorId:int}/vende-patrones")]
+        [Authorize(Roles = "ADMIN")]
+        public async Task<ActionResult<ResultadoOperacion<bool>>> ActualizarVendePatrones(
+            int vendedorId, [FromBody] ActualizarVendePatronesDto dto)
+        {
+            var r = await _servicio.ActualizarVendePatronesAdminAsync(vendedorId, dto);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
+        [HttpPut("admin/{vendedorId:int}")]
+        [Authorize(Roles = "ADMIN")]
+        public async Task<ActionResult<ResultadoOperacion<VendedorAdminDetalleDto>>> ActualizarAdmin(
+            int vendedorId, [FromBody] ActualizarVendedorAdminDto dto)
+        {
+            var r = await _servicio.ActualizarAdminAsync(vendedorId, dto);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
         // ──────────────── HELPER ────────────────
         private Guid? ObtenerUsuarioId()
         {

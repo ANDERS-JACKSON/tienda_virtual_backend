@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TiendaVirtual.Comun.Enumeracion;
+using TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion;
 using TiendaVirtual.Dominio.Utilidad;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.CatalogoXqm;
@@ -125,8 +126,13 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 var p = await _context.Productos.FindAsync(productoId);
                 if (p == null) return ResultadoOperacion<bool>.SetError("Producto no encontrado.");
 
+                var plan = await LimiteProductosPlanHelper.ObtenerPlanVigenteAsync(
+                    _context, p.VendedorId, DateTime.UtcNow);
+                var excedeCupo = plan?.MaxProductos is int max &&
+                    await LimiteProductosPlanHelper.ContarEnUsoAsync(_context, p.VendedorId, p.ProductoId) >= max;
+
                 p.MotivoPausaAdmin = null;
-                p.Estado = TipoEstadoProducto.Activo;
+                p.Estado = excedeCupo ? TipoEstadoProducto.Pausado : TipoEstadoProducto.Activo;
                 await _context.SaveChangesAsync();
                 return ResultadoOperacion<bool>.SetExito(true);
             }

@@ -137,17 +137,36 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 if (metodosEnvio.Count != idsMetodos.Count)
                     return ResultadoOperacion<OrdenDto>.SetError("Algún método de envío no es válido.");
 
-                // 5. Validar productos / vendedores / stock
+                // 5. Validar productos / vendedores / plan / stock
+                var now = DateTime.UtcNow;
+                var vendedorIdsOrden = items.Select(i => i.Variante.Producto.VendedorId).Distinct().ToList();
+                var tiendasConPlan = await _context.Suscripciones.AsNoTracking()
+                    .Where(s => vendedorIdsOrden.Contains(s.VendedorId) &&
+                                ((s.Estado == TipoEstadoSuscripcion.EnPrueba &&
+                                  s.PruebaTerminaEn.HasValue &&
+                                  s.PruebaTerminaEn > now) ||
+                                 (s.Estado == TipoEstadoSuscripcion.Activa &&
+                                  (!s.PeriodoFin.HasValue || s.PeriodoFin > now))))
+                    .Select(s => s.VendedorId)
+                    .Distinct()
+                    .ToListAsync();
+
                 foreach (var i in items)
                 {
                     var p = i.Variante.Producto;
-                    if (p.Estado != TipoEstadoProducto.Activo)
+                    if (p.Estado != TipoEstadoProducto.Activo ||
+                        !string.IsNullOrEmpty(p.MotivoPausaAdmin) ||
+                        !i.Variante.Activa)
                         return ResultadoOperacion<OrdenDto>.SetError(
                             $"El producto '{p.Nombre}' ya no está disponible.");
 
                     if (p.Vendedor.Estado != TipoEstadoVendedor.Activo)
                         return ResultadoOperacion<OrdenDto>.SetError(
                             $"La tienda '{p.Vendedor.NombreTienda}' ya no está activa.");
+
+                    if (!tiendasConPlan.Contains(p.VendedorId))
+                        return ResultadoOperacion<OrdenDto>.SetError(
+                            $"La tienda '{p.Vendedor.NombreTienda}' no está disponible en este momento.");
 
                     if (p.Tipo != TipoProducto.Patron)
                     {
@@ -160,7 +179,6 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
                 // 6. Ofertas vigentes (1 query para todos los productos)
                 var productosIds = items.Select(i => i.Variante.ProductoId).Distinct().ToList();
-                var now = DateTime.UtcNow;
                 var ofertas = await _context.Ofertas
                     .Where(o => productosIds.Contains(o.ProductoId)
                                 && o.Activa

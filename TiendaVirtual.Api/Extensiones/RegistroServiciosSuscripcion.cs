@@ -1,3 +1,4 @@
+using TiendaVirtual.Api.Workers;
 using TiendaVirtual.Dominio.Servicios.SuscripcionXqm;
 using TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion;
 
@@ -11,6 +12,7 @@ namespace TiendaVirtual.Api.Extensiones
             services.AddScoped<ICuponServicio, CuponServicio>();
             services.AddScoped<ISuscripcionServicio, SuscripcionServicio>();
             services.AddScoped<ISuscripcionPagoServicio, SuscripcionPagoServicio>();
+            services.AddHostedService<SuscripcionVencimientosWorker>();
             return services;
         }
     }

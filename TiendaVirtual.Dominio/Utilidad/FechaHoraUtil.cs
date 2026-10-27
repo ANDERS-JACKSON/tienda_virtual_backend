@@ -37,6 +37,10 @@ namespace TiendaVirtual.Dominio.Utilidad
                 _ => DateTime.SpecifyKind(value, DateTimeKind.Utc),
             };
 
+        /// <summary>Fecha UTC expresada en hora de Perú (para textos: correos, notificaciones).</summary>
+        public static DateTime APeru(DateTime utc) =>
+            TimeZoneInfo.ConvertTimeFromUtc(AUtc(utc), TzPeru.Value);
+
         /// <summary>
         /// Inicio del día calendario (Y/M/D del valor) en Perú → UTC.
         /// Ej.: 18/08 → 18/08 00:00 Lima → 18/08 05:00 UTC.

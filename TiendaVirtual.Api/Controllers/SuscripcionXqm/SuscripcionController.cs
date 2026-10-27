@@ -63,6 +63,17 @@ namespace TiendaVirtual.Api.Controllers.SuscripcionXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
+        [HttpPost("cotizar-cambio-plan")]
+        [Authorize(Roles = "VENDEDOR")]
+        public async Task<ActionResult<ResultadoOperacion<CotizacionCambioPlanDto>>> CotizarCambio(
+            [FromBody] CotizarCambioPlanDto dto)
+        {
+            var usuarioId = ObtenerUsuarioId();
+            if (usuarioId == null) return Unauthorized();
+            var r = await _servicio.CotizarCambioPlanAsync(usuarioId.Value, dto);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
         [HttpPost("cambiar-plan")]
         [Authorize(Roles = "VENDEDOR")]
         public async Task<ActionResult<ResultadoOperacion<SuscripcionDto>>> Cambiar([FromBody] CambiarPlanDto dto)

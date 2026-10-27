@@ -52,7 +52,24 @@ namespace TiendaVirtual.Api.Controllers.SuscripcionXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
+        /// <summary>
+        /// Verifica el estado del cobro de una suscripción pendiente.
+        /// Si Mercado Pago ya tiene un cobro en curso, solo consulta (nunca crea un segundo cobro).
+        /// </summary>
+        [EnableRateLimiting("pagos")]
+        [HttpPost("verificar-pago")]
+        [Authorize(Roles = "VENDEDOR")]
+        public async Task<ActionResult<ResultadoOperacion<ResultadoVerificarPagoSuscripcionDto>>> VerificarPago(
+            [FromBody] VerificarPagoSuscripcionDto dto)
+        {
+            var usuarioId = ObtenerUsuarioId();
+            if (usuarioId == null) return Unauthorized();
+            var r = await _servicio.VerificarPagoSuscripcionAsync(usuarioId.Value, dto);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
         /// <summary>Confirmación demo Izipay (solo Development). Bloqueado para Mercado Pago.</summary>
+        [EnableRateLimiting("pagos")]
         [HttpPost("confirmar")]
         [Authorize(Roles = "VENDEDOR")]
         public async Task<ActionResult<ResultadoOperacion<TransaccionDto>>> Confirmar(

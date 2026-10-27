@@ -38,6 +38,12 @@ namespace TiendaVirtual.Dominio.Modelo.PagoXqm
         public string? RespuestaProveedor { get; set; }   // JSONB
         public DateTime Fecha { get; set; }
 
+        /// <summary>Solo en pagos de suscripción. Null en transacciones antiguas = Renovacion.</summary>
+        public TipoMotivoPagoSuscripcion? MotivoSuscripcion { get; set; }
+
+        /// <summary>Plan al que se sube cuando el motivo es un upgrade.</summary>
+        public int? PlanDestinoId { get; set; }
+
         public virtual Orden? Orden { get; set; }
         public virtual Suscripcion? Suscripcion { get; set; }
         public virtual Usuario Usuario { get; set; } = null!;

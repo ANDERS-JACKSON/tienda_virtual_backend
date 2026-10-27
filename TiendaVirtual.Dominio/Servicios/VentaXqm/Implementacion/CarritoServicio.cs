@@ -62,8 +62,13 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 if (variante == null)
                     return ResultadoOperacion<CarritoDto>.SetError("La variante no existe o está inactiva.");
 
-                if (variante.Producto.Estado != TipoEstadoProducto.Activo)
+                if (variante.Producto.Estado != TipoEstadoProducto.Activo ||
+                    !string.IsNullOrEmpty(variante.Producto.MotivoPausaAdmin))
                     return ResultadoOperacion<CarritoDto>.SetError("Este producto no está disponible.");
+
+                if (variante.Producto.Vendedor.Estado != TipoEstadoVendedor.Activo)
+                    return ResultadoOperacion<CarritoDto>.SetError(
+                        "La tienda de este producto no está disponible en este momento.");
 
                 var now = DateTime.UtcNow;
                 var tiendaActiva = await _context.Suscripciones.AnyAsync(s =>
@@ -378,7 +383,12 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                                  ?? producto.Imagenes.OrderBy(im => im.Orden).FirstOrDefault()?.Url;
 
                     var tiendaActiva = tiendasActivas.Contains(producto.VendedorId);
-                    var publicado = variante.Activa && producto.Estado == TipoEstadoProducto.Activo && tiendaActiva;
+                    var publicado =
+                        variante.Activa &&
+                        producto.Estado == TipoEstadoProducto.Activo &&
+                        string.IsNullOrEmpty(producto.MotivoPausaAdmin) &&
+                        producto.Vendedor.Estado == TipoEstadoVendedor.Activo &&
+                        tiendaActiva;
                     var stockDisponible = !publicado
                         ? 0
                         : producto.Tipo == TipoProducto.Patron
@@ -636,6 +646,20 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 .Select(g => new { ProductoId = g.Key, Total = g.Count() })
                 .ToDictionaryAsync(x => x.ProductoId, x => x.Total);
 
+            // Misma regla que CotizarAsync (invitado): si la tienda no está activa
+            // o el producto dejó de estar publicado, el ítem queda no comprable.
+            var vendedorIds = items.Select(i => i.Variante.Producto.VendedorId).Distinct().ToList();
+            var tiendasActivas = await _context.Suscripciones.AsNoTracking()
+                .Where(s => vendedorIds.Contains(s.VendedorId) &&
+                            ((s.Estado == TipoEstadoSuscripcion.EnPrueba &&
+                              s.PruebaTerminaEn.HasValue &&
+                              s.PruebaTerminaEn > now) ||
+                             (s.Estado == TipoEstadoSuscripcion.Activa &&
+                              (!s.PeriodoFin.HasValue || s.PeriodoFin > now))))
+                .Select(s => s.VendedorId)
+                .Distinct()
+                .ToListAsync();
+
             var itemsDto = items.Select(i =>
             {
                 var producto = i.Variante.Producto;
@@ -650,14 +674,21 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 var imagen = producto.Imagenes.FirstOrDefault(im => im.EsPrincipal)?.Url
                              ?? producto.Imagenes.OrderBy(im => im.Orden).FirstOrDefault()?.Url;
 
-                var stockDisponible = producto.Tipo == TipoProducto.Patron
-                    ? STOCK_INFINITO_PATRON
-                    : (i.Variante.Stock?.CantidadDisponible ?? 0);
+                var tiendaActiva = tiendasActivas.Contains(producto.VendedorId);
+                var publicado =
+                    i.Variante.Activa &&
+                    producto.Estado == TipoEstadoProducto.Activo &&
+                    string.IsNullOrEmpty(producto.MotivoPausaAdmin) &&
+                    producto.Vendedor.Estado == TipoEstadoVendedor.Activo &&
+                    tiendaActiva;
 
-                var stockSuficiente = i.Cantidad <= stockDisponible;
+                var stockDisponible = !publicado
+                    ? 0
+                    : producto.Tipo == TipoProducto.Patron
+                        ? STOCK_INFINITO_PATRON
+                        : (i.Variante.Stock?.CantidadDisponible ?? 0);
 
-                // Techo real del stepper: el comprador necesita poder subir hasta
-                // el stock disponible (antes se ocultaba y el UI quedaba en 1).
+                var stockSuficiente = publicado && i.Cantidad <= stockDisponible;
                 var cantidadMaximaPermitida = stockDisponible;
 
                 return new ItemCarritoDto

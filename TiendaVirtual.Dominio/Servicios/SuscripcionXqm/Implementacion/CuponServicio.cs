@@ -167,8 +167,14 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion
                 if (yaUsado)
                     return ExitoValidacion(false, "Ya usaste este cupón antes.");
 
-                var elegibleMesesGratis = await SuscripcionBeneficiosHelper.ElegibleMesesGratisAsync(
-                    _context, vendedor.VendedorId);
+                var planEntrada = await SuscripcionBeneficiosHelper.ObtenerPlanEntradaAsync(_context);
+                var esPlanEntrada = !dto.PlanId.HasValue || dto.PlanId == planEntrada?.PlanId;
+                if (cupon.TipoDescuento == TipoDescuentoCupon.MesesGratis && !esPlanEntrada)
+                    return ExitoValidacion(false,
+                        $"Los cupones de meses gratis solo aplican al plan {planEntrada?.Nombre ?? "de entrada"}.");
+
+                var elegibleMesesGratis = esPlanEntrada &&
+                    await SuscripcionBeneficiosHelper.ElegibleMesesGratisAsync(_context, vendedor.VendedorId);
                 var (mesesPruebaBase, mesesExtra, errorMeses) =
                     SuscripcionBeneficiosHelper.CalcularMesesGratis(elegibleMesesGratis, cupon);
                 if (errorMeses != null)

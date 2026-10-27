@@ -19,6 +19,13 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm
         Task<ResultadoOperacion<TransaccionDto>> AplicarResultadoProveedorAsync(
             ResultadoPagoVerificadoDto resultado);
 
+        /// <summary>
+        /// Verifica si hay cobro en curso / ya pagado antes de abrir el checkout
+        /// (anti doble cobro, paridad con OrdenPagoServicio).
+        /// </summary>
+        Task<ResultadoOperacion<ResultadoVerificarPagoSuscripcionDto>> VerificarPagoSuscripcionAsync(
+            Guid usuarioId, VerificarPagoSuscripcionDto dto);
+
         Task<ResultadoOperacion<List<TransaccionDto>>> ListarMisTransaccionesAsync(Guid usuarioId);
     }
 }

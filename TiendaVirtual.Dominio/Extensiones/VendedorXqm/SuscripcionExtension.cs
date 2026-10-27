@@ -28,6 +28,7 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
 
             var now = DateTime.UtcNow;
             var puedePublicar = SuscripcionBeneficiosHelper.EsComercialmenteActiva(entidad, now);
+            var requierePago = SuscripcionBeneficiosHelper.RequierePagoAhora(entidad, now);
 
             return new SuscripcionDto
             {
@@ -46,7 +47,8 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
                 PruebaTerminaEn = entidad.PruebaTerminaEn,
                 PeriodoInicio = entidad.PeriodoInicio,
                 PeriodoFin = entidad.PeriodoFin,
-                RequierePago = estado == TipoEstadoSuscripcion.PendientePago,
+                RequierePago = requierePago,
+                PuedePagarAnticipado = SuscripcionBeneficiosHelper.PuedePagarAnticipado(entidad, now),
                 PuedePublicar = puedePublicar,
                 DiasRestantes = diasRestantes,
                 NombreTienda = nombreTienda,

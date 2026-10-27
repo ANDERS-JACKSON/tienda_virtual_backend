@@ -87,6 +87,20 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
 
                 if (dto.PuedeCrearProducto)
                 {
+                    var plan = await LimiteProductosPlanHelper.ObtenerPlanVigenteAsync(
+                        _context, vendedor.VendedorId, DateTime.UtcNow);
+                    dto.NombrePlan = plan?.Nombre;
+                    dto.MaxProductos = plan?.MaxProductos;
+                    dto.ProductosEnUso = await LimiteProductosPlanHelper.ContarEnUsoAsync(_context, vendedor.VendedorId);
+
+                    if (plan?.MaxProductos is int max && dto.ProductosEnUso >= max)
+                    {
+                        dto.PuedeCrearProducto = false;
+                        dto.CodigoBloqueo = "LIMITE_PLAN";
+                        dto.Mensaje = LimiteProductosPlanHelper.MensajeLimiteAlcanzado(plan);
+                        return ResultadoOperacion<ElegibilidadCreacionProductoDto>.SetExito(dto);
+                    }
+
                     dto.CodigoBloqueo = "OK";
                     dto.Mensaje = "Puedes crear productos.";
                     return ResultadoOperacion<ElegibilidadCreacionProductoDto>.SetExito(dto);
@@ -961,6 +975,12 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
                     LogoUrl = v.LogoUrl,
                     BannerUrl = v.BannerUrl,
                     Biografia = v.Biografia,
+                    NumeroYape = v.NumeroYape,
+                    NumeroWhatsapp = v.NumeroWhatsapp,
+                    DistritoId = v.DistritoId,
+                    UbicacionDepartamento = v.UbicacionDepartamento,
+                    UbicacionProvincia = v.UbicacionProvincia,
+                    UbicacionDistrito = v.UbicacionDistrito,
                     VendePatrones = v.VendePatrones,
                     MontoVendidoTotal = montoVendido,
                     ComisionGenerada = comision,
@@ -1026,6 +1046,104 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
             {
                 _logger.LogError(ex, "Error en VendedorServicio.");
                 return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
+        }
+
+        public async Task<ResultadoOperacion<bool>> ActualizarVendePatronesAdminAsync(
+            int vendedorId, ActualizarVendePatronesDto dto)
+        {
+            try
+            {
+                if (dto == null)
+                    return ResultadoOperacion<bool>.SetError("Datos no válidos.");
+
+                var v = await _context.Vendedores.FirstOrDefaultAsync(x => x.VendedorId == vendedorId);
+                if (v == null)
+                    return ResultadoOperacion<bool>.SetError("Vendedor no encontrado.");
+
+                v.VendePatrones = dto.VendePatrones;
+                await _context.SaveChangesAsync();
+                return ResultadoOperacion<bool>.SetExito(true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error actualizando VendePatrones del vendedor {VendedorId}", vendedorId);
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
+        }
+
+        public async Task<ResultadoOperacion<VendedorAdminDetalleDto>> ActualizarAdminAsync(
+            int vendedorId, ActualizarVendedorAdminDto dto)
+        {
+            try
+            {
+                if (dto == null || string.IsNullOrWhiteSpace(dto.NombreTienda))
+                    return ResultadoOperacion<VendedorAdminDetalleDto>.SetError(
+                        "El nombre de la tienda es obligatorio.");
+
+                if (!Enum.IsDefined(typeof(TipoEstadoVendedor), dto.Estado))
+                    return ResultadoOperacion<VendedorAdminDetalleDto>.SetError("Estado no válido.");
+
+                var nuevoEstado = (TipoEstadoVendedor)dto.Estado;
+
+                var v = await _context.Vendedores.FirstOrDefaultAsync(x => x.VendedorId == vendedorId);
+                if (v == null)
+                    return ResultadoOperacion<VendedorAdminDetalleDto>.SetError("Vendedor no encontrado.");
+
+                var estadoAnterior = v.Estado;
+                v.NombreTienda = dto.NombreTienda.Trim();
+                v.Biografia = string.IsNullOrWhiteSpace(dto.Biografia) ? null : dto.Biografia.Trim();
+                v.NumeroYape = string.IsNullOrWhiteSpace(dto.NumeroYape) ? null : dto.NumeroYape.Trim();
+                v.NumeroWhatsapp = string.IsNullOrWhiteSpace(dto.NumeroWhatsapp)
+                    ? null
+                    : dto.NumeroWhatsapp.Trim();
+                v.VendePatrones = dto.VendePatrones;
+                v.Estado = nuevoEstado;
+
+                if (dto.LogoUrl != null)
+                    v.LogoUrl = string.IsNullOrWhiteSpace(dto.LogoUrl) ? null : dto.LogoUrl.Trim();
+                if (dto.BannerUrl != null)
+                    v.BannerUrl = string.IsNullOrWhiteSpace(dto.BannerUrl) ? null : dto.BannerUrl.Trim();
+
+                if (string.IsNullOrWhiteSpace(dto.DistritoId))
+                {
+                    v.DistritoId = null;
+                    v.UbicacionDepartamento = null;
+                    v.UbicacionProvincia = null;
+                    v.UbicacionDistrito = null;
+                }
+                else
+                {
+                    var ubicacion = await ResolverUbigeoTiendaAsync(dto.DistritoId.Trim());
+                    if (ubicacion == null)
+                        return ResultadoOperacion<VendedorAdminDetalleDto>.SetError(
+                            "Distrito ubigeo no válido.");
+
+                    v.DistritoId = ubicacion.DistritoId;
+                    v.UbicacionDepartamento = ubicacion.Departamento;
+                    v.UbicacionProvincia = ubicacion.Provincia;
+                    v.UbicacionDistrito = ubicacion.Distrito;
+                }
+
+                // Al suspender desde edición, pausar productos activos (misma regla que Suspender).
+                if (nuevoEstado == TipoEstadoVendedor.Suspendido &&
+                    estadoAnterior != TipoEstadoVendedor.Suspendido)
+                {
+                    var productos = await _context.Productos
+                        .Where(p => p.VendedorId == vendedorId && p.Estado == TipoEstadoProducto.Activo)
+                        .ToListAsync();
+                    foreach (var p in productos)
+                        p.Estado = TipoEstadoProducto.Pausado;
+                }
+
+                await _context.SaveChangesAsync();
+                return await ObtenerAdminDetalleAsync(vendedorId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error actualizando vendedor admin {VendedorId}", vendedorId);
+                return ResultadoOperacion<VendedorAdminDetalleDto>.SetError(
+                    "Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 

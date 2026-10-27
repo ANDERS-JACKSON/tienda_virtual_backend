@@ -22,6 +22,12 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
         public string? LogoUrl { get; set; }
         public string? BannerUrl { get; set; }
         public string? Biografia { get; set; }
+        public string? NumeroYape { get; set; }
+        public string? NumeroWhatsapp { get; set; }
+        public string? DistritoId { get; set; }
+        public string? UbicacionDepartamento { get; set; }
+        public string? UbicacionProvincia { get; set; }
+        public string? UbicacionDistrito { get; set; }
         public bool VendePatrones { get; set; }
         public decimal MontoVendidoTotal { get; set; }
         public decimal ComisionGenerada { get; set; }
@@ -32,5 +38,24 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
     public class SuspenderVendedorDto
     {
         public string Motivo { get; set; } = null!;
+    }
+
+    public class ActualizarVendePatronesDto
+    {
+        public bool VendePatrones { get; set; }
+    }
+
+    public class ActualizarVendedorAdminDto
+    {
+        public string NombreTienda { get; set; } = null!;
+        public string? Biografia { get; set; }
+        public string? LogoUrl { get; set; }
+        public string? BannerUrl { get; set; }
+        public string? NumeroYape { get; set; }
+        public string? NumeroWhatsapp { get; set; }
+        public string? DistritoId { get; set; }
+        public bool VendePatrones { get; set; }
+        /// <summary>Id numérico de TipoEstadoVendedor.</summary>
+        public int Estado { get; set; }
     }
 }

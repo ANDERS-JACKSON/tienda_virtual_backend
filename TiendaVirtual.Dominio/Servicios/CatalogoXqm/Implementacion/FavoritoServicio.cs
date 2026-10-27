@@ -34,17 +34,11 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 tamanioPagina = Math.Clamp(tamanioPagina, 1, 24);
 
                 var now = DateTime.UtcNow;
+                // Se listan todos los favoritos (aunque la tienda esté inactiva o
+                // sin stock): el producto sigue visible, pero marcado no comprable.
                 var query = _context.Favoritos
                     .AsNoTracking()
-                    .Where(f => f.UsuarioId == usuarioId &&
-                                f.Producto.Estado == TipoEstadoProducto.Activo)
-                    .Where(f => _context.Suscripciones.Any(s =>
-                        s.VendedorId == f.Producto.VendedorId &&
-                        ((s.Estado == TipoEstadoSuscripcion.EnPrueba &&
-                          s.PruebaTerminaEn.HasValue &&
-                          s.PruebaTerminaEn > now) ||
-                         (s.Estado == TipoEstadoSuscripcion.Activa &&
-                          (!s.PeriodoFin.HasValue || s.PeriodoFin > now)))));
+                    .Where(f => f.UsuarioId == usuarioId);
 
                 var total = await query.CountAsync();
                 var favoritos = await query
@@ -61,12 +55,18 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 var productosIds = favoritos.Select(f => f.ProductoId).ToList();
                 var ofertasVigentes = await ObtenerOfertasVigentesAsync(productosIds, now);
 
+                var vendedorIds = favoritos
+                    .Select(f => f.Producto.VendedorId)
+                    .Distinct()
+                    .ToList();
+                var tiendasConPlan = await ObtenerVendedorIdsConPlanActivoAsync(vendedorIds, now);
+
                 var items = favoritos.Select(f => new FavoritoDto
                 {
                     UsuarioId = f.UsuarioId,
                     ProductoId = f.ProductoId,
                     Fecha = f.Fecha,
-                    Producto = MapearProductoListado(f.Producto, ofertasVigentes)
+                    Producto = MapearProductoListado(f.Producto, ofertasVigentes, tiendasConPlan)
                 }).ToList();
 
                 return ResultadoOperacion<PaginacionRespuestaDto<FavoritoDto>>.SetExito(
@@ -135,14 +135,23 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
         /// <summary>Misma regla que CatalogoServicio: precio de variante + oferta vigente.</summary>
         private static ProductoListadoDto MapearProductoListado(
-            Producto p, Dictionary<int, Oferta> ofertas)
+            Producto p,
+            Dictionary<int, Oferta> ofertas,
+            HashSet<int> tiendasConPlan)
         {
             var img = p.Imagenes.FirstOrDefault(i => i.EsPrincipal)?.Url
                       ?? p.Imagenes.OrderBy(i => i.Orden).FirstOrDefault()?.Url;
 
             ofertas.TryGetValue(p.ProductoId, out var oferta);
-            var tieneStock = p.Tipo == TipoProducto.Patron ||
-                             p.Variantes.Any(v => v.Stock != null && v.Stock.CantidadDisponible > 0);
+            var stockFisico = p.Tipo == TipoProducto.Patron ||
+                              p.Variantes.Any(v =>
+                                  v.Activa && v.Stock != null && v.Stock.CantidadDisponible > 0);
+            var publicado =
+                p.Estado == TipoEstadoProducto.Activo &&
+                string.IsNullOrEmpty(p.MotivoPausaAdmin) &&
+                p.Vendedor.Estado == TipoEstadoVendedor.Activo &&
+                tiendasConPlan.Contains(p.VendedorId);
+            var tieneStock = publicado && stockFisico;
 
             var variantePorDefecto = p.ObtenerVariantePorDefecto();
             var precioVariantePorDefecto = variantePorDefecto?.Precio ?? p.PrecioBase ?? 0;
@@ -161,7 +170,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 NombreTienda = p.Vendedor.NombreTienda,
                 SlugTienda = p.Vendedor.SlugTienda,
                 CategoriaId = p.CategoriaId,
-                NombreCategoria = p.Categoria.Nombre,
+                NombreCategoria = p.Categoria?.Nombre ?? string.Empty,
                 PrecioBase = precioVariantePorDefecto,
                 TieneVariantes = p.TieneVariantesComprables(),
                 VarianteIdDefecto = variantePorDefecto?.VarianteId,
@@ -174,6 +183,27 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 TieneStock = tieneStock,
                 FechaPublicacion = p.FechaPublicacion
             };
+        }
+
+        private async Task<HashSet<int>> ObtenerVendedorIdsConPlanActivoAsync(
+            IReadOnlyCollection<int> vendedorIds,
+            DateTime now)
+        {
+            if (vendedorIds.Count == 0)
+                return new HashSet<int>();
+
+            var ids = await _context.Suscripciones.AsNoTracking()
+                .Where(s => vendedorIds.Contains(s.VendedorId) &&
+                            ((s.Estado == TipoEstadoSuscripcion.EnPrueba &&
+                              s.PruebaTerminaEn.HasValue &&
+                              s.PruebaTerminaEn > now) ||
+                             (s.Estado == TipoEstadoSuscripcion.Activa &&
+                              (!s.PeriodoFin.HasValue || s.PeriodoFin > now))))
+                .Select(s => s.VendedorId)
+                .Distinct()
+                .ToListAsync();
+
+            return ids.ToHashSet();
         }
 
         private async Task<Dictionary<int, Oferta>> ObtenerOfertasVigentesAsync(

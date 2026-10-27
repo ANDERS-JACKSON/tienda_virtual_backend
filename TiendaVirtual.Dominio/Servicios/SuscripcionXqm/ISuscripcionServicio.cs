@@ -10,6 +10,7 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm
         Task<ResultadoOperacion<SuscripcionElegibilidadDto>> ObtenerElegibilidadAsync(Guid usuarioId);
         Task<ResultadoOperacion<SuscripcionDto>> IniciarAsync(Guid usuarioId, IniciarSuscripcionDto dto);
         Task<ResultadoOperacion<SuscripcionDto>> ReactivarPlanAsync(Guid usuarioId, IniciarSuscripcionDto dto);
+        Task<ResultadoOperacion<CotizacionCambioPlanDto>> CotizarCambioPlanAsync(Guid usuarioId, CotizarCambioPlanDto dto);
         Task<ResultadoOperacion<SuscripcionDto>> CambiarPlanAsync(Guid usuarioId, CambiarPlanDto dto);
         Task<ResultadoOperacion<bool>> CancelarAsync(Guid usuarioId);
         Task<bool> PuedeVendedorPublicarAsync(int vendedorId);
@@ -17,5 +18,8 @@ namespace TiendaVirtual.Dominio.Servicios.SuscripcionXqm
         Task<ResultadoOperacion<bool>> SuspenderAsync(int suscripcionId);
         Task<ResultadoOperacion<bool>> ReactivarAsync(int suscripcionId);
         Task<ResultadoOperacion<int>> ProcesarVencimientosAsync();
+
+        /// <summary>Avisa (notificación + correo) a suscripciones que vencen dentro de la ventana de renovación.</summary>
+        Task<ResultadoOperacion<int>> EnviarAvisosVencimientoAsync();
     }
 }

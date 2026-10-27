@@ -8,6 +8,8 @@ namespace TiendaVirtual.Comun.Enumeracion
         PedidoPagadoCliente,
         PedidoEnviadoCliente,
         VerificacionResultado,
-        NuevoMensajeContacto
+        NuevoMensajeContacto,
+        SuscripcionPagada,
+        SuscripcionPorVencer
     }
 }

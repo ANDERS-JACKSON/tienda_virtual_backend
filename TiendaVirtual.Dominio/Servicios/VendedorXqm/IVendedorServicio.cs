@@ -46,5 +46,7 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm
         Task<ResultadoOperacion<VendedorAdminDetalleDto>> ObtenerAdminDetalleAsync(int vendedorId);
         Task<ResultadoOperacion<bool>> SuspenderAdminAsync(int vendedorId, SuspenderVendedorDto dto);
         Task<ResultadoOperacion<bool>> ReactivarAdminAsync(int vendedorId);
+        Task<ResultadoOperacion<bool>> ActualizarVendePatronesAdminAsync(int vendedorId, ActualizarVendePatronesDto dto);
+        Task<ResultadoOperacion<VendedorAdminDetalleDto>> ActualizarAdminAsync(int vendedorId, ActualizarVendedorAdminDto dto);
     }
 }

@@ -53,6 +53,9 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.VendedorXqm
             builder.Property(e => e.PeriodoFin)
                 .HasColumnName("periodo_fin");
 
+            builder.Property(e => e.AvisoVencimientoEnviadoEn)
+                .HasColumnName("aviso_vencimiento_enviado_en");
+
             builder.HasIndex(e => e.VendedorId)
                 .HasDatabaseName("idx_suscripcion_vendedor");
 
