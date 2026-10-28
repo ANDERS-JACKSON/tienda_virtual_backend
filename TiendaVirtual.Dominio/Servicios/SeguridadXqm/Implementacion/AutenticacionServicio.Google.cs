@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.Extensions.Logging;
 using System.Linq;
 using System.Threading.Tasks;
@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones.SeguridadXqm;
 using TiendaVirtual.Dominio.Modelo.SeguridadXqm;
+using TiendaVirtual.Dominio.Utilidad;
 using TiendaVirtual.Dominio.Servicios.SeguridadXqm;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.SeguridadXqm;
@@ -46,6 +47,16 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                     var errorVinculo = await VincularGoogleInternoAsync(usuarioPorCorreo.UsuarioId, payload.Subject);
                     if (!errorVinculo.Exito)
                         return ResultadoOperacion<LoginRespuestaDto>.SetError(errorVinculo.Mensaje);
+
+                    // A5: Google ya verificó este correo (payload.EmailVerified) → si la
+                    // cuenta era de invitado, deja de serlo y se revocan sus sesiones viejas.
+                    if (usuarioPorCorreo.EsInvitado || !usuarioPorCorreo.CorreoConfirmado)
+                    {
+                        usuarioPorCorreo.EsInvitado = false;
+                        usuarioPorCorreo.CorreoConfirmado = true;
+                        await RevocarTokensRefrescoAsync(usuarioPorCorreo.UsuarioId);
+                        await _context.SaveChangesAsync();
+                    }
 
                     return await ProcesarAccesoUsuarioAsync(
                         usuarioPorCorreo, direccionIp, agenteUsuario, esLoginExterno: true);
@@ -104,6 +115,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
                 var usuario = CrearUsuarioOAuth(persona.PersonaId, payload.Email);
                 usuario.FechaAceptacionTerminos = DateTime.UtcNow;
+                usuario.VersionPoliticas = PoliticasConsentimiento.VersionVigente;
                 _context.Usuarios.Add(usuario);
                 await _context.SaveChangesAsync();
 

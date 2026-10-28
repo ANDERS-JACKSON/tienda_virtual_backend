@@ -1,4 +1,4 @@
-﻿namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
+namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
 {
     public class UsuarioPerfilDto
     {

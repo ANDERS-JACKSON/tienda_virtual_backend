@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -44,6 +44,26 @@ namespace TiendaVirtual.Dominio.Modelo.SeguridadXqm
         public bool EsInvitado { get; set; }
 
         public DateTime? FechaAceptacionTerminos { get; set; }
+
+        /// <summary>Versión de términos+privacidad aceptada (ver PoliticasConsentimiento.VersionVigente).</summary>
+        public string? VersionPoliticas { get; set; }
+
+        // Seguridad: intentos fallidos / bloqueo temporal (login y
+        // establecer-contrasena-inicial comparten estos campos, porque
+        // ambos son "probar que conoces un secreto de esta cuenta sin
+        // sesión"). Ver AutenticacionServicio.RegistrarFalloAcceso.
+        public short IntentosFallidosAcceso { get; set; }
+        public DateTime? BloqueadoHasta { get; set; }
+
+        /// <summary>Vencimiento de la clave temporal de 6 dígitos (ForzarCambioClave=true).</summary>
+        public DateTime? ClaveTemporalExpira { get; set; }
+
+        // Seguridad: intentos fallidos / bloqueo temporal del código 2FA (TOTP).
+        public short Intentos2Fa { get; set; }
+        public DateTime? Bloqueo2FaHasta { get; set; }
+
+        /// <summary>Último "paso" TOTP aceptado, para rechazar un código reutilizado (replay).</summary>
+        public long? TotpUltimoPaso { get; set; }
 
         // Relaciones
         public virtual Persona Persona { get; set; } = null!;

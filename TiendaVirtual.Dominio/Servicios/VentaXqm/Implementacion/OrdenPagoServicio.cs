@@ -426,8 +426,11 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                     return ResultadoOperacion<ResultadoProcesarPagoOrdenDto>.SetError(resultado.MensajeError);
                 }
 
-                if (resultado.MontoConfirmado.HasValue &&
-                    Math.Round(resultado.MontoConfirmado.Value, 2) != Math.Round(transaccion.Monto, 2))
+                var monedaPagoOk = string.IsNullOrWhiteSpace(resultado.Moneda) ||
+                    string.Equals(resultado.Moneda, "PEN", StringComparison.OrdinalIgnoreCase);
+                if ((resultado.MontoConfirmado.HasValue &&
+                    Math.Round(resultado.MontoConfirmado.Value, 2) != Math.Round(transaccion.Monto, 2)) ||
+                    !monedaPagoOk)
                 {
                     _logger.LogError(
                         "Discrepancia de monto MP. TransaccionId={Id} Esperado={Esperado} Recibido={Recibido}",
@@ -445,9 +448,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                     transaccion.TransaccionProveedorId = resultado.IdPagoExterno;
                     transaccion.RespuestaProveedor = JsonSerializer.Serialize(new
                     {
-                        alerta = "monto_mismatch",
+                        alerta = "monto_o_moneda_mismatch",
                         esperado = transaccion.Monto,
                         recibido = resultado.MontoConfirmado,
+                        moneda = resultado.Moneda,
                         crudo = resultado.RespuestaCruda,
                     });
                     await _context.SaveChangesAsync();
@@ -464,6 +468,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                         Exitoso = true,
                         MontoConfirmado = resultado.MontoConfirmado ?? transaccion.Monto,
                         MetodoPago = resultado.MetodoPago ?? dto.PaymentMethodId,
+                        Moneda = resultado.Moneda,
                         EstadoExterno = resultado.EstadoExterno,
                         StatusDetail = resultado.StatusDetail,
                         RespuestaCruda = resultado.RespuestaCruda,
@@ -617,6 +622,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 if (transaccion.Tipo != TipoTransaccion.PagoOrden)
                     return ResultadoOperacion<TransaccionOrdenDto>.SetError("Tipo de transacción no válido.");
 
+                if (EsReversoDePago(resultado.EstadoExterno, resultado.StatusDetail) &&
+                    transaccion.Estado is TipoEstadoTransaccion.Completada or TipoEstadoTransaccion.Reembolsada)
+                    return await AplicarReversoAsync(trx, transaccion, resultado);
+
                 // Idempotencia: ya completada → OK sin reactivar ni renotificar.
                 if (transaccion.Estado == TipoEstadoTransaccion.Completada)
                     return ResultadoOperacion<TransaccionOrdenDto>.SetExito(transaccion.ToOrdenDto());
@@ -624,11 +633,14 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 if (transaccion.Estado is not (TipoEstadoTransaccion.Pendiente or TipoEstadoTransaccion.Procesando))
                     return ResultadoOperacion<TransaccionOrdenDto>.SetError("Esta transacción ya no puede ser modificada.");
 
-                if (Math.Round(resultado.MontoConfirmado, 2) != Math.Round(transaccion.Monto, 2))
+                var monedaOk = string.IsNullOrWhiteSpace(resultado.Moneda) ||
+                    string.Equals(resultado.Moneda, "PEN", StringComparison.OrdinalIgnoreCase);
+                if (!monedaOk ||
+                    Math.Round(resultado.MontoConfirmado, 2) != Math.Round(transaccion.Monto, 2))
                 {
                     _logger.LogError(
-                        "Webhook/confirmación con monto distinto. TransaccionId={Id} Esperado={E} Recibido={R}",
-                        transaccion.TransaccionId, transaccion.Monto, resultado.MontoConfirmado);
+                        "Webhook/confirmación con monto o moneda distintos. TransaccionId={Id} Esperado={E} Recibido={R} Moneda={Moneda}",
+                        transaccion.TransaccionId, transaccion.Monto, resultado.MontoConfirmado, resultado.Moneda);
 
                     if (!string.IsNullOrWhiteSpace(resultado.IdPagoExterno) &&
                         (resultado.Exitoso || resultado.Pendiente))
@@ -651,9 +663,10 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                     transaccion.TransaccionProveedorId = resultado.IdPagoExterno;
                     transaccion.RespuestaProveedor = JsonSerializer.Serialize(new
                     {
-                        alerta = "monto_mismatch",
+                        alerta = "monto_o_moneda_mismatch",
                         esperado = transaccion.Monto,
                         recibido = resultado.MontoConfirmado,
+                        moneda = resultado.Moneda,
                         crudo = resultado.RespuestaCruda,
                     });
                     await _context.SaveChangesAsync();
@@ -769,11 +782,135 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
         }
 
+        public async Task<int> ReconciliarPagosPendientesAsync()
+        {
+            var maxEdad = TimeSpan.FromHours(24);
+            var limite = DateTime.UtcNow - maxEdad;
+
+            var pendientes = await _context.Ordenes.AsNoTracking()
+                .Where(o => o.Estado == TipoEstadoOrden.PendientePago && o.Fecha < limite)
+                .Select(o => new { o.OrdenId, o.ClienteId })
+                .ToListAsync();
+
+            var cerradas = 0;
+            foreach (var o in pendientes)
+            {
+                try
+                {
+                    var tx = await _context.Transacciones
+                        .AsNoTracking()
+                        .Where(t => t.OrdenId == o.OrdenId && t.Tipo == TipoTransaccion.PagoOrden)
+                        .OrderByDescending(t => t.Fecha)
+                        .FirstOrDefaultAsync();
+
+                    if (tx != null &&
+                        !string.IsNullOrWhiteSpace(tx.TransaccionProveedorId) &&
+                        tx.Estado is TipoEstadoTransaccion.Pendiente or TipoEstadoTransaccion.Procesando)
+                    {
+                        var proveedor = _proveedorFactory.ObtenerPorCodigo(tx.Proveedor);
+                        var estado = await proveedor.ConsultarPagoAsync(tx.TransaccionProveedorId);
+                        if (!estado.ConsultaFallida)
+                        {
+                            if (estado.Exitoso)
+                            {
+                                await AplicarResultadoProveedorAsync(new ResultadoPagoVerificadoDto
+                                {
+                                    TransaccionId = tx.TransaccionId,
+                                    IdPagoExterno = estado.IdPagoExterno ?? tx.TransaccionProveedorId,
+                                    Exitoso = true,
+                                    MontoConfirmado = estado.MontoConfirmado ?? tx.Monto,
+                                    MetodoPago = estado.MetodoPago,
+                                    Moneda = estado.Moneda,
+                                    EstadoExterno = estado.EstadoExterno,
+                                    StatusDetail = estado.StatusDetail,
+                                    RespuestaCruda = estado.RespuestaCruda,
+                                });
+                                cerradas++;
+                                continue;
+                            }
+
+                            if (estado.Pendiente)
+                                await proveedor.CancelarPagoAsync(tx.TransaccionProveedorId);
+                        }
+                    }
+
+                    var anulado = await _ordenServicio.AnularReservaPendientePagoAsync(o.ClienteId, o.OrdenId);
+                    if (anulado.Exito) cerradas++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex,
+                        "No se pudo reconciliar el pedido PendientePago {OrdenId}",
+                        o.OrdenId);
+                }
+            }
+
+            return cerradas;
+        }
+
         private static bool EsConflictoDeConcurrencia(DbUpdateException ex)
         {
             // PostgreSQL: 40001 = serialization_failure, 40P01 = deadlock_detected
             return ex.InnerException is PostgresException pgEx &&
                    (pgEx.SqlState == "40001" || pgEx.SqlState == "40P01");
+        }
+
+        private static bool EsReversoDePago(string? estadoExterno, string? statusDetail)
+        {
+            var estado = (estadoExterno ?? string.Empty).Trim().ToLowerInvariant();
+            if (estado is "refunded" or "charged_back")
+                return true;
+
+            var detalle = (statusDetail ?? string.Empty).Trim().ToLowerInvariant();
+            return detalle is "partially_refunded";
+        }
+
+        /// <summary>
+        /// Reembolso o chargeback de Mercado Pago sobre un pago ya acreditado:
+        /// marca la transacción como reembolsada y la orden como disputada.
+        /// No libera stock solo (el pedido pudo haberse preparado o enviado).
+        /// </summary>
+        private async Task<ResultadoOperacion<TransaccionOrdenDto>> AplicarReversoAsync(
+            Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction trx,
+            Transaccion transaccion,
+            ResultadoPagoVerificadoDto resultado)
+        {
+            if (transaccion.Estado == TipoEstadoTransaccion.Reembolsada)
+                return ResultadoOperacion<TransaccionOrdenDto>.SetExito(transaccion.ToOrdenDto());
+
+            transaccion.Estado = TipoEstadoTransaccion.Reembolsada;
+            transaccion.TransaccionProveedorId = resultado.IdPagoExterno;
+            transaccion.RespuestaProveedor = resultado.RespuestaCruda;
+            transaccion.Fecha = DateTime.UtcNow;
+
+            if (transaccion.OrdenId.HasValue)
+            {
+                var orden = await _context.Ordenes.FirstOrDefaultAsync(o => o.OrdenId == transaccion.OrdenId);
+                if (orden != null &&
+                    orden.Estado is not (TipoEstadoOrden.Cancelada or TipoEstadoOrden.Disputada))
+                {
+                    orden.Estado = TipoEstadoOrden.Disputada;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            await trx.CommitAsync();
+
+            if (transaccion.OrdenId.HasValue)
+            {
+                await _notificacionServicio.CrearAsync(
+                    transaccion.UsuarioId,
+                    TipoNotificacion.OrdenCanceladaAdmin,
+                    "Pago revertido",
+                    "Mercado Pago reportó un reembolso o contracargo. Revisaremos tu pedido.",
+                    new { ordenId = transaccion.OrdenId });
+            }
+
+            _logger.LogWarning(
+                "Reverso de pago aplicado. TransaccionId={Id} EstadoExterno={Estado} OrdenId={OrdenId}",
+                transaccion.TransaccionId, resultado.EstadoExterno, transaccion.OrdenId);
+
+            return ResultadoOperacion<TransaccionOrdenDto>.SetExito(transaccion.ToOrdenDto());
         }
 
         public async Task<ResultadoOperacion<ResultadoVerificarPagoOrdenDto>> VerificarPagoOrdenAsync(
@@ -1100,6 +1237,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 Pendiente = estado.Pendiente,
                 MontoConfirmado = estado.MontoConfirmado ?? transaccion.Monto,
                 MetodoPago = estado.MetodoPago ?? paymentMethodIdFallback,
+                Moneda = estado.Moneda,
                 EstadoExterno = estado.EstadoExterno,
                 StatusDetail = estado.StatusDetail,
                 RespuestaCruda = estado.RespuestaCruda,

@@ -174,6 +174,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                             ? $"Máximo {limiteImagenes} imágenes cuando el producto tiene más de 3 variantes."
                             : $"Máximo {limiteImagenes} imágenes por producto.");
 
+                if (!IdentificadorMedia.EsValidoOVacio(dto.ArchivoPatronUrl)
+                    || (dto.Imagenes != null && dto.Imagenes.Any(i => !IdentificadorMedia.EsValido(i.Url))))
+                    return ResultadoOperacion<ProductoDto>.SetError(IdentificadorMedia.MensajeError);
+
                 // Slug único por vendedor
                 var slug = GenerarSlugProducto(dto.Nombre, vendedor.SlugTienda);
                 if (await _context.Productos.AnyAsync(p => p.Slug == slug))
@@ -323,6 +327,9 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 if (producto.Tipo == TipoProducto.Patron && string.IsNullOrWhiteSpace(dto.ArchivoPatronUrl))
                     return ResultadoOperacion<ProductoDto>.SetError(
                         "Un producto de tipo PATRÓN debe tener un archivo PDF.");
+
+                if (!IdentificadorMedia.EsValidoOVacio(dto.ArchivoPatronUrl))
+                    return ResultadoOperacion<ProductoDto>.SetError(IdentificadorMedia.MensajeError);
 
                 producto.CategoriaId = dto.CategoriaId;
                 producto.Nombre = dto.Nombre.Trim();
@@ -641,6 +648,9 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                         cantidadVariantes > 3
                             ? $"Máximo {limiteImagenes} imágenes cuando el producto tiene más de 3 variantes."
                             : $"Máximo {limiteImagenes} imágenes por producto.");
+
+                if (!IdentificadorMedia.EsValido(dto.Url))
+                    return ResultadoOperacion<ImagenProductoDto>.SetError(IdentificadorMedia.MensajeError);
 
                 // Si esta nueva es principal, quitar el flag de las demás
                 if (dto.EsPrincipal)

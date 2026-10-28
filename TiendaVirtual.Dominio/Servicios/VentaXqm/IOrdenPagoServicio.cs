@@ -42,5 +42,11 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm
         /// </summary>
         Task<ResultadoOperacion<TransaccionOrdenDto>> AplicarResultadoProveedorAsync(
             ResultadoPagoVerificadoDto resultado);
+
+        /// <summary>
+        /// Pedidos PendientePago viejos: consulta la pasarela por si el cobro
+        /// sí se acreditó; si no, cancela y libera stock.
+        /// </summary>
+        Task<int> ReconciliarPagosPendientesAsync();
     }
 }

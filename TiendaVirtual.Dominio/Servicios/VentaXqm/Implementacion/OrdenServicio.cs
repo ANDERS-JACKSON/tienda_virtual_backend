@@ -409,6 +409,19 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
                 return await ObtenerMiOrdenAsync(usuarioId, orden.OrdenId);
             }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                // A6: alguien más reservó/compró el mismo stock entre que lo
+                // validamos y que intentamos confirmarlo. No se pierde nada:
+                // la transacción se revierte completa (orden, suborden e
+                // ítems no quedan creados) y pedimos reintentar.
+                await trx.RollbackAsync();
+                _logger.LogWarning(ex,
+                    "Conflicto de stock concurrente en OrdenServicio.CrearInternoAsync para usuario {UsuarioId}",
+                    usuarioId);
+                return ResultadoOperacion<OrdenDto>.SetError(
+                    "El stock o el cupón cambió mientras confirmabas. Actualiza tu carrito e inténtalo de nuevo.");
+            }
             catch (Exception ex)
             {
                 await trx.RollbackAsync();
@@ -479,6 +492,24 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 _logger.LogError(ex, "Error en OrdenServicio.AnularReservaPendientePagoAsync");
                 return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+        }
+
+        public async Task<int> ExpirarReservasPendientePagoAsync(TimeSpan maxEdad)
+        {
+            var limite = DateTime.UtcNow - maxEdad;
+            var pendientes = await _context.Ordenes.AsNoTracking()
+                .Where(o => o.Estado == TipoEstadoOrden.PendientePago && o.Fecha < limite)
+                .Select(o => new { o.OrdenId, o.ClienteId })
+                .ToListAsync();
+
+            var expiradas = 0;
+            foreach (var o in pendientes)
+            {
+                var r = await AnularReservaPendientePagoAsync(o.ClienteId, o.OrdenId);
+                if (r.Exito) expiradas++;
+            }
+
+            return expiradas;
         }
 
         public async Task<ResultadoOperacion<bool>> VaciarCarritoTrasCobroAsync(Guid usuarioId)
@@ -585,8 +616,14 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
                 var direccion = DeserializarDireccion(orden.DireccionEnvio);
 
-                // Sólo exponer el PDF del patrón cuando la orden ya está pagada (o más).
-                var puedeDescargarPatron = (int)orden.Estado >= (int)TipoEstadoOrden.Pagada;
+                // Sólo exponer el PDF del patrón cuando la orden está pagada o en un estado
+                // posterior legítimo. OJO: usar una lista explícita, NO una comparación
+                // numérica (Cancelada=6 y Disputada=7 son mayores que Pagada=2 y una orden
+                // cancelada por un pago fallido NO debe dar acceso al archivo).
+                var puedeDescargarPatron = orden.Estado is TipoEstadoOrden.Pagada
+                    or TipoEstadoOrden.EnPreparacion
+                    or TipoEstadoOrden.EnCamino
+                    or TipoEstadoOrden.Entregada;
 
                 var dto = new OrdenDto
                 {

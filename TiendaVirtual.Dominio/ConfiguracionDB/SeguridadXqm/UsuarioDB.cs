@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System;
 using System.Collections.Generic;
@@ -64,6 +64,33 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.SeguridadXqm
             builder.Property(e => e.FechaAceptacionTerminos)
                 .HasColumnName("fecha_aceptacion_terminos")
                 .HasColumnType("timestamptz");
+
+            builder.Property(e => e.VersionPoliticas)
+                .HasColumnName("version_politicas")
+                .HasMaxLength(32);
+
+            builder.Property(e => e.IntentosFallidosAcceso)
+                .HasColumnName("intentos_fallidos_acceso")
+                .HasDefaultValue((short)0);
+
+            builder.Property(e => e.BloqueadoHasta)
+                .HasColumnName("bloqueado_hasta")
+                .HasColumnType("timestamptz");
+
+            builder.Property(e => e.ClaveTemporalExpira)
+                .HasColumnName("clave_temporal_expira")
+                .HasColumnType("timestamptz");
+
+            builder.Property(e => e.Intentos2Fa)
+                .HasColumnName("intentos_2fa")
+                .HasDefaultValue((short)0);
+
+            builder.Property(e => e.Bloqueo2FaHasta)
+                .HasColumnName("bloqueo_2fa_hasta")
+                .HasColumnType("timestamptz");
+
+            builder.Property(e => e.TotpUltimoPaso)
+                .HasColumnName("totp_ultimo_paso");
 
             builder.HasIndex(e => e.Correo).IsUnique().HasDatabaseName("uq_usuario_correo");
             builder.HasIndex(e => e.PersonaId).HasDatabaseName("idx_usuario_persona");

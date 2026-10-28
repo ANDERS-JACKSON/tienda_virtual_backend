@@ -13,6 +13,7 @@ using TiendaVirtual.Dominio.Servicios.SoporteXqm;
 using TiendaVirtual.Dominio.Servicios.SuscripcionXqm;
 using TiendaVirtual.Dominio.Servicios.SuscripcionXqm.Implementacion;
 using TiendaVirtual.Dominio.Modelo.VendedorXqm;
+using TiendaVirtual.Dominio.Utilidad;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.Sistema;
 using TiendaVirtual.Intercambio.Dto.VendedorXqm;
@@ -213,6 +214,10 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
                 if (vendedor == null)
                     return ResultadoOperacion<VendedorPerfilDto>.SetError("No tienes un perfil de vendedor.");
 
+                if ((tieneLogo && !IdentificadorMedia.EsValido(dto.LogoUrl))
+                    || (tieneBanner && !IdentificadorMedia.EsValido(dto.BannerUrl)))
+                    return ResultadoOperacion<VendedorPerfilDto>.SetError(IdentificadorMedia.MensajeError);
+
                 if (tieneLogo)
                     vendedor.LogoUrl = dto.LogoUrl!.Trim();
                 if (tieneBanner)
@@ -248,6 +253,12 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
 
                 if (string.IsNullOrWhiteSpace(dto.DocumentoFrenteUrl))
                     return ResultadoOperacion<SolicitudVerificacionDto>.SetError("El documento (frente) es obligatorio.");
+
+                if (!IdentificadorMedia.EsValido(dto.DocumentoFrenteUrl)
+                    || !IdentificadorMedia.EsValidoOVacio(dto.DocumentoReversoUrl)
+                    || !IdentificadorMedia.EsValidoOVacio(dto.SelfieDocumentoUrl)
+                    || !IdentificadorMedia.JsonListaValida(dto.FotosProductos))
+                    return ResultadoOperacion<SolicitudVerificacionDto>.SetError(IdentificadorMedia.MensajeError);
 
                 if (vendedor.Estado == TipoEstadoVendedor.Activo)
                     return ResultadoOperacion<SolicitudVerificacionDto>.SetError("Tu cuenta ya está verificada.");

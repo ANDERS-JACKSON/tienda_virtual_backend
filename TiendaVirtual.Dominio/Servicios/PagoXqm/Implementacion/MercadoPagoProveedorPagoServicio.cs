@@ -203,8 +203,7 @@ namespace TiendaVirtual.Dominio.Servicios.PagoXqm.Implementacion
                 return new ResultadoPagoDto
                 {
                     Exitoso = false,
-                    MensajeError =
-                        $"Error al procesar el pago: {ex.GetType().Name}: {ex.Message}",
+                    MensajeError = "No se pudo procesar el pago. Intenta de nuevo.",
                 };
             }
         }
@@ -245,6 +244,7 @@ namespace TiendaVirtual.Dominio.Servicios.PagoXqm.Implementacion
                     MontoConfirmado = r.MontoConfirmado,
                     ExternalReference = payment.ExternalReference,
                     MetodoPago = r.MetodoPago,
+                    Moneda = r.Moneda,
                     RespuestaCruda = r.RespuestaCruda,
                 };
             }
@@ -443,12 +443,14 @@ namespace TiendaVirtual.Dominio.Servicios.PagoXqm.Implementacion
                 StatusDetail = payment.StatusDetail,
                 MontoConfirmado = payment.TransactionAmount,
                 MetodoPago = payment.PaymentMethodId,
+                Moneda = payment.CurrencyId,
                 RespuestaCruda = SerializarSeguro(new
                 {
                     payment.Id,
                     payment.Status,
                     payment.StatusDetail,
                     payment.TransactionAmount,
+                    payment.CurrencyId,
                     payment.PaymentMethodId,
                     payment.ExternalReference,
                     payment.DateApproved,

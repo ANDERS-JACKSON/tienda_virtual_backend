@@ -22,6 +22,13 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm
         /// </summary>
         Task<ResultadoOperacion<bool>> AnularReservaPendientePagoAsync(Guid usuarioId, Guid ordenId);
 
+        /// <summary>
+        /// Cancela pedidos PendientePago más viejos que <paramref name="maxEdad"/>
+        /// y libera stock/cupón. No consulta a la pasarela; el reconciliador de
+        /// pagos debe llamarlo solo después de verificar que no hay cobro acreditado.
+        /// </summary>
+        Task<int> ExpirarReservasPendientePagoAsync(TimeSpan maxEdad);
+
         /// <summary>Vacía el carrito del usuario tras cobro exitoso o pendiente.</summary>
         Task<ResultadoOperacion<bool>> VaciarCarritoTrasCobroAsync(Guid usuarioId);
 

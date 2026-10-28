@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones.SeguridadXqm;
 using TiendaVirtual.Dominio.Modelo.SeguridadXqm;
+using TiendaVirtual.Dominio.Utilidad;
 using TiendaVirtual.Dominio.Servicios.SoporteXqm;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.SeguridadXqm;
@@ -117,6 +118,17 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 }
 
                 usuario.CorreoConfirmado = true;
+
+                // A5: si la cuenta era de invitado (o no tenía el correo confirmado),
+                // ya probó ser dueña del correo con este código → deja de ser invitada
+                // y se revocan las sesiones viejas (p. ej. la de invitado de corta vida).
+                if (usuario.EsInvitado)
+                {
+                    usuario.EsInvitado = false;
+                    await RevocarTokensRefrescoAsync(usuario.UsuarioId);
+                }
+                await _context.SaveChangesAsync();
+
                 return await ProcesarAccesoUsuarioAsync(
                     usuario, direccionIp, agenteUsuario, esLoginExterno: true);
             }
@@ -179,6 +191,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 usuario.CorreoConfirmado = true;
                 usuario.EsInvitado = false;
                 usuario.FechaAceptacionTerminos = DateTime.UtcNow;
+                usuario.VersionPoliticas = PoliticasConsentimiento.VersionVigente;
                 _context.Usuarios.Add(usuario);
                 await _context.SaveChangesAsync();
 
@@ -211,6 +224,11 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             try
             {
                 if (dto == null)
+                    return ResultadoOperacion<LoginRespuestaDto>.SetError("Datos inválidos.");
+
+                // Honeypot anti-bot: no hay captcha visible aquí a pedido del negocio
+                // (ver AutenticacionServicio.RegistrarClienteAsync).
+                if (!string.IsNullOrWhiteSpace(dto.Sitio))
                     return ResultadoOperacion<LoginRespuestaDto>.SetError("Datos inválidos.");
 
                 var terminos = ValidarAceptacionTerminos(dto.AceptaTerminos);
@@ -273,6 +291,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 usuario.EsInvitado = true;
                 usuario.CorreoConfirmado = false;
                 usuario.FechaAceptacionTerminos = DateTime.UtcNow;
+                usuario.VersionPoliticas = PoliticasConsentimiento.VersionVigente;
                 _context.Usuarios.Add(usuario);
                 await _context.SaveChangesAsync();
 

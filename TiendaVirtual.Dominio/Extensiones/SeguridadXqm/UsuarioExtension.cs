@@ -42,7 +42,7 @@ namespace TiendaVirtual.Dominio.Extensiones.SeguridadXqm
             dto.UsuarioId = entidad.UsuarioId;
             dto.PersonaId = entidad.PersonaId;
             dto.Correo = entidad.Correo;
-            dto.Contrasena = entidad.Contrasena;
+            dto.Contrasena = string.Empty;
             dto.CorreoConfirmado = entidad.CorreoConfirmado;
             dto.ForzarCambioClave = entidad.ForzarCambioClave;
             dto.Estado = new EnumeracionDto

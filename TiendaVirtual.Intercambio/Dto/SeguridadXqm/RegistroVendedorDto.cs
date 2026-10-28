@@ -33,5 +33,10 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
         public string? NumeroYape { get; set; }
 
         public bool AceptaTerminos { get; set; }
+
+        /// <summary>
+        /// Campo honeypot anti-bot: debe permanecer vacío. Ver RegistroClienteDto.
+        /// </summary>
+        public string? Sitio { get; set; }
     }
 }

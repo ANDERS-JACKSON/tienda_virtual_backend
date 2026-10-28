@@ -1,7 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Modelo.SeguridadXqm;
+using TiendaVirtual.Dominio.Servicios.Sistema;
 using TiendaVirtual.Dominio.Servicios.SoporteXqm;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.SeguridadXqm;
@@ -16,12 +17,18 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
         private readonly TiendaVirtualDbContext _context;
         private readonly ILogger<UsuarioAdminServicio> _logger;
         private readonly INotificacionServicio _notificacionServicio;
+        private readonly IAuditoriaServicio _auditoria;
 
-        public UsuarioAdminServicio(TiendaVirtualDbContext context, INotificacionServicio notificacionServicio, ILogger<UsuarioAdminServicio> logger)
+        public UsuarioAdminServicio(
+            TiendaVirtualDbContext context,
+            INotificacionServicio notificacionServicio,
+            ILogger<UsuarioAdminServicio> logger,
+            IAuditoriaServicio auditoria)
         {
             _logger = logger;
             _context = context;
             _notificacionServicio = notificacionServicio;
+            _auditoria = auditoria;
         }
 
         public async Task<ResultadoOperacion<PaginacionRespuestaDto<UsuarioAdminListadoDto>>> ListarAsync(
@@ -139,7 +146,9 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 var u = await _context.Usuarios.FindAsync(usuarioId);
                 if (u == null) return ResultadoOperacion<bool>.SetError("Usuario no encontrado.");
                 u.Estado = TipoEstadoUsuario.Activo;
+                await RevocarTokensRefrescoAsync(usuarioId);
                 await _context.SaveChangesAsync();
+                await _auditoria.RegistrarAsync("usuario.activar", usuarioId, null, null);
                 return ResultadoOperacion<bool>.SetExito(true);
             }
             catch (Exception ex)
@@ -208,7 +217,20 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                     UsuarioId = usuarioId,
                     RolId = (short)rolId
                 });
+
+                // B3: al promover a ADMIN/VERIFICADOR hay que re-enrolar 2FA.
+                if (rolId == (int)TipoRol.Admin || rolId == (int)TipoRol.Verificador)
+                {
+                    var usuario = await _context.Usuarios.FirstAsync(u => u.UsuarioId == usuarioId);
+                    usuario.TwoFactorEnabled = false;
+                    usuario.TwoFactorSecret = null;
+                    usuario.TotpUltimoPaso = null;
+                }
+
+                // B5: el JWT viejo sigue 60 min; el refresh se corta ya.
+                await RevocarTokensRefrescoAsync(usuarioId);
                 await _context.SaveChangesAsync();
+                await _auditoria.RegistrarAsync("rol.asignar", usuarioId, null, $"rolId={rolId}");
                 return ResultadoOperacion<bool>.SetExito(true);
             }
             catch (Exception ex)
@@ -240,7 +262,9 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 }
 
                 _context.UsuarioRoles.Remove(ur);
+                await RevocarTokensRefrescoAsync(usuarioId);
                 await _context.SaveChangesAsync();
+                await _auditoria.RegistrarAsync("rol.quitar", usuarioId, null, $"rolId={rolId}");
                 return ResultadoOperacion<bool>.SetExito(true);
             }
             catch (Exception ex)
@@ -261,6 +285,18 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 var clave = GenerarClaveAleatoria(LONGITUD_CLAVE);
                 u.Contrasena = BCrypt.Net.BCrypt.HashPassword(clave);
                 u.ForzarCambioClave = true;
+                // C2: la clave temporal vence a las 24h.
+                u.ClaveTemporalExpira = DateTime.UtcNow.AddHours(24);
+                u.IntentosFallidosAcceso = 0;
+                u.BloqueadoHasta = null;
+
+                // M9: un reseteo de contraseña invalida las sesiones abiertas.
+                var tokens = await _context.TokensRefresco
+                    .Where(t => t.UsuarioId == usuarioId && !t.Revocado)
+                    .ToListAsync();
+                foreach (var token in tokens)
+                    token.Revocado = true;
+
                 await _context.SaveChangesAsync();
 
                 await _notificacionServicio.CrearAsync(
@@ -314,6 +350,15 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             FechaCreacion = u.FechaAlta,
             UltimoAcceso = u.UltimoAcceso
         };
+
+        private async Task RevocarTokensRefrescoAsync(Guid usuarioId)
+        {
+            var tokens = await _context.TokensRefresco
+                .Where(t => t.UsuarioId == usuarioId && !t.Revocado)
+                .ToListAsync();
+            foreach (var t in tokens)
+                t.Revocado = true;
+        }
 
         private static string GenerarClaveAleatoria(int longitud)
         {

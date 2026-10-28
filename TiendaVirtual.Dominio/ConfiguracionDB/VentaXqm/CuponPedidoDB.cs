@@ -38,6 +38,14 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.VentaXqm
                 .HasColumnName("descripcion")
                 .HasMaxLength(200);
             builder.Property(e => e.FechaCreacion).HasColumnName("fecha_creacion");
+
+            // Misma defensa que stock: dos checkouts no deben gastar el último
+            // uso del cupón a la vez (xmin ya existe en Postgres, sin migración).
+            builder.Property<uint>("xmin")
+                .HasColumnName("xmin")
+                .HasColumnType("xid")
+                .ValueGeneratedOnAddOrUpdate()
+                .IsRowVersion();
         }
     }
 }

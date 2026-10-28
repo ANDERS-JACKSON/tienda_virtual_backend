@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace TiendaVirtual.Intercambio.Dto.ConfiguracionXqm
@@ -12,6 +13,7 @@ namespace TiendaVirtual.Intercambio.Dto.ConfiguracionXqm
         public string? Remitente { get; set; }
         public string? CorreoElectronico { get; set; }
         public short? Puerto { get; set; }
+        [JsonIgnore]
         public string? Contrasenia { get; set; }
         public string? ServidorSmtp { get; set; }
         public string? AsuntoCreacionUsuario { get; set; }

@@ -19,7 +19,9 @@ namespace TiendaVirtual.Dominio.Extensiones.SeguridadXqm
 
             var persona = new Persona();
 
-            persona.PersonaId = dto.PersonaId == Guid.Empty ? Guid.NewGuid() : dto.PersonaId;
+            // B4: el cliente NUNCA elige el PK. Un PersonaId ajeno en el DTO
+            // intentaría reutilizar (o chocar con) la fila de otra persona.
+            persona.PersonaId = Guid.NewGuid();
             persona.TipoDocumento = (TipoDocumentoIdentidad)dto.TipoDocumento.Id;
             persona.NumeroDocumento = dto.NumeroDocumento.Normalizar();
             persona.ApellidoPaterno = dto.ApellidoPaterno?.Normalizar_null();

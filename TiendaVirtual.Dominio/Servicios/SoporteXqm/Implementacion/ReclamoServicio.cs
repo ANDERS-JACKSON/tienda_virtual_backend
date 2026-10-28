@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Modelo.SeguridadXqm;
 using TiendaVirtual.Dominio.Modelo.SoporteXqm;
+using TiendaVirtual.Dominio.Utilidad;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.Sistema;
 using TiendaVirtual.Intercambio.Dto.SoporteXqm;
@@ -55,6 +56,9 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
                     (r.Estado == TipoEstadoReclamo.Abierto || r.Estado == TipoEstadoReclamo.EnRevision));
                 if (yaTiene)
                     return ResultadoOperacion<ReclamoDto>.SetError("Ya tienes un reclamo abierto sobre este pedido.");
+
+                if (!IdentificadorMedia.ListaValida(dto.Evidencias))
+                    return ResultadoOperacion<ReclamoDto>.SetError(IdentificadorMedia.MensajeError);
 
                 var reclamo = new Reclamo
                 {
@@ -140,6 +144,9 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
                 var esVendedor = reclamo.Suborden.Vendedor.UsuarioId == usuarioId;
                 if (!esAdmin && !esCliente && !esVendedor)
                     return ResultadoOperacion<MensajeReclamoDto>.SetError("No puedes participar en este reclamo.");
+
+                if (!IdentificadorMedia.ListaValida(dto.Adjuntos))
+                    return ResultadoOperacion<MensajeReclamoDto>.SetError(IdentificadorMedia.MensajeError);
 
                 var mensaje = new MensajeReclamo
                 {

@@ -122,6 +122,7 @@ namespace TiendaVirtual.Api.Controllers.PagoXqm
                 // Nunca fallback a 0: un monto nulo no debe disparar monto_mismatch/reembolso.
                 MontoConfirmado = estado.MontoConfirmado ?? transaccion.Monto,
                 MetodoPago = estado.MetodoPago,
+                Moneda = estado.Moneda,
                 EstadoExterno = estado.EstadoExterno,
                 StatusDetail = estado.StatusDetail,
                 RespuestaCruda = estado.RespuestaCruda,

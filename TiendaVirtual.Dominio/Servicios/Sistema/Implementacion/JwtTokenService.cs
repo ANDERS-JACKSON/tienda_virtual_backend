@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
@@ -96,6 +96,15 @@ namespace TiendaVirtual.Dominio.Servicios.Sistema.Implementacion
 
 
         /// <summary>
+        /// Audiencia distinta para tokens temporales (2FA pendiente / ticket de registro
+        /// por correo). El pipeline normal de autenticación sólo acepta la audiencia
+        /// estándar (Jwt:Audience), así que un token temporal jamás es válido como
+        /// bearer token de un endpoint protegido: la propia validación de audiencia de
+        /// JwtBearer lo rechaza con 401 antes de llegar a cualquier controlador.
+        /// </summary>
+        private static string ObtenerAudienciaTemporal(string? audienciaNormal) => $"{audienciaNormal}.temporal";
+
+        /// <summary>
         /// Token temporal corto (10 min) que solo sirve para validar 2FA.
         /// Si traes setupSecret, indica que es el primer enrolamiento.
         /// </summary>
@@ -118,7 +127,7 @@ namespace TiendaVirtual.Dominio.Servicios.Sistema.Implementacion
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
             var token = new JwtSecurityToken(
                 issuer: jwtSettings["Issuer"],
-                audience: jwtSettings["Audience"],
+                audience: ObtenerAudienciaTemporal(jwtSettings["Audience"]),
                 claims: claims,
                 notBefore: DateTime.UtcNow,
                 expires: DateTime.UtcNow.AddMinutes(duracionMinutos),
@@ -149,7 +158,7 @@ namespace TiendaVirtual.Dominio.Servicios.Sistema.Implementacion
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
             var token = new JwtSecurityToken(
                 issuer: jwtSettings["Issuer"],
-                audience: jwtSettings["Audience"],
+                audience: ObtenerAudienciaTemporal(jwtSettings["Audience"]),
                 claims: claims,
                 notBefore: DateTime.UtcNow,
                 expires: DateTime.UtcNow.AddMinutes(duracionMinutos),
@@ -163,7 +172,7 @@ namespace TiendaVirtual.Dominio.Servicios.Sistema.Implementacion
             if (string.IsNullOrWhiteSpace(token))
                 return null;
 
-            var principal = ValidarToken(token);
+            var principal = ValidarTokenTemporal(token);
             if (principal == null)
                 return null;
 
@@ -177,9 +186,28 @@ namespace TiendaVirtual.Dominio.Servicios.Sistema.Implementacion
         }
 
         /// <summary>
-        /// Valida un token y devuelve sus claims. Devuelve null si es inválido o expiró.
+        /// Valida un token normal (access token de sesión) y devuelve sus claims.
+        /// Devuelve null si es inválido, expiró, o es un token temporal (2FA/registro):
+        /// estos usan una audiencia distinta y nunca pasan esta validación.
         /// </summary>
         public ClaimsPrincipal? ValidarToken(string token)
+        {
+            var jwtSettings = _configuration.GetSection("Jwt");
+            return ValidarTokenConAudiencia(token, jwtSettings["Audience"]);
+        }
+
+        /// <summary>
+        /// Valida específicamente un token temporal (2FA pendiente o ticket de registro
+        /// por correo). Estos tokens tienen su propia audiencia y jamás sirven como
+        /// bearer token de un endpoint normal (ver <see cref="ObtenerAudienciaTemporal"/>).
+        /// </summary>
+        public ClaimsPrincipal? ValidarTokenTemporal(string token)
+        {
+            var jwtSettings = _configuration.GetSection("Jwt");
+            return ValidarTokenConAudiencia(token, ObtenerAudienciaTemporal(jwtSettings["Audience"]));
+        }
+
+        private ClaimsPrincipal? ValidarTokenConAudiencia(string token, string? audienciaEsperada)
         {
             var jwtSettings = _configuration.GetSection("Jwt");
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]!));
@@ -190,8 +218,11 @@ namespace TiendaVirtual.Dominio.Servicios.Sistema.Implementacion
                 ValidateAudience = true,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
+                RequireSignedTokens = true,
+                RequireExpirationTime = true,
+                ValidAlgorithms = new[] { SecurityAlgorithms.HmacSha256 },
                 ValidIssuer = jwtSettings["Issuer"],
-                ValidAudience = jwtSettings["Audience"],
+                ValidAudience = audienciaEsperada,
                 IssuerSigningKey = key,
                 ClockSkew = TimeSpan.Zero
             };

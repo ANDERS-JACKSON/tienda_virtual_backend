@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using TiendaVirtual.Intercambio.Dto.Sistema;
 
@@ -12,6 +13,7 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
         public Guid UsuarioId { get; set; }
         public Guid PersonaId { get; set; }
         public string Correo { get; set; } = null!;
+        [JsonIgnore]
         public string Contrasena { get; set; } = null!;
         public bool CorreoConfirmado { get; set; }
         public bool ForzarCambioClave { get; set; }

@@ -1,3 +1,4 @@
+using TiendaVirtual.Api.Workers;
 using TiendaVirtual.Dominio.Servicios.VentaXqm;
 using TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion;
 
@@ -13,6 +14,7 @@ namespace TiendaVirtual.Api.Extensiones
             services.AddScoped<ICuponPedidoServicio, CuponPedidoServicio>();
             services.AddScoped<IOrdenServicio, OrdenServicio>();
             services.AddScoped<IOrdenPagoServicio, OrdenPagoServicio>();
+            services.AddHostedService<OrdenesPendientePagoWorker>();
             return services;
         }
     }

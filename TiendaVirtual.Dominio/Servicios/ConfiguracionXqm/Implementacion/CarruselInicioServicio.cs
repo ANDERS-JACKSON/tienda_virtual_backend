@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TiendaVirtual.Dominio.Modelo.ConfiguracionXqm;
+using TiendaVirtual.Dominio.Utilidad;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.ConfiguracionXqm;
 
@@ -81,6 +82,8 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
                 if (dto == null || string.IsNullOrWhiteSpace(dto.ImagenUrl))
                     return ResultadoOperacion<CarruselInicioAdminDto>.SetError(
                         "La imagen es obligatoria.");
+                if (!IdentificadorMedia.EsValido(dto.ImagenUrl))
+                    return ResultadoOperacion<CarruselInicioAdminDto>.SetError(IdentificadorMedia.MensajeError);
 
                 var total = await _context.CarruselesInicio.CountAsync();
                 if (total >= MaxSlides)
@@ -119,6 +122,8 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
                 if (dto == null || string.IsNullOrWhiteSpace(dto.ImagenUrl))
                     return ResultadoOperacion<CarruselInicioAdminDto>.SetError(
                         "La imagen es obligatoria.");
+                if (!IdentificadorMedia.EsValido(dto.ImagenUrl))
+                    return ResultadoOperacion<CarruselInicioAdminDto>.SetError(IdentificadorMedia.MensajeError);
 
                 var entidad = await _context.CarruselesInicio.FindAsync(id);
                 if (entidad == null)

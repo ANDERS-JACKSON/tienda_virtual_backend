@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Modelo.SoporteXqm;
+using TiendaVirtual.Dominio.Utilidad;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.Sistema;
 using TiendaVirtual.Intercambio.Dto.SoporteXqm;
@@ -45,6 +46,9 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
 
                 if (await _context.ResenasProducto.AnyAsync(r => r.ItemOrdenId == dto.ItemOrdenId))
                     return ResultadoOperacion<ResenaProductoDto>.SetError("Ya reseñaste este producto.");
+
+                if (!IdentificadorMedia.ListaValida(dto.Imagenes))
+                    return ResultadoOperacion<ResenaProductoDto>.SetError(IdentificadorMedia.MensajeError);
 
                 int? productoId = null;
                 if (item.VarianteId.HasValue)

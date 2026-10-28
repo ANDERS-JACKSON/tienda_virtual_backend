@@ -29,6 +29,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
         private readonly ILogger<AutenticacionServicio> _logger;
         protected readonly JwtTokenService _jwtService;
         protected readonly ITwoFactorService _twoFactorService;
+        private readonly IAuditoriaServicio _auditoria;
         protected readonly IConfiguration _configuration;
         protected readonly INotificacionServicio _notificacionServicio;
         protected readonly IGoogleAuthServicio _googleAuth;
@@ -36,7 +37,25 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
         private const int DURACION_TOKEN_MINUTOS = 60;
         private const int DURACION_REFRESH_DIAS = 30;
+        private const int DURACION_REFRESH_INVITADO_DIAS = 1;
         private const int LONGITUD_CLAVE_AUTO = 6;
+
+        // A4+M12 / C2: intentos fallidos antes de bloquear login o
+        // establecer-contrasena-inicial, y minutos de bloqueo.
+        private const int MAX_INTENTOS_ACCESO = 5;
+        private const int BLOQUEO_ACCESO_MINUTOS = 15;
+
+        // C2: vigencia de la clave temporal de 6 dígitos (registro / reseteo admin).
+        private const int CLAVE_TEMPORAL_HORAS = 24;
+
+        // A3: intentos fallidos antes de bloquear la verificación de 2FA.
+        private const int MAX_INTENTOS_2FA = 5;
+        private const int BLOQUEO_2FA_MINUTOS = 15;
+
+        // M10: hash BCrypt "de relleno" para equiparar el tiempo de respuesta cuando
+        // el correo no existe (evita que el tiempo de respuesta delate si una cuenta existe).
+        private static readonly string HashDummyBCrypt =
+            BCrypt.Net.BCrypt.HashPassword("valor-de-relleno-no-es-una-clave-real");
 
         // Roles que exigen 2FA obligatorio
         private static readonly string[] ROLES_CON_2FA = { "ADMIN", "VERIFICADOR" };
@@ -48,7 +67,8 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             INotificacionServicio notificacionServicio,
             IGoogleAuthServicio googleAuth,
             EmailTransaccional email,
-            ILogger<AutenticacionServicio> logger)
+            ILogger<AutenticacionServicio> logger,
+            IAuditoriaServicio auditoria)
         {
             _logger = logger;
             _context = context;
@@ -58,6 +78,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             _notificacionServicio = notificacionServicio;
             _googleAuth = googleAuth;
             _email = email;
+            _auditoria = auditoria;
         }
 
         // LOGIN (paso 1)
@@ -76,10 +97,32 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                     .FirstOrDefaultAsync(u => u.Correo == dto.Correo.ToLower());
 
                 if (usuario == null)
+                {
+                    // M10: comparación BCrypt de relleno para que el tiempo de respuesta
+                    // sea similar al caso "correo existe, contraseña incorrecta".
+                    BCrypt.Net.BCrypt.Verify(dto.Contrasena, HashDummyBCrypt);
+                    _logger.LogWarning(
+                        "Login fallido (correo no registrado) desde {Ip}", direccionIp ?? "desconocida");
+                    await _auditoria.RegistrarAsync("login.fallo", null, direccionIp, "correo no registrado");
                     return ResultadoOperacion<LoginRespuestaDto>.SetError("Correo o contraseña incorrectos.");
+                }
+
+                if (EstaBloqueado(usuario))
+                    return ResultadoOperacion<LoginRespuestaDto>.SetError(
+                        "Demasiados intentos fallidos. Intenta de nuevo en unos minutos.");
 
                 if (!BCrypt.Net.BCrypt.Verify(dto.Contrasena, usuario.Contrasena))
+                {
+                    RegistrarFalloAcceso(usuario);
+                    await _context.SaveChangesAsync();
+                    _logger.LogWarning(
+                        "Login fallido para {Correo} desde {Ip}", EnmascararCorreo(usuario.Correo), direccionIp ?? "desconocida");
+                    await _auditoria.RegistrarAsync("login.fallo", usuario.UsuarioId, direccionIp, "clave incorrecta");
                     return ResultadoOperacion<LoginRespuestaDto>.SetError("Correo o contraseña incorrectos.");
+                }
+
+                RegistrarExitoAcceso(usuario);
+                await _context.SaveChangesAsync();
 
                 return await ProcesarAccesoUsuarioAsync(usuario, direccionIp, agenteUsuario);
             }
@@ -99,7 +142,9 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 if (dto == null)
                     return ResultadoOperacion<TokenRespuestaDto>.SetError("El DTO es nulo.");
 
-                var principal = _jwtService.ValidarToken(dto.TokenTemporal);
+                // A2: este token usa la audiencia temporal dedicada (nunca la normal),
+                // así que ni siquiera un endpoint [Authorize] lo aceptaría como sesión.
+                var principal = _jwtService.ValidarTokenTemporal(dto.TokenTemporal);
                 if (principal == null)
                     return ResultadoOperacion<TokenRespuestaDto>.SetError(
                         "El token temporal es inválido o expiró. Inicia sesión de nuevo.");
@@ -134,6 +179,11 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                     return ResultadoOperacion<TokenRespuestaDto>.SetError(
                         "Este usuario no requiere autenticación de dos factores.");
 
+                // A3: bloqueo por intentos fallidos del código 2FA.
+                if (usuario.Bloqueo2FaHasta.HasValue && usuario.Bloqueo2FaHasta.Value > DateTime.UtcNow)
+                    return ResultadoOperacion<TokenRespuestaDto>.SetError(
+                        "Demasiados intentos. Intenta de nuevo en unos minutos.");
+
                 string secretoPlano;
                 if (esPrimerLogin)
                 {
@@ -148,15 +198,37 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                     secretoPlano = _twoFactorService.DescifrarSecreto(usuario.TwoFactorSecret, clave);
                 }
 
-                if (!_twoFactorService.ValidarCodigo(secretoPlano, dto.Codigo))
+                if (!_twoFactorService.ValidarCodigo(secretoPlano, dto.Codigo, out var pasoUsado))
+                {
+                    RegistrarFallo2Fa(usuario);
+                    await _context.SaveChangesAsync();
                     return ResultadoOperacion<TokenRespuestaDto>.SetError(
                         "Código de verificación incorrecto.");
+                }
+
+                // A3: un código TOTP válido ya usado antes (replay) se rechaza, salvo en
+                // el primer enrolamiento (ahí no hay paso previo que comparar).
+                if (!esPrimerLogin && usuario.TotpUltimoPaso.HasValue && usuario.TotpUltimoPaso.Value == pasoUsado)
+                {
+                    RegistrarFallo2Fa(usuario);
+                    await _context.SaveChangesAsync();
+                    return ResultadoOperacion<TokenRespuestaDto>.SetError(
+                        "Ese código ya fue usado. Espera al siguiente código de tu app autenticadora.");
+                }
+
+                usuario.TotpUltimoPaso = pasoUsado;
+                usuario.Intentos2Fa = 0;
+                usuario.Bloqueo2FaHasta = null;
 
                 // Primer login válido → AHORA sí persistimos el secreto cifrado
                 if (esPrimerLogin)
                 {
                     usuario.TwoFactorSecret = secretoPendienteCifrado;
                     usuario.TwoFactorEnabled = true;
+                }
+                else if (!TwoFactorService.EstaCifradoGcm(usuario.TwoFactorSecret))
+                {
+                    usuario.TwoFactorSecret = _twoFactorService.CifrarSecreto(secretoPlano, clave);
                 }
 
                 usuario.UltimoAcceso = DateTime.UtcNow;
@@ -184,6 +256,12 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 if (dto == null)
                     return ResultadoOperacion<RegistroRespuestaDto>.SetError("El DTO es nulo.");
 
+                // Honeypot anti-bot: no hay captcha visible aquí a pedido del negocio,
+                // así que un campo oculto que solo los bots completan reemplaza esa capa.
+                if (!string.IsNullOrWhiteSpace(dto.Sitio))
+                    return ResultadoOperacion<RegistroRespuestaDto>.SetError(
+                        "No pudimos completar tu registro. Intenta nuevamente.");
+
                 var terminos = ValidarAceptacionTerminos(dto.AceptaTerminos);
                 if (!terminos.Exito)
                     return ResultadoOperacion<RegistroRespuestaDto>.SetError(terminos.Mensaje);
@@ -201,6 +279,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
                 var usuario = CrearUsuario(persona.PersonaId, dto.Correo, claveAuto, forzarCambioClave: true);
                 usuario.FechaAceptacionTerminos = DateTime.UtcNow;
+                usuario.VersionPoliticas = PoliticasConsentimiento.VersionVigente;
                 _context.Usuarios.Add(usuario);
                 await _context.SaveChangesAsync();
 
@@ -248,6 +327,11 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 if (dto == null)
                     return ResultadoOperacion<RegistroRespuestaDto>.SetError("El DTO es nulo.");
 
+                // Honeypot anti-bot (ver RegistrarClienteAsync).
+                if (!string.IsNullOrWhiteSpace(dto.Sitio))
+                    return ResultadoOperacion<RegistroRespuestaDto>.SetError(
+                        "No pudimos completar tu registro. Intenta nuevamente.");
+
                 var terminos = ValidarAceptacionTerminos(dto.AceptaTerminos);
                 if (!terminos.Exito)
                     return ResultadoOperacion<RegistroRespuestaDto>.SetError(terminos.Mensaje);
@@ -269,6 +353,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
                 var usuario = CrearUsuario(persona.PersonaId, dto.Correo, claveAuto, forzarCambioClave: true);
                 usuario.FechaAceptacionTerminos = DateTime.UtcNow;
+                usuario.VersionPoliticas = PoliticasConsentimiento.VersionVigente;
                 _context.Usuarios.Add(usuario);
                 await _context.SaveChangesAsync();
 
@@ -590,6 +675,11 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
                 usuario.Contrasena = BCrypt.Net.BCrypt.HashPassword(contrasenaNueva);
                 usuario.ForzarCambioClave = false;
+
+                // M9: un cambio de contraseña invalida el resto de sesiones abiertas
+                // (si alguien más tenía un refresh token, deja de servir).
+                await RevocarTokensRefrescoAsync(usuario.UsuarioId);
+
                 await _context.SaveChangesAsync();
 
                 return ResultadoOperacion<bool>.SetExito(true);
@@ -607,6 +697,11 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
         public async Task<ResultadoOperacion<bool>> EstablecerContrasenaInicialAsync(
             string correo, string contrasenaActual, string contrasenaNueva)
         {
+            // C2: mensaje único y genérico — no distingue "no existe", "ya tiene
+            // contraseña", "código vencido" o "código incorrecto", para no filtrar
+            // el estado de la cuenta a quien está adivinando códigos.
+            const string MENSAJE_GENERICO = "El código ingresado no es correcto o ya venció.";
+
             try
             {
                 if (string.IsNullOrWhiteSpace(correo))
@@ -628,17 +723,40 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                     .FirstOrDefaultAsync(u => u.Correo == correoNorm);
 
                 if (usuario == null)
-                    return ResultadoOperacion<bool>.SetError("El código ingresado no es correcto.");
+                {
+                    BCrypt.Net.BCrypt.Verify(contrasenaActual, HashDummyBCrypt);
+                    return ResultadoOperacion<bool>.SetError(MENSAJE_GENERICO);
+                }
 
-                if (!usuario.ForzarCambioClave)
+                if (EstaBloqueado(usuario))
                     return ResultadoOperacion<bool>.SetError(
-                        "Esta cuenta ya tiene una contraseña definida. Inicia sesión y cámbiala desde tu perfil.");
+                        "Demasiados intentos. Intenta de nuevo en unos minutos.");
+
+                // C2: ya no tiene clave temporal pendiente, o venció (24h) → mismo
+                // mensaje genérico que "código incorrecto".
+                if (!usuario.ForzarCambioClave
+                    || usuario.ClaveTemporalExpira == null
+                    || usuario.ClaveTemporalExpira.Value < DateTime.UtcNow)
+                {
+                    return ResultadoOperacion<bool>.SetError(MENSAJE_GENERICO);
+                }
 
                 if (!BCrypt.Net.BCrypt.Verify(contrasenaActual, usuario.Contrasena))
-                    return ResultadoOperacion<bool>.SetError("El código ingresado no es correcto.");
+                {
+                    RegistrarFalloAcceso(usuario);
+                    await _context.SaveChangesAsync();
+                    return ResultadoOperacion<bool>.SetError(MENSAJE_GENERICO);
+                }
 
                 usuario.Contrasena = BCrypt.Net.BCrypt.HashPassword(contrasenaNueva);
                 usuario.ForzarCambioClave = false;
+                usuario.ClaveTemporalExpira = null;
+                usuario.CorreoConfirmado = true;
+                RegistrarExitoAcceso(usuario);
+
+                // M9: una clave nueva invalida las sesiones abiertas con la anterior.
+                await RevocarTokensRefrescoAsync(usuario.UsuarioId);
+
                 await _context.SaveChangesAsync();
 
                 return ResultadoOperacion<bool>.SetExito(true);
@@ -699,7 +817,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
         // ─────────────────────────────────────────────────────────────
         // LOGOUT
         // ─────────────────────────────────────────────────────────────
-        public async Task<ResultadoOperacion<bool>> LogoutAsync(string refreshToken)
+        public async Task<ResultadoOperacion<bool>> LogoutAsync(Guid usuarioId, string refreshToken)
         {
             try
             {
@@ -712,6 +830,11 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
                 if (tokenBd == null)
                     return ResultadoOperacion<bool>.SetExito(true); // ya no existe, idempotente
+
+                // B2: logout sólo puede revocar un refresh token del propio usuario
+                // autenticado — nunca el de otra cuenta.
+                if (tokenBd.UsuarioId != usuarioId)
+                    return ResultadoOperacion<bool>.SetExito(true); // idempotente, no revela nada
 
                 tokenBd.Revocado = true;
                 await _context.SaveChangesAsync();
@@ -788,6 +911,11 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 Contrasena = BCrypt.Net.BCrypt.HashPassword(contrasena),
                 CorreoConfirmado = false,
                 ForzarCambioClave = forzarCambioClave,
+                // C2: la clave temporal (6 dígitos) vence a las 24h; pasado ese plazo,
+                // "establecer-contrasena-inicial" la rechaza aunque el BCrypt coincida.
+                ClaveTemporalExpira = forzarCambioClave
+                    ? DateTime.UtcNow.AddHours(CLAVE_TEMPORAL_HORAS)
+                    : null,
                 Estado = TipoEstadoUsuario.Activo,
                 FechaAlta = DateTime.UtcNow
             };
@@ -903,11 +1031,17 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             var refreshPlano = _jwtService.GenerarRefreshToken();
             var refreshHash = _jwtService.HashearRefreshToken(refreshPlano);
 
+            // A5: a una cuenta de invitado se le da una sesión corta (1 día en vez de
+            // 30) — si compra y nunca confirma su correo, la sesión expira sola.
+            var duracionRefrescoDias = usuario.EsInvitado
+                ? DURACION_REFRESH_INVITADO_DIAS
+                : DURACION_REFRESH_DIAS;
+
             _context.TokensRefresco.Add(new TokenRefresco
             {
                 UsuarioId = usuario.UsuarioId,
                 TokenHash = refreshHash,
-                ExpiraEn = DateTime.UtcNow.AddDays(DURACION_REFRESH_DIAS),
+                ExpiraEn = DateTime.UtcNow.AddDays(duracionRefrescoDias),
                 Revocado = false,
                 FechaEmision = DateTime.UtcNow,
                 DireccionIp = direccionIp,
@@ -963,6 +1097,14 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
 
             if (!usuario.TwoFactorEnabled || string.IsNullOrEmpty(usuario.TwoFactorSecret))
             {
+                // M11: el QR no se entrega hasta que el correo esté confirmado
+                // (establecer contraseña con el código del mail, o entrar con código).
+                if (!usuario.CorreoConfirmado)
+                {
+                    return ResultadoOperacion<LoginRespuestaDto>.SetError(
+                        "Primero confirma tu correo. Crea tu contraseña con el código de 6 dígitos que te enviamos y vuelve a iniciar sesión.");
+                }
+
                 var secretoNuevo = _twoFactorService.GenerarSecreto();
                 var secretoCifrado = _twoFactorService.CifrarSecreto(secretoNuevo, clave);
                 var tokenTemporalSetup = _jwtService.GenerarTokenTemporal2Fa(
@@ -1002,5 +1144,63 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
                 .Include(u => u.Persona)
                 .Include(u => u.UsuarioRoles).ThenInclude(ur => ur.Rol)
                 .Include(u => u.Vendedor);
+
+        // ─────────────────────────────────────────────────────────────
+        // C2 / A4+M12: bloqueo por intentos fallidos (login y
+        // establecer-contrasena-inicial comparten el mismo contador).
+        // ─────────────────────────────────────────────────────────────
+        private static bool EstaBloqueado(Usuario usuario) =>
+            usuario.BloqueadoHasta.HasValue && usuario.BloqueadoHasta.Value > DateTime.UtcNow;
+
+        private static void RegistrarFalloAcceso(Usuario usuario)
+        {
+            usuario.IntentosFallidosAcceso++;
+            if (usuario.IntentosFallidosAcceso >= MAX_INTENTOS_ACCESO)
+            {
+                usuario.BloqueadoHasta = DateTime.UtcNow.AddMinutes(BLOQUEO_ACCESO_MINUTOS);
+                usuario.IntentosFallidosAcceso = 0;
+            }
+        }
+
+        private static void RegistrarExitoAcceso(Usuario usuario)
+        {
+            usuario.IntentosFallidosAcceso = 0;
+            usuario.BloqueadoHasta = null;
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // A3: bloqueo por intentos fallidos del código 2FA (TOTP).
+        // ─────────────────────────────────────────────────────────────
+        private static void RegistrarFallo2Fa(Usuario usuario)
+        {
+            usuario.Intentos2Fa++;
+            if (usuario.Intentos2Fa >= MAX_INTENTOS_2FA)
+            {
+                usuario.Bloqueo2FaHasta = DateTime.UtcNow.AddMinutes(BLOQUEO_2FA_MINUTOS);
+                usuario.Intentos2Fa = 0;
+            }
+        }
+
+        /// <summary>
+        /// M9/A5: revoca todas las sesiones (refresh tokens) activas de un usuario.
+        /// No hace SaveChangesAsync — el llamador decide cuándo persistir.
+        /// </summary>
+        private async Task RevocarTokensRefrescoAsync(Guid usuarioId)
+        {
+            var tokens = await _context.TokensRefresco
+                .Where(t => t.UsuarioId == usuarioId && !t.Revocado)
+                .ToListAsync();
+            foreach (var token in tokens)
+                token.Revocado = true;
+        }
+
+        /// <summary>M10/B12: enmascara un correo para que no quede en texto plano en logs.</summary>
+        private static string EnmascararCorreo(string? correo)
+        {
+            if (string.IsNullOrWhiteSpace(correo)) return "(sin correo)";
+            var arroba = correo.IndexOf('@');
+            if (arroba <= 1) return "***" + correo[Math.Max(0, arroba)..];
+            return correo[0] + "***" + correo[(arroba - 1)..];
+        }
     }
 }

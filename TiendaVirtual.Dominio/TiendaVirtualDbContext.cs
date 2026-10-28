@@ -43,6 +43,7 @@ namespace TiendaVirtual.Dominio
         public DbSet<TokenRefresco> TokensRefresco { get; set; } = null!;
         public DbSet<UsuarioLoginExterno> UsuariosLoginExterno { get; set; } = null!;
         public DbSet<CodigoAccesoCorreo> CodigosAccesoCorreo { get; set; } = null!;
+        public DbSet<EventoAuditoria> EventosAuditoria { get; set; } = null!;
         //----------------------------------------------------------------------
         #endregion
 
@@ -138,6 +139,7 @@ namespace TiendaVirtual.Dominio
             modelBuilder.ApplyConfiguration(new TokenRefrescoDB());
             modelBuilder.ApplyConfiguration(new UsuarioLoginExternoDB());
             modelBuilder.ApplyConfiguration(new CodigoAccesoCorreoDB());
+            modelBuilder.ApplyConfiguration(new EventoAuditoriaDB());
             #endregion
 
             #region Vendedor

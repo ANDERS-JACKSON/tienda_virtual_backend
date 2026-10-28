@@ -50,7 +50,7 @@ namespace TiendaVirtual.Dominio.Extensiones.ConfiguracionXqm
             dto.Remitente = entidad.Remitente;
             dto.CorreoElectronico = entidad.CorreoElectronico;
             dto.Puerto = entidad.Puerto;
-            dto.Contrasenia = entidad.Contrasenia;
+            dto.Contrasenia = null;
             dto.ServidorSmtp = entidad.ServidorSmtp;
             dto.AsuntoCreacionUsuario = entidad.AsuntoCreacionUsuario;
             dto.CuerpoCreacionUsuario = entidad.CuerpoCreacionUsuario;

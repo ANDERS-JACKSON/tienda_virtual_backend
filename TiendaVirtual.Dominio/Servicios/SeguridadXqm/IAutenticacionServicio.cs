@@ -28,7 +28,7 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm
         Task<ResultadoOperacion<TokenRespuestaDto>> RefrescarTokenAsync(
             string refreshToken, string? direccionIp, string? agenteUsuario);
 
-        Task<ResultadoOperacion<bool>> LogoutAsync(string refreshToken);
+        Task<ResultadoOperacion<bool>> LogoutAsync(Guid usuarioId, string refreshToken);
 
         /// <summary>
         /// Envía un código de un solo uso para elegir una contraseña nueva.

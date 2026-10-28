@@ -51,6 +51,7 @@ namespace TiendaVirtual.Dominio.Servicios.PagoXqm.Modelos
         public string? StatusDetail { get; init; }
         public decimal? MontoConfirmado { get; init; }
         public string? MetodoPago { get; init; }
+        public string? Moneda { get; init; }
         public string? RespuestaCruda { get; init; }
         public string? MensajeError { get; init; }
     }
@@ -70,6 +71,7 @@ namespace TiendaVirtual.Dominio.Servicios.PagoXqm.Modelos
         public decimal? MontoConfirmado { get; init; }
         public string? ExternalReference { get; init; }
         public string? MetodoPago { get; init; }
+        public string? Moneda { get; init; }
         public string? RespuestaCruda { get; init; }
     }
 
@@ -92,6 +94,7 @@ namespace TiendaVirtual.Dominio.Servicios.PagoXqm.Modelos
         public bool Pendiente { get; init; }
         public decimal MontoConfirmado { get; init; }
         public string? MetodoPago { get; init; }
+        public string? Moneda { get; init; }
         public string? EstadoExterno { get; init; }
         public string? StatusDetail { get; init; }
         public string? RespuestaCruda { get; init; }

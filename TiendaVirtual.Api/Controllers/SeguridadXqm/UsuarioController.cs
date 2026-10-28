@@ -48,6 +48,20 @@ namespace TiendaVirtual.Api.Controllers.SeguridadXqm
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 
+        /// <summary>
+        /// ARCO (Ley 29733): el titular suspende su cuenta. No borramos pedidos
+        /// ni comprobantes (conservación legal); sí se cortan sesiones.
+        /// </summary>
+        [HttpPost("mi-perfil/solicitar-baja")]
+        [Authorize]
+        public async Task<ActionResult<ResultadoOperacion<bool>>> SolicitarBaja()
+        {
+            var usuarioId = ObtenerUsuarioId();
+            if (usuarioId == null) return Unauthorized();
+            var r = await _perfilServicio.SolicitarBajaAsync(usuarioId.Value);
+            return r.Exito ? Ok(r) : BadRequest(r);
+        }
+
         // ──────────────── ADMIN ────────────────
         [HttpGet("admin")]
         [Authorize(Roles = "ADMIN")]

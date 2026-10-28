@@ -20,15 +20,6 @@ namespace TiendaVirtual.Api.Controllers.VentaXqm
             _servicio = servicio;
         }
 
-        [HttpPost]
-        public async Task<ActionResult<ResultadoOperacion<OrdenDto>>> Crear([FromBody] CrearOrdenDto dto)
-        {
-            var uid = User.ObtenerUsuarioId();
-            if (uid == null) return Unauthorized();
-            var r = await _servicio.CrearAsync(uid.Value, dto);
-            return r.Exito ? Ok(r) : BadRequest(r);
-        }
-
         [HttpGet("mis-ordenes")]
         public async Task<ActionResult<ResultadoOperacion<PaginacionRespuestaDto<OrdenListadoDto>>>> Listar(
             [FromQuery] int pagina = 1, [FromQuery] int tamanioPagina = 10)

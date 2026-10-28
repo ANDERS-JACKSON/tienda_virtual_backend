@@ -1,12 +1,14 @@
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MimeKit;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.ConfiguracionDB;
 using TiendaVirtual.Dominio.Modelo.ConfiguracionXqm;
+using TiendaVirtual.Dominio.Utilidad;
 
 namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
 {
@@ -19,11 +21,16 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
     {
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<EmailServicio> _logger;
+        private readonly IConfiguration _configuration;
 
-        public EmailServicio(IServiceScopeFactory scopeFactory, ILogger<EmailServicio> logger)
+        public EmailServicio(
+            IServiceScopeFactory scopeFactory,
+            ILogger<EmailServicio> logger,
+            IConfiguration configuration)
         {
             _scopeFactory = scopeFactory;
             _logger = logger;
+            _configuration = configuration;
         }
 
         public async Task<bool> EnviarAsync(string destinatario, string nombreDestinatario,
@@ -169,7 +176,10 @@ namespace TiendaVirtual.Dominio.Servicios.SoporteXqm.Implementacion
 
                 using var smtp = new SmtpClient();
                 await smtp.ConnectAsync(config.ServidorSmtp, config.Puerto!.Value, SecureSocketOptions.StartTls);
-                await smtp.AuthenticateAsync(config.CorreoElectronico, config.Contrasenia);
+                var claveSmtp = CifradoCampo.Descifrar(
+                    config.Contrasenia!,
+                    _configuration["TwoFactor:ClaveCifrado"]);
+                await smtp.AuthenticateAsync(config.CorreoElectronico, claveSmtp);
                 await smtp.SendAsync(message);
                 await smtp.DisconnectAsync(true);
 

@@ -1,7 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using TiendaVirtual.Dominio.Modelo.ConfiguracionXqm;
 using TiendaVirtual.Dominio.Servicios.SoporteXqm;
+using TiendaVirtual.Dominio.Utilidad;
 using SoporteEmail = TiendaVirtual.Dominio.Servicios.SoporteXqm.IEmailServicio;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.ConfiguracionXqm;
@@ -13,12 +15,18 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
         private readonly TiendaVirtualDbContext _context;
         private readonly ILogger<ConfiguracionCorreoServicio> _logger;
         private readonly SoporteEmail _email;
+        private readonly IConfiguration _configuration;
 
-        public ConfiguracionCorreoServicio(TiendaVirtualDbContext context, SoporteEmail email, ILogger<ConfiguracionCorreoServicio> logger)
+        public ConfiguracionCorreoServicio(
+            TiendaVirtualDbContext context,
+            SoporteEmail email,
+            ILogger<ConfiguracionCorreoServicio> logger,
+            IConfiguration configuration)
         {
             _logger = logger;
             _context = context;
             _email = email;
+            _configuration = configuration;
         }
 
         public async Task<ResultadoOperacion<ConfiguracionCorreoDto>> ObtenerAsync()
@@ -59,7 +67,7 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
                 config.CorreoElectronico = dto.CorreoElectronico.Trim().ToLower();
                 config.Remitente = dto.Remitente?.Trim();
                 if (!string.IsNullOrWhiteSpace(dto.Contrasenia))
-                    config.Contrasenia = dto.Contrasenia;
+                    config.Contrasenia = CifrarSmtpSiHayClave(dto.Contrasenia.Trim());
 
                 await _context.SaveChangesAsync();
                 return ResultadoOperacion<ConfiguracionCorreoDto>.SetExito(MapearDto(config));
@@ -158,6 +166,14 @@ namespace TiendaVirtual.Dominio.Servicios.ConfiguracionXqm.Implementacion
                 _logger.LogError(ex, "Error en ConfiguracionCorreoServicio.EnviarPruebaAsync");
                 return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
+        }
+
+        private string CifrarSmtpSiHayClave(string plano)
+        {
+            var clave = _configuration["TwoFactor:ClaveCifrado"];
+            if (string.IsNullOrWhiteSpace(clave))
+                return plano;
+            return CifradoCampo.Cifrar(plano, clave);
         }
 
         private static ConfiguracionCorreoDto MapearDto(Correo? c)

@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones.CatalogoXqm;
 using TiendaVirtual.Dominio.Modelo.CatalogoXqm;
+using TiendaVirtual.Dominio.Utilidad;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.CatalogoXqm;
 
@@ -120,6 +121,9 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                         return ResultadoOperacion<CategoriaDto>.SetError(errorPadre);
                 }
 
+                if (!IdentificadorMedia.EsValidoOVacio(dto.ImagenUrl))
+                    return ResultadoOperacion<CategoriaDto>.SetError(IdentificadorMedia.MensajeError);
+
                 var slug = await GenerarSlugUnicoAsync(dto.Nombre, dto.CategoriaPadreId);
 
                 var categoria = new Categoria
@@ -158,6 +162,9 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     if (errorPadre != null)
                         return ResultadoOperacion<CategoriaDto>.SetError(errorPadre);
                 }
+
+                if (!IdentificadorMedia.EsValidoOVacio(dto.ImagenUrl))
+                    return ResultadoOperacion<CategoriaDto>.SetError(IdentificadorMedia.MensajeError);
 
                 var nuevoSlug = await GenerarSlugUnicoAsync(dto.Nombre, dto.CategoriaPadreId, id);
 

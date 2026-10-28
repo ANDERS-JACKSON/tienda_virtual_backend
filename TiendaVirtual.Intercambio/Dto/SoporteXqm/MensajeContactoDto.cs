@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using TiendaVirtual.Intercambio.Dto.Sistema;
 
 namespace TiendaVirtual.Intercambio.Dto.SoporteXqm
@@ -24,6 +24,9 @@ namespace TiendaVirtual.Intercambio.Dto.SoporteXqm
 
         /// <summary>Campo honeypot anti-bot. Debe ir vacío.</summary>
         public string? Sitio { get; set; }
+
+        /// <summary>Token de Cloudflare Turnstile. Opcional según configuración del servidor.</summary>
+        public string? TurnstileToken { get; set; }
     }
 
     public class MensajeContactoListadoDto

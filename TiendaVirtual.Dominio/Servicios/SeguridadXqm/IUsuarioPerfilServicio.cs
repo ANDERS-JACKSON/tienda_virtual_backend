@@ -8,5 +8,6 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm
         Task<ResultadoOperacion<UsuarioPerfilDto>> ObtenerMiPerfilAsync(Guid usuarioId);
         Task<ResultadoOperacion<UsuarioPerfilDto>> ActualizarMisDatosAsync(
             Guid usuarioId, ActualizarMisDatosPersonalesDto dto);
+        Task<ResultadoOperacion<bool>> SolicitarBajaAsync(Guid usuarioId);
     }
 }

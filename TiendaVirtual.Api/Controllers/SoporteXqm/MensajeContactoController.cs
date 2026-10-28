@@ -1,8 +1,10 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Servicios.SoporteXqm;
+using TiendaVirtual.Dominio.Servicios.Sistema;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.Sistema;
 using TiendaVirtual.Intercambio.Dto.SoporteXqm;
@@ -15,19 +17,32 @@ namespace TiendaVirtual.Api.Controllers.SoporteXqm
     {
         private readonly IMensajeContactoServicio _servicio;
         private readonly IHttpContextAccessor _http;
+        private readonly ITurnstileService _turnstile;
 
-        public MensajeContactoController(IMensajeContactoServicio servicio, IHttpContextAccessor http)
+        public MensajeContactoController(
+            IMensajeContactoServicio servicio, IHttpContextAccessor http, ITurnstileService turnstile)
         {
             _servicio = servicio;
             _http = http;
+            _turnstile = turnstile;
         }
 
         [HttpPost]
         [AllowAnonymous]
+        [EnableRateLimiting("contacto")]
         public async Task<ActionResult<ResultadoOperacion<Guid>>> Crear([FromBody] CrearMensajeContactoDto dto)
         {
+            // El honeypot ("Sitio") ya lo valida el servicio (CrearAsync). Aquí sólo
+            // agregamos la verificación de Turnstile (A4+M12).
+            var ip = _http.HttpContext?.Connection.RemoteIpAddress?.ToString();
+            if (!await _turnstile.ValidarAsync(dto?.TurnstileToken, ip))
+            {
+                return BadRequest(ResultadoOperacion<Guid>.SetError(
+                    "No pudimos verificar que eres una persona. Recarga la página e inténtalo de nuevo."));
+            }
+
             var usuarioId = ObtenerUsuarioIdOpcional();
-            var r = await _servicio.CrearAsync(dto, usuarioId);
+            var r = await _servicio.CrearAsync(dto!, usuarioId);
             return r.Exito ? Ok(r) : BadRequest(r);
         }
 

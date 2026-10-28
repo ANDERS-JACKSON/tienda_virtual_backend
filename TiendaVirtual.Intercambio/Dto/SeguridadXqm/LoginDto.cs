@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -16,5 +16,11 @@ namespace TiendaVirtual.Intercambio.Dto.SeguridadXqm
         [Required]
         [MinLength(8)]
         public string Contrasena { get; set; } = null!;
+
+        /// <summary>
+        /// Token del widget de Cloudflare Turnstile. Opcional: sólo se exige cuando
+        /// Turnstile:Activo=true en el servidor (ver ITurnstileService).
+        /// </summary>
+        public string? TurnstileToken { get; set; }
     }
 }

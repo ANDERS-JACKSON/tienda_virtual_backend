@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using TiendaVirtual.Dominio.Servicios.SeguridadXqm;
+using TiendaVirtual.Dominio.Servicios.Sistema;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.SeguridadXqm;
 
@@ -14,27 +15,51 @@ namespace TiendaVirtual.Api.Controllers.SeguridadXqm
     {
         private readonly IAutenticacionServicio _servicio;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ITurnstileService _turnstile;
 
         public AutenticacionController(
             IAutenticacionServicio servicio,
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            ITurnstileService turnstile)
         {
             _servicio = servicio;
             _httpContextAccessor = httpContextAccessor;
+            _turnstile = turnstile;
+        }
+
+        /// <summary>
+        /// A4+M12: valida el captcha de Cloudflare Turnstile. Si Turnstile:Activo=false
+        /// (por defecto en desarrollo), siempre pasa sin exigir nada al cliente.
+        /// </summary>
+        private async Task<ActionResult?> ValidarCaptchaAsync(string? token)
+        {
+            var (ip, _) = ObtenerDatosCliente();
+            var valido = await _turnstile.ValidarAsync(token, ip);
+            if (!valido)
+            {
+                return BadRequest(ResultadoOperacion<bool>.SetError(
+                    "No pudimos verificar que eres una persona. Recarga la página e inténtalo de nuevo."));
+            }
+            return null;
         }
 
         [HttpPost("login")]
         [AllowAnonymous]
+        [EnableRateLimiting("login")]
         public async Task<ActionResult<ResultadoOperacion<LoginRespuestaDto>>> Login(
             [FromBody] LoginDto dto)
         {
+            var errorCaptcha = await ValidarCaptchaAsync(dto?.TurnstileToken);
+            if (errorCaptcha != null) return errorCaptcha;
+
             var (ip, agente) = ObtenerDatosCliente();
-            var resultado = await _servicio.LoginAsync(dto, ip, agente);
+            var resultado = await _servicio.LoginAsync(dto!, ip, agente);
             return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
         }
 
         [HttpPost("google")]
         [AllowAnonymous]
+        [EnableRateLimiting("google")]
         public async Task<ActionResult<ResultadoOperacion<LoginRespuestaDto>>> LoginConGoogle(
             [FromBody] GoogleLoginDto dto)
         {
@@ -45,6 +70,7 @@ namespace TiendaVirtual.Api.Controllers.SeguridadXqm
 
         [HttpPost("google/completar-registro")]
         [AllowAnonymous]
+        [EnableRateLimiting("google")]
         public async Task<ActionResult<ResultadoOperacion<LoginRespuestaDto>>> CompletarRegistroGoogle(
             [FromBody] CompletarRegistroGoogleDto dto)
         {
@@ -90,6 +116,7 @@ namespace TiendaVirtual.Api.Controllers.SeguridadXqm
 
         [HttpPost("login/verificar-2fa")]
         [AllowAnonymous]
+        [EnableRateLimiting("dosFactores")]
         public async Task<ActionResult<ResultadoOperacion<TokenRespuestaDto>>> VerificarDosFactores(
             [FromBody] Verificar2FaRequestDto dto)
         {
@@ -100,21 +127,27 @@ namespace TiendaVirtual.Api.Controllers.SeguridadXqm
 
         [HttpPost("registrar-cliente")]
         [AllowAnonymous]
+        [EnableRateLimiting("registro")]
         public async Task<ActionResult<ResultadoOperacion<RegistroRespuestaDto>>> RegistrarCliente(
             [FromBody] RegistroClienteDto dto)
         {
+            // Sin captcha visible aquí a pedido del negocio (registro sin fricción,
+            // como la mayoría de tiendas). La protección anti-bot es honeypot +
+            // rate limiting ("registro") + unicidad de correo/documento.
             var (ip, agente) = ObtenerDatosCliente();
-            var resultado = await _servicio.RegistrarClienteAsync(dto, ip, agente);
+            var resultado = await _servicio.RegistrarClienteAsync(dto!, ip, agente);
             return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
         }
 
         [HttpPost("registrar-vendedor")]
         [AllowAnonymous]
+        [EnableRateLimiting("registro")]
         public async Task<ActionResult<ResultadoOperacion<RegistroRespuestaDto>>> RegistrarVendedor(
             [FromBody] RegistroVendedorDto dto)
         {
+            // Sin captcha visible aquí a pedido del negocio (ver RegistrarCliente).
             var (ip, agente) = ObtenerDatosCliente();
-            var resultado = await _servicio.RegistrarVendedorAsync(dto, ip, agente);
+            var resultado = await _servicio.RegistrarVendedorAsync(dto!, ip, agente);
             return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
         }
 
@@ -180,8 +213,9 @@ namespace TiendaVirtual.Api.Controllers.SeguridadXqm
         public async Task<ActionResult<ResultadoOperacion<LoginRespuestaDto>>> PrepararCompraInvitado(
             [FromBody] PrepararCompraInvitadoDto dto)
         {
+            // Sin captcha visible aquí a pedido del negocio (ver RegistrarCliente).
             var (ip, agente) = ObtenerDatosCliente();
-            var resultado = await _servicio.PrepararCompraInvitadoAsync(dto, ip, agente);
+            var resultado = await _servicio.PrepararCompraInvitadoAsync(dto!, ip, agente);
             return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
         }
 
@@ -223,6 +257,7 @@ namespace TiendaVirtual.Api.Controllers.SeguridadXqm
         /// </summary>
         [HttpPost("establecer-contrasena-inicial")]
         [AllowAnonymous]
+        [EnableRateLimiting("codigos")]
         public async Task<ActionResult<ResultadoOperacion<bool>>> EstablecerContrasenaInicial(
             [FromBody] EstablecerContrasenaInicialDto dto)
         {
@@ -262,6 +297,7 @@ namespace TiendaVirtual.Api.Controllers.SeguridadXqm
 
         [HttpPost("refrescar")]
         [AllowAnonymous]
+        [EnableRateLimiting("refrescar")]
         public async Task<ActionResult<ResultadoOperacion<TokenRespuestaDto>>> Refrescar(
             [FromBody] RefrescarTokenDto dto)
         {
@@ -275,7 +311,10 @@ namespace TiendaVirtual.Api.Controllers.SeguridadXqm
         public async Task<ActionResult<ResultadoOperacion<bool>>> Logout(
             [FromBody] RefrescarTokenDto dto)
         {
-            var resultado = await _servicio.LogoutAsync(dto.RefreshToken);
+            var usuarioId = ObtenerUsuarioId();
+            if (usuarioId == null) return Unauthorized();
+
+            var resultado = await _servicio.LogoutAsync(usuarioId.Value, dto.RefreshToken);
             return resultado.Exito ? Ok(resultado) : BadRequest(resultado);
         }
 

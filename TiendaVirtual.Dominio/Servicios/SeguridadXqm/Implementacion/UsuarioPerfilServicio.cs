@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones;
@@ -94,6 +94,45 @@ namespace TiendaVirtual.Dominio.Servicios.SeguridadXqm.Implementacion
             {
                 _logger.LogError(ex, "Error en UsuarioPerfilServicio.ActualizarMisDatosAsync");
                 return ResultadoOperacion<UsuarioPerfilDto>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
+            }
+        }
+
+        public async Task<ResultadoOperacion<bool>> SolicitarBajaAsync(Guid usuarioId)
+        {
+            try
+            {
+                var usuario = await _context.Usuarios
+                    .Include(u => u.UsuarioRoles).ThenInclude(ur => ur.Rol)
+                    .FirstOrDefaultAsync(u => u.UsuarioId == usuarioId);
+
+                if (usuario == null)
+                    return ResultadoOperacion<bool>.SetError("Usuario no encontrado.");
+
+                if (usuario.UsuarioRoles.Any(ur => ur.Rol.Nombre == "ADMIN"))
+                {
+                    var totalAdmins = await _context.UsuarioRoles
+                        .CountAsync(ur => ur.Rol.Nombre == "ADMIN" &&
+                            _context.Usuarios.Any(uu => uu.UsuarioId == ur.UsuarioId &&
+                                uu.Estado == TipoEstadoUsuario.Activo));
+                    if (totalAdmins <= 1)
+                        return ResultadoOperacion<bool>.SetError(
+                            "No puedes dar de baja la última cuenta de administrador.");
+                }
+
+                usuario.Estado = TipoEstadoUsuario.Suspendido;
+                var tokens = await _context.TokensRefresco
+                    .Where(t => t.UsuarioId == usuarioId && !t.Revocado)
+                    .ToListAsync();
+                foreach (var t in tokens)
+                    t.Revocado = true;
+
+                await _context.SaveChangesAsync();
+                return ResultadoOperacion<bool>.SetExito(true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en UsuarioPerfilServicio.SolicitarBajaAsync");
+                return ResultadoOperacion<bool>.SetError("Ocurrió un error inesperado. Intente nuevamente.");
             }
         }
 
