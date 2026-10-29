@@ -537,7 +537,7 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
                 var resultado = new PaginacionRespuestaDto<TiendaPublicaDto>
                 {
                     Items = resultados.Select(r => r.Vendedor.ToTiendaPublicaDto(
-                        r.TotalProductos, r.TotalVentas)).ToList(),
+                        r.TotalProductos, r.TotalVentas, incluirBiografia: false)).ToList(),
                     Pagina = pagina,
                     TamanioPagina = tamanioPagina,
                     TotalRegistros = total,

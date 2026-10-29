@@ -96,7 +96,11 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
             };
         }
 
-        public static TiendaPublicaDto ToTiendaPublicaDto(this Vendedor entidad, int totalProductos, int totalVentas)
+        public static TiendaPublicaDto ToTiendaPublicaDto(
+            this Vendedor entidad,
+            int totalProductos,
+            int totalVentas,
+            bool incluirBiografia = true)
         {
             if (entidad == null) return null!;
             return new TiendaPublicaDto
@@ -104,7 +108,7 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
                 VendedorId = entidad.VendedorId,
                 NombreTienda = entidad.NombreTienda,
                 SlugTienda = entidad.SlugTienda,
-                Biografia = entidad.Biografia,
+                Biografia = incluirBiografia ? entidad.Biografia : null,
                 LogoUrl = entidad.LogoUrl,
                 BannerUrl = entidad.BannerUrl,
                 CalificacionPromedio = entidad.CalificacionPromedio,

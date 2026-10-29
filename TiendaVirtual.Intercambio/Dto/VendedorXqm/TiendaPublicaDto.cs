@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Text.Json.Serialization;
 
 namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
 {
@@ -11,6 +7,8 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
         public int VendedorId { get; set; }
         public string NombreTienda { get; set; } = null!;
         public string SlugTienda { get; set; } = null!;
+        /// <summary>Solo en el detalle de la tienda. El listado público no la envía.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Biografia { get; set; }
         public string? LogoUrl { get; set; }
         public string? BannerUrl { get; set; }
