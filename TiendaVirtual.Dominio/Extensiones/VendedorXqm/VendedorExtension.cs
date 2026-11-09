@@ -99,7 +99,6 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
         public static TiendaPublicaDto ToTiendaPublicaDto(
             this Vendedor entidad,
             int totalProductos,
-            int totalVentas,
             bool incluirBiografia = true)
         {
             if (entidad == null) return null!;
@@ -112,7 +111,6 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
                 LogoUrl = entidad.LogoUrl,
                 BannerUrl = entidad.BannerUrl,
                 CalificacionPromedio = entidad.CalificacionPromedio,
-                TotalVentas = totalVentas,
                 TotalProductos = totalProductos,
                 VendePatrones = entidad.VendePatrones,
                 NumeroWhatsapp = entidad.NumeroWhatsapp,
@@ -146,7 +144,6 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
         public static HistoriaPublicaDetalleDto ToHistoriaPublicaDetalleDto(
             this Vendedor entidad,
             int totalProductos,
-            int totalVentas,
             string? categoriaPrincipal)
         {
             if (entidad == null) return null!;
@@ -160,7 +157,6 @@ namespace TiendaVirtual.Dominio.Extensiones.VendedorXqm
                 LogoUrl = entidad.LogoUrl,
                 BannerUrl = entidad.BannerUrl,
                 CalificacionPromedio = entidad.CalificacionPromedio,
-                TotalVentas = totalVentas,
                 TotalProductos = totalProductos,
                 VendePatrones = entidad.VendePatrones,
                 CategoriaPrincipal = categoriaPrincipal,

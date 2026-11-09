@@ -23,7 +23,6 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
         public int? DiasElaboracion { get; set; }
         public EnumeracionDto Tipo { get; set; } = null!;
         public int Vistas { get; set; }
-        public int Ventas { get; set; }
         public decimal CalificacionPromedio { get; set; }
         public int TotalResenas { get; set; }
 

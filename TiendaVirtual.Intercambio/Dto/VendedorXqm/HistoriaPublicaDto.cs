@@ -23,7 +23,6 @@ namespace TiendaVirtual.Intercambio.Dto.VendedorXqm
         public string? LogoUrl { get; set; }
         public string? BannerUrl { get; set; }
         public decimal CalificacionPromedio { get; set; }
-        public int TotalVentas { get; set; }
         public int TotalProductos { get; set; }
         public bool VendePatrones { get; set; }
         public string? CategoriaPrincipal { get; set; }

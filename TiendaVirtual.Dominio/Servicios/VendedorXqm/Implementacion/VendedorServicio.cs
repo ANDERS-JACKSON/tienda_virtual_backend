@@ -522,22 +522,14 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
                         Vendedor = v,
                         TotalProductos = _context.Productos.Count(p =>
                             p.VendedorId == v.VendedorId &&
-                            p.Estado == TipoEstadoProducto.Activo),
-                        // Unidades vendidas (suma Cantidad): 1 pedido con 3 ítems = 3.
-                        TotalVentas = _context.ItemsOrden
-                            .Where(i =>
-                                i.Suborden.VendedorId == v.VendedorId &&
-                                i.Suborden.Estado != TipoEstadoSuborden.Cancelada &&
-                                i.Suborden.Orden.Estado != TipoEstadoOrden.PendientePago &&
-                                i.Suborden.Orden.Estado != TipoEstadoOrden.Cancelada)
-                            .Sum(i => (int?)i.Cantidad) ?? 0
+                            p.Estado == TipoEstadoProducto.Activo)
                     })
                     .ToListAsync();
 
                 var resultado = new PaginacionRespuestaDto<TiendaPublicaDto>
                 {
                     Items = resultados.Select(r => r.Vendedor.ToTiendaPublicaDto(
-                        r.TotalProductos, r.TotalVentas, incluirBiografia: false)).ToList(),
+                        r.TotalProductos, incluirBiografia: false)).ToList(),
                     Pagina = pagina,
                     TamanioPagina = tamanioPagina,
                     TotalRegistros = total,
@@ -572,15 +564,7 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
                         Vendedor = v,
                         TotalProductos = _context.Productos.Count(p =>
                             p.VendedorId == v.VendedorId &&
-                            p.Estado == TipoEstadoProducto.Activo),
-                        // Unidades vendidas (suma Cantidad): 1 pedido con 3 ítems = 3.
-                        TotalVentas = _context.ItemsOrden
-                            .Where(i =>
-                                i.Suborden.VendedorId == v.VendedorId &&
-                                i.Suborden.Estado != TipoEstadoSuborden.Cancelada &&
-                                i.Suborden.Orden.Estado != TipoEstadoOrden.PendientePago &&
-                                i.Suborden.Orden.Estado != TipoEstadoOrden.Cancelada)
-                            .Sum(i => (int?)i.Cantidad) ?? 0
+                            p.Estado == TipoEstadoProducto.Activo)
                     })
                     .FirstOrDefaultAsync();
 
@@ -588,7 +572,7 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
                     return ResultadoOperacion<TiendaPublicaDto>.SetError("Tienda no encontrada.");
 
                 return ResultadoOperacion<TiendaPublicaDto>.SetExito(
-                    resultado.Vendedor.ToTiendaPublicaDto(resultado.TotalProductos, resultado.TotalVentas));
+                    resultado.Vendedor.ToTiendaPublicaDto(resultado.TotalProductos));
             }
             catch (Exception ex)
             {
@@ -672,15 +656,7 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
                         Vendedor = v,
                         TotalProductos = _context.Productos.Count(p =>
                             p.VendedorId == v.VendedorId &&
-                            p.Estado == TipoEstadoProducto.Activo),
-                        // Unidades vendidas (suma Cantidad): 1 pedido con 3 ítems = 3.
-                        TotalVentas = _context.ItemsOrden
-                            .Where(i =>
-                                i.Suborden.VendedorId == v.VendedorId &&
-                                i.Suborden.Estado != TipoEstadoSuborden.Cancelada &&
-                                i.Suborden.Orden.Estado != TipoEstadoOrden.PendientePago &&
-                                i.Suborden.Orden.Estado != TipoEstadoOrden.Cancelada)
-                            .Sum(i => (int?)i.Cantidad) ?? 0
+                            p.Estado == TipoEstadoProducto.Activo)
                     })
                     .FirstOrDefaultAsync();
 
@@ -693,7 +669,6 @@ namespace TiendaVirtual.Dominio.Servicios.VendedorXqm.Implementacion
                 return ResultadoOperacion<HistoriaPublicaDetalleDto>.SetExito(
                     resultado.Vendedor.ToHistoriaPublicaDetalleDto(
                         resultado.TotalProductos,
-                        resultado.TotalVentas,
                         categorias.GetValueOrDefault(resultado.Vendedor.VendedorId)));
             }
             catch (Exception ex)
