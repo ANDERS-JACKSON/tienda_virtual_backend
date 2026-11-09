@@ -23,14 +23,12 @@ namespace TiendaVirtual.Dominio.Servicios.Sistema.Implementacion
             && !string.IsNullOrWhiteSpace(_configuration["Cloudinary:ApiKey"])
             && !string.IsNullOrWhiteSpace(_configuration["Cloudinary:ApiSecret"]);
 
-        public ResultadoOperacion<FirmaSubidaMediaDto> Firmar(string? proposito, IEnumerable<string> roles)
+        public ResultadoOperacion<FirmaSubidaMediaDto> Firmar(
+            string? proposito,
+            IEnumerable<string> roles,
+            Guid? usuarioId = null,
+            int? vendedorId = null)
         {
-            if (!Activo)
-            {
-                return ResultadoOperacion<FirmaSubidaMediaDto>.SetExito(
-                    new FirmaSubidaMediaDto { Activo = false });
-            }
-
             var destino = ResolverDestino(proposito);
             if (destino == null)
                 return ResultadoOperacion<FirmaSubidaMediaDto>.SetError("Tipo de archivo no reconocido.");
@@ -42,10 +40,23 @@ namespace TiendaVirtual.Dominio.Servicios.Sistema.Implementacion
                     "No tienes permiso para subir este tipo de archivo.");
             }
 
+            var folder = ArmarCarpeta(destino.Clave, usuarioId, vendedorId);
+
+            if (!Activo)
+            {
+                return ResultadoOperacion<FirmaSubidaMediaDto>.SetExito(
+                    new FirmaSubidaMediaDto
+                    {
+                        Activo = false,
+                        Folder = folder,
+                        ResourceType = destino.ResourceType
+                    });
+            }
+
             var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             var parametros = new SortedDictionary<string, string>(StringComparer.Ordinal)
             {
-                ["folder"] = destino.Folder,
+                ["folder"] = folder,
                 ["timestamp"] = timestamp.ToString()
             };
 
@@ -57,7 +68,7 @@ namespace TiendaVirtual.Dominio.Servicios.Sistema.Implementacion
                 ApiKey = _configuration["Cloudinary:ApiKey"],
                 Timestamp = timestamp,
                 Signature = FirmarParametros(parametros, secret),
-                Folder = destino.Folder,
+                Folder = folder,
                 ResourceType = destino.ResourceType
             });
         }
@@ -77,27 +88,57 @@ namespace TiendaVirtual.Dominio.Servicios.Sistema.Implementacion
             return Convert.ToHexString(hash).ToLowerInvariant();
         }
 
+        internal string ArmarCarpeta(string clave, Guid? usuarioId, int? vendedorId)
+        {
+            var raiz = (_configuration["Cloudinary:CarpetaRaiz"] ?? "tienda").Trim().Trim('/');
+            if (string.IsNullOrEmpty(raiz))
+                raiz = "tienda";
+
+            var vendedor = vendedorId is > 0 ? vendedorId.Value.ToString() : null;
+            var cliente = usuarioId is { } uid && uid != Guid.Empty
+                ? uid.ToString("N")
+                : null;
+
+            return clave switch
+            {
+                "producto" or "imagen" when vendedor != null => $"{raiz}/vendedores/{vendedor}/productos",
+                "logo" when vendedor != null => $"{raiz}/vendedores/{vendedor}/logo",
+                "banner" when vendedor != null => $"{raiz}/vendedores/{vendedor}/banner",
+                "pdf" when vendedor != null => $"{raiz}/vendedores/{vendedor}/patrones",
+                "kyc" when vendedor != null => $"{raiz}/vendedores/{vendedor}/kyc",
+                "envio" when vendedor != null => $"{raiz}/vendedores/{vendedor}/envios",
+                "reclamo" when vendedor != null => $"{raiz}/vendedores/{vendedor}/reclamos",
+                "reclamo" when cliente != null => $"{raiz}/clientes/{cliente}/reclamos",
+                "resena" when cliente != null => $"{raiz}/clientes/{cliente}/resenas",
+                "carrusel" => $"{raiz}/sitio/carrusel",
+                "aviso" => $"{raiz}/sitio/avisos",
+                "pdf" => $"{raiz}/patrones",
+                "kyc" => $"{raiz}/kyc",
+                "imagen" when cliente != null => $"{raiz}/clientes/{cliente}/otros",
+                _ => $"{raiz}/imagenes"
+            };
+        }
+
         private Destino? ResolverDestino(string? proposito)
         {
             var clave = (proposito ?? "imagen").Trim().ToLowerInvariant();
             return clave switch
             {
-                "imagen" => new Destino(
-                    "image",
-                    _configuration["Cloudinary:CarpetaImagenes"] ?? "tienda/imagenes",
-                    Array.Empty<string>()),
-                "pdf" => new Destino(
-                    "raw",
-                    _configuration["Cloudinary:CarpetaPatrones"] ?? "tienda/patrones",
-                    ["VENDEDOR", "ADMIN"]),
-                "kyc" => new Destino(
-                    "image",
-                    _configuration["Cloudinary:CarpetaKyc"] ?? "tienda/kyc",
-                    ["VENDEDOR", "ADMIN"]),
+                "imagen" => new Destino("imagen", "image", Array.Empty<string>()),
+                "producto" => new Destino("producto", "image", ["VENDEDOR", "ADMIN"]),
+                "logo" => new Destino("logo", "image", ["VENDEDOR", "ADMIN"]),
+                "banner" => new Destino("banner", "image", ["VENDEDOR", "ADMIN"]),
+                "envio" => new Destino("envio", "image", ["VENDEDOR", "ADMIN"]),
+                "pdf" => new Destino("pdf", "raw", ["VENDEDOR", "ADMIN"]),
+                "kyc" => new Destino("kyc", "image", ["VENDEDOR", "ADMIN"]),
+                "reclamo" => new Destino("reclamo", "image", Array.Empty<string>()),
+                "resena" => new Destino("resena", "image", Array.Empty<string>()),
+                "carrusel" => new Destino("carrusel", "image", ["ADMIN"]),
+                "aviso" => new Destino("aviso", "image", ["ADMIN"]),
                 _ => null
             };
         }
 
-        private sealed record Destino(string ResourceType, string Folder, string[] RolesRequeridos);
+        private sealed record Destino(string Clave, string ResourceType, string[] RolesRequeridos);
     }
 }

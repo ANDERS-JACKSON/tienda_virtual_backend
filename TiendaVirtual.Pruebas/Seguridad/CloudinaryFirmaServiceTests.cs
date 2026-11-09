@@ -52,7 +52,7 @@ namespace TiendaVirtual.Pruebas.Seguridad
         }
 
         [Fact]
-        public void ClienteSinRolVendedor_NoFirmaPdfNiKyc()
+        public void ClienteSinRolVendedor_NoFirmaPdfNiKycNiProducto()
         {
             var servicio = Crear(new Dictionary<string, string?>
             {
@@ -63,13 +63,89 @@ namespace TiendaVirtual.Pruebas.Seguridad
 
             var pdf = servicio.Firmar("pdf", ["CLIENTE"]);
             var kyc = servicio.Firmar("kyc", ["CLIENTE"]);
+            var producto = servicio.Firmar("producto", ["CLIENTE"]);
             var img = servicio.Firmar("imagen", ["CLIENTE"]);
 
             Assert.False(pdf.Exito);
             Assert.False(kyc.Exito);
+            Assert.False(producto.Exito);
             Assert.True(img.Exito);
             Assert.True(img.Datos!.Activo);
             Assert.Equal("image", img.Datos.ResourceType);
+        }
+
+        [Fact]
+        public void Vendedor_ArchivosVanASuCarpeta()
+        {
+            var servicio = Crear(new Dictionary<string, string?>
+            {
+                ["Cloudinary:CloudName"] = "demo",
+                ["Cloudinary:ApiKey"] = "123",
+                ["Cloudinary:ApiSecret"] = "abcd",
+            });
+
+            var producto = servicio.Firmar("producto", ["VENDEDOR"], vendedorId: 12);
+            var logo = servicio.Firmar("logo", ["VENDEDOR"], vendedorId: 12);
+            var banner = servicio.Firmar("banner", ["VENDEDOR"], vendedorId: 12);
+            var pdf = servicio.Firmar("pdf", ["VENDEDOR"], vendedorId: 12);
+            var kyc = servicio.Firmar("kyc", ["VENDEDOR"], vendedorId: 12);
+            var envio = servicio.Firmar("envio", ["VENDEDOR"], vendedorId: 12);
+
+            Assert.Equal("tienda/vendedores/12/productos", producto.Datos!.Folder);
+            Assert.Equal("tienda/vendedores/12/logo", logo.Datos!.Folder);
+            Assert.Equal("tienda/vendedores/12/banner", banner.Datos!.Folder);
+            Assert.Equal("tienda/vendedores/12/patrones", pdf.Datos!.Folder);
+            Assert.Equal("raw", pdf.Datos.ResourceType);
+            Assert.Equal("tienda/vendedores/12/kyc", kyc.Datos!.Folder);
+            Assert.Equal("tienda/vendedores/12/envios", envio.Datos!.Folder);
+        }
+
+        [Fact]
+        public void Cliente_ReclamoYResenaVanASuCarpeta()
+        {
+            var servicio = Crear(new Dictionary<string, string?>
+            {
+                ["Cloudinary:CloudName"] = "demo",
+                ["Cloudinary:ApiKey"] = "123",
+                ["Cloudinary:ApiSecret"] = "abcd",
+            });
+            var usuarioId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+
+            var reclamo = servicio.Firmar("reclamo", ["CLIENTE"], usuarioId);
+            var resena = servicio.Firmar("resena", ["CLIENTE"], usuarioId);
+
+            Assert.True(reclamo.Exito);
+            Assert.Equal("tienda/clientes/aaaaaaaabbbbccccddddeeeeeeeeeeee/reclamos", reclamo.Datos!.Folder);
+            Assert.Equal("tienda/clientes/aaaaaaaabbbbccccddddeeeeeeeeeeee/resenas", resena.Datos!.Folder);
+        }
+
+        [Fact]
+        public void Admin_CarruselVaASitio()
+        {
+            var servicio = Crear(new Dictionary<string, string?>
+            {
+                ["Cloudinary:CloudName"] = "demo",
+                ["Cloudinary:ApiKey"] = "123",
+                ["Cloudinary:ApiSecret"] = "abcd",
+            });
+
+            var carrusel = servicio.Firmar("carrusel", ["ADMIN"]);
+            var cliente = servicio.Firmar("carrusel", ["CLIENTE"]);
+
+            Assert.True(carrusel.Exito);
+            Assert.Equal("tienda/sitio/carrusel", carrusel.Datos!.Folder);
+            Assert.False(cliente.Exito);
+        }
+
+        [Fact]
+        public void SinSecret_IgualDevuelveCarpetaParaElFrontend()
+        {
+            var servicio = Crear(new Dictionary<string, string?>());
+            var r = servicio.Firmar("producto", ["VENDEDOR"], vendedorId: 7);
+
+            Assert.True(r.Exito);
+            Assert.False(r.Datos!.Activo);
+            Assert.Equal("tienda/vendedores/7/productos", r.Datos.Folder);
         }
     }
 
@@ -77,6 +153,7 @@ namespace TiendaVirtual.Pruebas.Seguridad
     {
         [Theory]
         [InlineData("tienda/imagenes/abc123")]
+        [InlineData("tienda/vendedores/12/productos/abc123")]
         [InlineData("patrones/archivo")]
         [InlineData("https://res.cloudinary.com/demo/image/upload/v1/tienda/abc")]
         public void AceptaPublicIdYUrlCloudinary(string valor)

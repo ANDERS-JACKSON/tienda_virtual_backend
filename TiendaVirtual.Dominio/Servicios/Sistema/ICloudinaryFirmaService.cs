@@ -12,6 +12,10 @@ namespace TiendaVirtual.Dominio.Servicios.Sistema
     {
         bool Activo { get; }
 
-        ResultadoOperacion<FirmaSubidaMediaDto> Firmar(string? proposito, IEnumerable<string> roles);
+        ResultadoOperacion<FirmaSubidaMediaDto> Firmar(
+            string? proposito,
+            IEnumerable<string> roles,
+            Guid? usuarioId = null,
+            int? vendedorId = null);
     }
 }

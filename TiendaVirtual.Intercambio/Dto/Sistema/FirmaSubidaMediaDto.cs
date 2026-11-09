@@ -2,7 +2,9 @@ namespace TiendaVirtual.Intercambio.Dto.Sistema
 {
     public class SolicitarFirmaMediaDto
     {
-        /// <summary>imagen | pdf | kyc</summary>
+        /// <summary>
+        /// producto | logo | banner | pdf | kyc | envio | reclamo | resena | carrusel | aviso | imagen
+        /// </summary>
         public string Proposito { get; set; } = "imagen";
     }
 
