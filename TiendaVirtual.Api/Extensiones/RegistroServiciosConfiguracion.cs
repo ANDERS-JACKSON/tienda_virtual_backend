@@ -10,6 +10,7 @@ namespace TiendaVirtual.Api.Extensiones
             services.AddScoped<IConfiguracionCorreoServicio, ConfiguracionCorreoServicio>();
             services.AddScoped<IAvisoBannerServicio, AvisoBannerServicio>();
             services.AddScoped<ICarruselInicioServicio, CarruselInicioServicio>();
+            services.AddScoped<IFranjaInicioServicio, FranjaInicioServicio>();
             return services;
         }
     }

@@ -112,6 +112,7 @@ namespace TiendaVirtual.Dominio.Servicios.Sistema.Implementacion
                 "resena" when cliente != null => $"{raiz}/clientes/{cliente}/resenas",
                 "carrusel" => $"{raiz}/sitio/carrusel",
                 "aviso" => $"{raiz}/sitio/avisos",
+                "franja" => $"{raiz}/sitio/franjas",
                 "pdf" => $"{raiz}/patrones",
                 "kyc" => $"{raiz}/kyc",
                 "imagen" when cliente != null => $"{raiz}/clientes/{cliente}/otros",
@@ -135,6 +136,7 @@ namespace TiendaVirtual.Dominio.Servicios.Sistema.Implementacion
                 "resena" => new Destino("resena", "image", Array.Empty<string>()),
                 "carrusel" => new Destino("carrusel", "image", ["ADMIN"]),
                 "aviso" => new Destino("aviso", "image", ["ADMIN"]),
+                "franja" => new Destino("franja", "image", ["ADMIN"]),
                 _ => null
             };
         }

@@ -3,6 +3,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -14,6 +15,7 @@ using TiendaVirtual.Dominio.Opciones;
 using TiendaVirtual.Dominio.Servicios.PagoXqm;
 using TiendaVirtual.Dominio.Servicios.PagoXqm.Modelos;
 using TiendaVirtual.Dominio.Servicios.SoporteXqm;
+using TiendaVirtual.Dominio.Utilidad;
 using TiendaVirtual.Intercambio;
 using TiendaVirtual.Intercambio.Dto.Sistema;
 using TiendaVirtual.Intercambio.Dto.VentaXqm;
@@ -32,6 +34,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
         private readonly IzipayOpciones _izipay;
         private readonly MercadoPagoOpciones _mercadoPago;
         private readonly IHostEnvironment _env;
+        private readonly string? _cloudinaryCloudName;
 
         public OrdenPagoServicio(
             TiendaVirtualDbContext context,
@@ -43,6 +46,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             IOptions<IzipayOpciones> izipay,
             IOptions<MercadoPagoOpciones> mercadoPago,
             IHostEnvironment env,
+            IConfiguration configuration,
             ILogger<OrdenPagoServicio> logger)
         {
             _context = context;
@@ -54,6 +58,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             _izipay = izipay.Value;
             _mercadoPago = mercadoPago.Value;
             _env = env;
+            _cloudinaryCloudName = configuration["Cloudinary:CloudName"];
             _logger = logger;
         }
 
@@ -1138,7 +1143,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             }
         }
 
-        private static string ConstruirDetallePedidoHtml(
+        private string ConstruirDetallePedidoHtml(
             Orden orden, string nombreCliente, IEnumerable<ItemOrden> items, decimal? totalMostrar = null)
         {
             DireccionSnapshotDto? direccion = null;
@@ -1169,11 +1174,13 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
             string Fila(string etiqueta, string? valor)
             {
                 if (string.IsNullOrWhiteSpace(valor)) return "";
-                return $"<tr><td style=\"padding:3px 16px 3px 0;color:#555555;vertical-align:top;width:130px;\">{etiqueta}</td><td style=\"padding:3px 0;\">{WebUtility.HtmlEncode(valor)}</td></tr>";
+                return $"<tr><td style=\"padding:6px 16px 6px 0;color:#555555;vertical-align:top;width:130px;\">{etiqueta}</td><td style=\"padding:6px 0;color:#222222;\">{WebUtility.HtmlEncode(valor)}</td></tr>";
             }
 
             string Bloque(string titulo, string filas) =>
-                $"<p style=\"margin:18px 0 6px;font-weight:700;color:#222222;\">{titulo}</p><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"font-size:14px;\">{filas}</table>";
+                "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin:0 0 14px;border:1px solid #e6e6e6;\">" +
+                $"<tr><td style=\"padding:9px 12px;background:#f0f0f0;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#222222;\">{titulo}</td></tr>" +
+                $"<tr><td style=\"padding:8px 12px 12px;\"><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"font-size:14px;\">{filas}</table></td></tr></table>";
 
             var html = new StringBuilder();
             html.Append(Bloque("Información",
@@ -1200,19 +1207,35 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                     Fila("Obs.:", direccion.Referencia)));
             }
 
-            html.Append("<p style=\"margin:22px 0 8px;font-weight:700;color:#222222;\">Artículos</p>");
-            html.Append("<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"font-size:14px;border-top:1px solid #e6e6e6;\">");
+            html.Append("<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin:0 0 4px;border:1px solid #e6e6e6;\">");
+            html.Append("<tr><td colspan=\"3\" style=\"padding:9px 12px;background:#f0f0f0;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#222222;\">Artículos</td></tr>");
             foreach (var item in items)
             {
-                var variante = string.IsNullOrWhiteSpace(item.NombreVariante) ? "" : $" · {WebUtility.HtmlEncode(item.NombreVariante)}";
-                html.Append("<tr><td style=\"padding:10px 8px 10px 0;border-bottom:1px solid #eeeeee;\">")
+                var variante = string.IsNullOrWhiteSpace(item.NombreVariante)
+                    ? ""
+                    : $" · {WebUtility.HtmlEncode(item.NombreVariante)}";
+                var urlImg = IdentificadorMedia.UrlEntregaImagen(item.ImagenUrl, _cloudinaryCloudName);
+                html.Append("<tr>");
+                html.Append("<td style=\"padding:12px 8px 12px 12px;border-top:1px solid #eeeeee;width:72px;vertical-align:top;\">");
+                if (urlImg != null)
+                {
+                    html.Append("<img src=\"").Append(WebUtility.HtmlEncode(urlImg)).Append("\" width=\"64\" height=\"64\" alt=\"")
+                        .Append(WebUtility.HtmlEncode(item.NombreProducto))
+                        .Append("\" style=\"display:block;width:64px;height:64px;object-fit:cover;background:#f6f6f6;border:1px solid #eeeeee;\" />");
+                }
+                else
+                {
+                    html.Append("<div style=\"width:64px;height:64px;background:#f6f6f6;border:1px solid #eeeeee;\"></div>");
+                }
+                html.Append("</td>");
+                html.Append("<td style=\"padding:12px 8px 12px 0;border-top:1px solid #eeeeee;vertical-align:top;\">")
                     .Append(WebUtility.HtmlEncode(item.NombreProducto)).Append(variante)
-                    .Append("<br><span style=\"color:#777777;\">").Append(item.Cantidad).Append(" uni.</span></td>")
-                    .Append("<td style=\"padding:10px 0;border-bottom:1px solid #eeeeee;text-align:right;white-space:nowrap;\">S/ ")
+                    .Append("<br><span style=\"color:#777777;\">").Append(item.Cantidad).Append(" uni.</span></td>");
+                html.Append("<td style=\"padding:12px 12px 12px 0;border-top:1px solid #eeeeee;text-align:right;white-space:nowrap;vertical-align:top;font-weight:600;\">S/ ")
                     .Append(item.TotalLinea.ToString("N2")).Append("</td></tr>");
             }
-            html.Append("<tr><td style=\"padding:14px 8px 0 0;text-align:right;font-weight:700;\">Importe total</td>")
-                .Append("<td style=\"padding:14px 0 0;text-align:right;font-weight:700;white-space:nowrap;\">S/ ")
+            html.Append("<tr><td colspan=\"2\" style=\"padding:14px 8px 14px 12px;border-top:1px solid #e6e6e6;text-align:right;font-weight:700;\">Importe total</td>")
+                .Append("<td style=\"padding:14px 12px 14px 0;border-top:1px solid #e6e6e6;text-align:right;font-weight:700;white-space:nowrap;\">S/ ")
                 .Append((totalMostrar ?? orden.Total).ToString("N2")).Append("</td></tr></table>");
             return html.ToString();
         }

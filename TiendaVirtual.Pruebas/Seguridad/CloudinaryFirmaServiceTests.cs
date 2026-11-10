@@ -130,10 +130,13 @@ namespace TiendaVirtual.Pruebas.Seguridad
             });
 
             var carrusel = servicio.Firmar("carrusel", ["ADMIN"]);
+            var franja = servicio.Firmar("franja", ["ADMIN"]);
             var cliente = servicio.Firmar("carrusel", ["CLIENTE"]);
 
             Assert.True(carrusel.Exito);
             Assert.Equal("tienda/sitio/carrusel", carrusel.Datos!.Folder);
+            Assert.True(franja.Exito);
+            Assert.Equal("tienda/sitio/franjas", franja.Datos!.Folder);
             Assert.False(cliente.Exito);
         }
 
@@ -179,6 +182,20 @@ namespace TiendaVirtual.Pruebas.Seguridad
             Assert.False(IdentificadorMedia.EsValido(null));
             Assert.True(IdentificadorMedia.EsValidoOVacio(null));
             Assert.True(IdentificadorMedia.EsValidoOVacio(""));
+        }
+
+        [Fact]
+        public void UrlEntregaImagen_ArmaCloudinaryYRespetaHttps()
+        {
+            Assert.Equal(
+                "https://res.cloudinary.com/demo/image/upload/w_128,h_128,c_fill,q_auto,f_auto/tienda/vendedores/1/productos/abc",
+                IdentificadorMedia.UrlEntregaImagen("tienda/vendedores/1/productos/abc", "demo"));
+            Assert.Equal(
+                "https://res.cloudinary.com/demo/image/upload/v1/tienda/abc",
+                IdentificadorMedia.UrlEntregaImagen(
+                    "https://res.cloudinary.com/demo/image/upload/v1/tienda/abc", "demo"));
+            Assert.Null(IdentificadorMedia.UrlEntregaImagen("tienda/abc", null));
+            Assert.Null(IdentificadorMedia.UrlEntregaImagen("https://evil.example/x.png", "demo"));
         }
     }
 

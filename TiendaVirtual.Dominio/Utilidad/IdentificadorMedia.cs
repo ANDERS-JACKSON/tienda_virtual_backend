@@ -56,6 +56,30 @@ namespace TiendaVirtual.Dominio.Utilidad
         public static bool EsValidoOVacio(string? valor) =>
             string.IsNullOrWhiteSpace(valor) || EsValido(valor);
 
+        /// <summary>
+        /// URL https para un &lt;img&gt; de correo. public_id → Cloudinary; URL https se deja igual.
+        /// Null si no hay identificador válido o falta el cloud.
+        /// </summary>
+        public static string? UrlEntregaImagen(string? identificador, string? cloudName, int lado = 128)
+        {
+            if (string.IsNullOrWhiteSpace(identificador) || !EsValido(identificador))
+                return null;
+
+            var v = identificador.Trim();
+            if (v.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                return v;
+
+            if (string.IsNullOrWhiteSpace(cloudName))
+                return null;
+
+            var cloud = cloudName.Trim();
+            if (cloud.Length == 0 || cloud.IndexOfAny(['/', '\\', ' ', '<', '>', '"']) >= 0)
+                return null;
+
+            var px = lado < 32 ? 32 : (lado > 800 ? 800 : lado);
+            return $"https://res.cloudinary.com/{cloud}/image/upload/w_{px},h_{px},c_fill,q_auto,f_auto/{v}";
+        }
+
         public static bool ListaValida(IEnumerable<string>? items) =>
             items == null || items.All(EsValido);
 

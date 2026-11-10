@@ -122,6 +122,7 @@ namespace TiendaVirtual.Dominio
         public DbSet<Correo> Correo { get; set; } = null!;
         public DbSet<AvisoBanner> AvisosBanner { get; set; } = null!;
         public DbSet<CarruselInicio> CarruselesInicio { get; set; } = null!;
+        public DbSet<FranjaInicio> FranjasInicio { get; set; } = null!;
         //----------------------------------------------------------------------
         #endregion
 
@@ -194,6 +195,7 @@ namespace TiendaVirtual.Dominio
             modelBuilder.ApplyConfiguration(new CorreoDB());
             modelBuilder.ApplyConfiguration(new AvisoBannerDB());
             modelBuilder.ApplyConfiguration(new CarruselInicioDB());
+            modelBuilder.ApplyConfiguration(new FranjaInicioDB());
             #endregion
 
             base.OnModelCreating(modelBuilder);
