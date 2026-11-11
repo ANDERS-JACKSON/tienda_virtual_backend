@@ -276,11 +276,11 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
         // Productos relacionados (misma categoría y mismo tipo)
         // ─────────────────────────────────────────────────────
         public async Task<ResultadoOperacion<List<ProductoListadoDto>>> ObtenerRelacionadosAsync(
-            string slug, int cantidad = 6)
+            string slug, int cantidad = 10)
         {
             try
             {
-                cantidad = Math.Clamp(cantidad, 1, 24);
+                cantidad = Math.Clamp(cantidad, 1, 10);
 
                 var producto = await _context.Productos.AsNoTracking()
                     .FirstOrDefaultAsync(p => p.Slug == slug);

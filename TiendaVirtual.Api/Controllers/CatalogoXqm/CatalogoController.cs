@@ -33,7 +33,7 @@ namespace TiendaVirtual.Api.Controllers.CatalogoXqm
 
         [HttpGet("{slug}/relacionados")]
         public async Task<ActionResult<ResultadoOperacion<List<ProductoListadoDto>>>> ObtenerRelacionados(
-            string slug, [FromQuery] int cantidad = 6)
+            string slug, [FromQuery] int cantidad = 10)
         {
             var r = await _servicio.ObtenerRelacionadosAsync(slug, cantidad);
             return r.Exito ? Ok(r) : BadRequest(r);

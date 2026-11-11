@@ -18,7 +18,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm
         Task<ResultadoOperacion<ProductoDetalleDto>> ObtenerPorSlugAsync(string slug);
 
         /// <summary>Productos relacionados (misma categoría y mismo tipo: físico o patrón).</summary>
-        Task<ResultadoOperacion<List<ProductoListadoDto>>> ObtenerRelacionadosAsync(string slug, int cantidad = 6);
+        Task<ResultadoOperacion<List<ProductoListadoDto>>> ObtenerRelacionadosAsync(string slug, int cantidad = 10);
 
         /// <summary>Productos públicos de un vendedor específico.</summary>
         Task<ResultadoOperacion<PaginacionRespuestaDto<ProductoListadoDto>>> ListarPorVendedorAsync(
