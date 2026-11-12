@@ -8,6 +8,7 @@ namespace TiendaVirtual.Api.Extensiones
         public static IServiceCollection AgregarServiciosCatalogo(this IServiceCollection services)
         {
             services.AddScoped<ICategoriaServicio, CategoriaServicio>();
+            services.AddScoped<IOpcionVarianteServicio, OpcionVarianteServicio>();
             services.AddScoped<IProductoServicio, ProductoServicio>();
             services.AddScoped<ICatalogoServicio, CatalogoServicio>();
             services.AddScoped<IFavoritoServicio, FavoritoServicio>();

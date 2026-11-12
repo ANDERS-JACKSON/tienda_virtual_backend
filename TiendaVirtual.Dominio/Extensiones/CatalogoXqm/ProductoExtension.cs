@@ -13,28 +13,26 @@ namespace TiendaVirtual.Dominio.Extensiones.CatalogoXqm
     public static class ProductoExtension
     {
         /// <summary>
-        /// Devuelve la variante que se muestra por defecto en catálogo y detalle:
-        /// la primera activa (menor VarianteId), es decir la que el vendedor creó primero.
-        /// El comprador ve el mismo precio en catálogo y al abrir el detalle.
+        /// Variante que se muestra por defecto en catálogo y detalle: la más barata activa.
+        /// El listado usa "Desde" + este precio cuando hay varias opciones.
         /// </summary>
         public static VarianteProducto? ObtenerVariantePorDefecto(this Producto p)
         {
             if (p?.Variantes == null) return null;
             return p.Variantes
                 .Where(v => v.Activa)
-                .OrderBy(v => v.VarianteId)
+                .OrderBy(v => v.Precio)
+                .ThenBy(v => v.VarianteId)
                 .FirstOrDefault();
         }
 
         /// <summary>
-        /// Precio de referencia para catálogo: precio de la variante por defecto (la primera
-        /// creada). Si no hay variantes activas, cae al precio base del producto.
+        /// Precio de referencia para catálogo: mínimo de variantes activas
+        /// (o precio base si no hay SKUs).
         /// </summary>
         public static decimal ObtenerPrecioCatalogo(this Producto p)
         {
-            var variante = p.ObtenerVariantePorDefecto();
-            if (variante != null) return variante.Precio;
-            return p?.PrecioBase ?? 0;
+            return p.ObtenerPrecioMinimo();
         }
 
         /// <summary>Precio mínimo entre variantes activas (útil para "Desde S/…").</summary>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -23,7 +23,7 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
         [MaxLength(5000)]
         public string? Descripcion { get; set; }
 
-        [MaxLength(300)]
+        [MaxLength(150)]
         public string? DescripcionCorta { get; set; }
 
         [MaxLength(200)]

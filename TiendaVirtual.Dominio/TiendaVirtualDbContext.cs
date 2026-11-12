@@ -66,6 +66,7 @@ namespace TiendaVirtual.Dominio
         //----------------------------------------------------------------------
         public DbSet<Categoria> Categorias { get; set; } = null!;
         public DbSet<Producto> Productos { get; set; } = null!;
+        public DbSet<OpcionVariante> OpcionesVariante { get; set; } = null!;
         public DbSet<VarianteProducto> VariantesProducto { get; set; } = null!;
         public DbSet<ImagenProducto> ImagenesProducto { get; set; } = null!;
         public DbSet<Stock> Stocks { get; set; } = null!;
@@ -155,6 +156,7 @@ namespace TiendaVirtual.Dominio
             #region Catalogo
             modelBuilder.ApplyConfiguration(new CategoriaDB());
             modelBuilder.ApplyConfiguration(new ProductoDB());
+            modelBuilder.ApplyConfiguration(new OpcionVarianteDB());
             modelBuilder.ApplyConfiguration(new VarianteProductoDB());
             modelBuilder.ApplyConfiguration(new ImagenProductoDB());
             modelBuilder.ApplyConfiguration(new StockDB());

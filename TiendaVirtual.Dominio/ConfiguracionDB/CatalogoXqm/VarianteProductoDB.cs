@@ -45,6 +45,21 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.CatalogoXqm
             builder.Property(e => e.Activa)
                 .HasColumnName("activa");
 
+            builder.Property(e => e.OpcionVarianteId)
+                .HasColumnName("opcion_variante_id");
+
+            builder.Property(e => e.Material)
+                .HasColumnName("material")
+                .HasMaxLength(200);
+
+            builder.Property(e => e.Dimensiones)
+                .HasColumnName("dimensiones")
+                .HasMaxLength(200);
+
+            builder.Property(e => e.DescripcionCorta)
+                .HasColumnName("descripcion_corta")
+                .HasMaxLength(150);
+
             builder.HasIndex(e => e.ProductoId).HasDatabaseName("idx_variante_producto");
 
             builder.HasOne(e => e.Producto)
@@ -52,6 +67,12 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.CatalogoXqm
                 .HasForeignKey(e => e.ProductoId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("fk_variante_producto");
+
+            builder.HasOne(e => e.OpcionVariante)
+                .WithMany(o => o.Variantes)
+                .HasForeignKey(e => e.OpcionVarianteId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("fk_variante_producto_opcion");
         }
     }
 }

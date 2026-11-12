@@ -22,7 +22,19 @@ namespace TiendaVirtual.Dominio.Modelo.CatalogoXqm
         public string? Atributos { get; set; }   // JSONB
         public bool Activa { get; set; }
 
+        public int? OpcionVarianteId { get; set; }
+
+        [MaxLength(200)]
+        public string? Material { get; set; }
+
+        [MaxLength(200)]
+        public string? Dimensiones { get; set; }
+
+        [MaxLength(150)]
+        public string? DescripcionCorta { get; set; }
+
         public virtual Producto Producto { get; set; } = null!;
+        public virtual OpcionVariante? OpcionVariante { get; set; }
         public virtual Stock? Stock { get; set; }
         public virtual ICollection<ItemCarrito> ItemsCarrito { get; set; } = new List<ItemCarrito>();
         public virtual ICollection<ItemOrden> ItemsOrden { get; set; } = new List<ItemOrden>();

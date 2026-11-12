@@ -12,9 +12,13 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
         public int ProductoId { get; set; }
         public string? Sku { get; set; }
         public string? Nombre { get; set; }
+        public int? OpcionVarianteId { get; set; }
         public decimal Precio { get; set; }
         public int? PesoGramos { get; set; }
         public string? Atributos { get; set; }
+        public string? Material { get; set; }
+        public string? Dimensiones { get; set; }
+        public string? DescripcionCorta { get; set; }
         public bool Activa { get; set; }
         public int CantidadDisponible { get; set; }
         public int CantidadReservada { get; set; }

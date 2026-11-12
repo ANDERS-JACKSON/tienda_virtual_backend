@@ -43,7 +43,7 @@ namespace TiendaVirtual.Dominio.ConfiguracionDB.CatalogoXqm
 
             builder.Property(e => e.DescripcionCorta)
                 .HasColumnName("descripcion_corta")
-                .HasMaxLength(300);
+                .HasMaxLength(150);
 
             builder.Property(e => e.Material)
                 .HasColumnName("material")

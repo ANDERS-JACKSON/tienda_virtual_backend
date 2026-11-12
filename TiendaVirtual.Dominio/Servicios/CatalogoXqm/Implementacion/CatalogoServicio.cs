@@ -405,7 +405,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
             var tieneStock = p.Tipo == TipoProducto.Patron ||
                              p.Variantes.Any(v => v.Stock != null && v.Stock.CantidadDisponible > 0);
 
-            // Precio de la variante por defecto (primera creada).
+            // Precio de catálogo = variante más barata (el listado muestra "Desde").
             var variantePorDefecto = p.ObtenerVariantePorDefecto();
             var precioVariantePorDefecto = variantePorDefecto?.Precio ?? p.PrecioBase ?? 0;
             var soloUnaVariante = p.Variantes.Count(v => v.Activa) <= 1;

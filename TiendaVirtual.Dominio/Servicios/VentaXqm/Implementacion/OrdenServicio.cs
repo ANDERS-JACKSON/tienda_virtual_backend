@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using TiendaVirtual.Comun.Enumeracion;
 using TiendaVirtual.Dominio.Extensiones.VentaXqm;
+using TiendaVirtual.Dominio.Modelo.SeguridadXqm;
 using TiendaVirtual.Dominio.Modelo.VentaXqm;
 using TiendaVirtual.Dominio.Servicios.SoporteXqm;
 using TiendaVirtual.Dominio.Utilidad;
@@ -68,13 +69,7 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 if (cliente == null)
                     return ResultadoOperacion<OrdenDto>.SetError("Usuario no encontrado.");
 
-                // 2. Validar dirección
-                var direccion = await _context.Direcciones.FirstOrDefaultAsync(d =>
-                    d.DireccionId == dto.DireccionId && d.PersonaId == cliente.PersonaId);
-                if (direccion == null)
-                    return ResultadoOperacion<OrdenDto>.SetError("La dirección no existe o no te pertenece.");
-
-                // 3. Cargar carrito
+                // 2. Cargar carrito primero: si todo es patrón, no se pide dirección ni Shalom.
                 var carrito = await _context.Carritos
                     .FirstOrDefaultAsync(c => c.UsuarioId == usuarioId);
                 if (carrito == null)
@@ -90,52 +85,67 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 if (items.Count == 0)
                     return ResultadoOperacion<OrdenDto>.SetError("Tu carrito está vacío.");
 
-                // 4. Resolver método de envío por vendedor.
-                //    Regla de negocio: por defecto todos los pedidos se envían con SHALOM
-                //    y el comprador paga el costo directamente al recoger en la agencia.
-                //    Por eso `MetodoEnvio` en la orden es solo un dato informativo
-                //    (MontoEnvio siempre = 0). El cliente ya NO elige método en el checkout,
-                //    pero mantenemos compatibilidad si en el futuro llega un DTO con
-                //    métodos personalizados por vendedor.
-                var vendedoresEnCarrito = items.Select(i => i.Variante.Producto.VendedorId).Distinct().ToList();
+                var hayFisicos = items.Any(i => i.Variante.Producto.Tipo != TipoProducto.Patron);
+
+                // 3. Dirección: obligatoria si hay al menos un ítem físico.
+                Direccion? direccion = null;
+                if (hayFisicos)
+                {
+                    if (dto.DireccionId == null || dto.DireccionId == Guid.Empty)
+                        return ResultadoOperacion<OrdenDto>.SetError(
+                            "Indica una dirección de envío para los productos físicos.");
+
+                    direccion = await _context.Direcciones.FirstOrDefaultAsync(d =>
+                        d.DireccionId == dto.DireccionId && d.PersonaId == cliente.PersonaId);
+                    if (direccion == null)
+                        return ResultadoOperacion<OrdenDto>.SetError("La dirección no existe o no te pertenece.");
+                }
+
+                // 4. Resolver método de envío solo para subórdenes con ítems físicos.
+                var vendedoresFisicos = items
+                    .Where(i => i.Variante.Producto.Tipo != TipoProducto.Patron)
+                    .Select(i => i.Variante.Producto.VendedorId)
+                    .Distinct()
+                    .ToList();
                 var metodosPorVendedor = dto.MetodosEnvio?
                     .GroupBy(m => m.VendedorId)
                     .ToDictionary(g => g.Key, g => g.First().MetodoEnvioId)
                     ?? new Dictionary<int, int>();
 
-                // Fallback: cualquier vendedor sin método explícito usa el método por
-                // defecto (código SHALOM). Si SHALOM no está activo, tomamos el primer
-                // método activo disponible.
-                int? metodoDefectoId = await _context.MetodosEnvio
-                    .Where(m => m.Activo && m.Codigo == "SHALOM")
-                    .Select(m => (int?)m.MetodoEnvioId)
-                    .FirstOrDefaultAsync();
-
-                if (metodoDefectoId == null)
+                int? metodoDefectoId = null;
+                if (vendedoresFisicos.Count > 0)
                 {
                     metodoDefectoId = await _context.MetodosEnvio
-                        .Where(m => m.Activo)
-                        .OrderBy(m => m.Orden)
+                        .Where(m => m.Activo && m.Codigo == "SHALOM")
                         .Select(m => (int?)m.MetodoEnvioId)
                         .FirstOrDefaultAsync();
+
+                    if (metodoDefectoId == null)
+                    {
+                        metodoDefectoId = await _context.MetodosEnvio
+                            .Where(m => m.Activo)
+                            .OrderBy(m => m.Orden)
+                            .Select(m => (int?)m.MetodoEnvioId)
+                            .FirstOrDefaultAsync();
+                    }
+
+                    if (metodoDefectoId == null)
+                        return ResultadoOperacion<OrdenDto>.SetError(
+                            "No hay métodos de envío configurados en el sistema.");
+
+                    foreach (var vId in vendedoresFisicos)
+                    {
+                        if (!metodosPorVendedor.ContainsKey(vId))
+                            metodosPorVendedor[vId] = metodoDefectoId.Value;
+                    }
+
+                    var idsMetodos = metodosPorVendedor.Values.Distinct().ToList();
+                    var metodosEnvio = await _context.MetodosEnvio
+                        .Where(m => idsMetodos.Contains(m.MetodoEnvioId) && m.Activo)
+                        .ToListAsync();
+                    if (metodosEnvio.Count != idsMetodos.Count)
+                        return ResultadoOperacion<OrdenDto>.SetError("Algún método de envío no es válido.");
                 }
-
-                if (metodoDefectoId == null)
-                    return ResultadoOperacion<OrdenDto>.SetError(
-                        "No hay métodos de envío configurados en el sistema.");
-
-                foreach (var vId in vendedoresEnCarrito)
-                {
-                    if (!metodosPorVendedor.ContainsKey(vId))
-                        metodosPorVendedor[vId] = metodoDefectoId.Value;
-                }
-
-                var idsMetodos = metodosPorVendedor.Values.Distinct().ToList();
-                var metodosEnvio = await _context.MetodosEnvio
-                    .Where(m => idsMetodos.Contains(m.MetodoEnvioId) && m.Activo)
-                    .ToListAsync();
-                if (metodosEnvio.Count != idsMetodos.Count)
-                    return ResultadoOperacion<OrdenDto>.SetError("Algún método de envío no es válido.");
 
                 // 5. Validar productos / vendedores / plan / stock
                 var now = DateTime.UtcNow;
@@ -197,25 +207,33 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                     .Select(g => new { ProductoId = g.Key, Total = g.Count() })
                     .ToDictionaryAsync(x => x.ProductoId, x => x.Total);
 
-                // 7. Crear orden (cabecera). Snapshot COMPLETO de la dirección de envío
-                //    con DNI del receptor (imprescindible para envíos por agencia).
-                var retiro = ResolverRetiro(dto, cliente.NombreCliente, cliente.Documento, cliente.TelefonoPersona);
-                if (retiro.Error != null)
-                    return ResultadoOperacion<OrdenDto>.SetError(retiro.Error);
+                // 7. Crear orden (cabecera). Snapshot de dirección solo si hay físico.
+                string direccionJson;
+                if (hayFisicos)
+                {
+                    var retiro = ResolverRetiro(dto, cliente.NombreCliente, cliente.Documento, cliente.TelefonoPersona);
+                    if (retiro.Error != null)
+                        return ResultadoOperacion<OrdenDto>.SetError(retiro.Error);
+
+                    direccionJson = JsonSerializer.Serialize(new
+                    {
+                        direccion!.Etiqueta,
+                        NombreReceptor = retiro.Nombre,
+                        DniReceptor = retiro.Documento,
+                        Telefono = retiro.Telefono,
+                        direccion.Departamento,
+                        direccion.Provincia,
+                        direccion.Distrito,
+                        Direccion = direccion.DireccionLinea,
+                        direccion.Referencia
+                    });
+                }
+                else
+                {
+                    direccionJson = "{}";
+                }
 
                 var numeroOrden = GenerarNumero("ORD");
-                var direccionJson = JsonSerializer.Serialize(new
-                {
-                    direccion.Etiqueta,
-                    NombreReceptor = retiro.Nombre,
-                    DniReceptor = retiro.Documento,
-                    Telefono = retiro.Telefono,
-                    direccion.Departamento,
-                    direccion.Provincia,
-                    direccion.Distrito,
-                    Direccion = direccion.DireccionLinea,
-                    direccion.Referencia
-                });
 
                 var orden = new Orden
                 {
@@ -244,10 +262,12 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
 
                 foreach (var grupo in items.GroupBy(i => i.Variante.Producto.VendedorId))
                 {
-                    var metodoId = metodosPorVendedor[grupo.Key];
+                    var soloDigitalGrupo = grupo.All(i => i.Variante.Producto.Tipo == TipoProducto.Patron);
+                    int? metodoId = soloDigitalGrupo
+                        ? null
+                        : metodosPorVendedor[grupo.Key];
 
-                    // El envío lo paga el comprador directamente en la agencia
-                    // (Shalom / similar). NO se cobra en la orden.
+                    // El envío lo paga el comprador en agencia (Shalom). No aplica a PDF.
                     var suborden = new Suborden
                     {
                         SubordenId = Guid.NewGuid(),

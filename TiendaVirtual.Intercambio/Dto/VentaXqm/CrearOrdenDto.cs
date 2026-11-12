@@ -11,8 +11,10 @@ namespace TiendaVirtual.Intercambio.Dto.VentaXqm
 
     public class CrearOrdenDto
     {
-        [Required]
-        public Guid DireccionId { get; set; }
+        /// <summary>
+        /// Obligatoria si hay algún ítem físico. Opcional si el carrito es solo patrones.
+        /// </summary>
+        public Guid? DireccionId { get; set; }
 
         /// <summary>
         /// Opcional. Si se envía, se usa el método indicado por vendedor.

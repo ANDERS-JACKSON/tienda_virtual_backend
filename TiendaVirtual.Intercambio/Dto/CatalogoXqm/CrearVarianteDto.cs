@@ -15,11 +15,22 @@ namespace TiendaVirtual.Intercambio.Dto.CatalogoXqm
         [MaxLength(200)]
         public string? Nombre { get; set; }
 
+        public int? OpcionVarianteId { get; set; }
+
         [Range(0.01, double.MaxValue, ErrorMessage = "El precio debe ser mayor a 0.")]
         public decimal Precio { get; set; }
 
         public int? PesoGramos { get; set; }
         public string? Atributos { get; set; }
+
+        [MaxLength(200)]
+        public string? Material { get; set; }
+
+        [MaxLength(200)]
+        public string? Dimensiones { get; set; }
+
+        [MaxLength(150)]
+        public string? DescripcionCorta { get; set; }
 
         [Range(0, int.MaxValue)]
         public int CantidadInicial { get; set; }

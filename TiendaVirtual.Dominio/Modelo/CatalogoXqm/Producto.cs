@@ -29,6 +29,8 @@ namespace TiendaVirtual.Dominio.Modelo.CatalogoXqm
         public string Slug { get; set; } = null!;
 
         public string? Descripcion { get; set; }
+
+        [MaxLength(150)]
         public string? DescripcionCorta { get; set; }
         public string? Material { get; set; }
         public string? Dimensiones { get; set; }

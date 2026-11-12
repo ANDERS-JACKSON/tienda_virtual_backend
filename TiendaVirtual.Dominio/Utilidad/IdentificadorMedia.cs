@@ -80,6 +80,28 @@ namespace TiendaVirtual.Dominio.Utilidad
             return $"https://res.cloudinary.com/{cloud}/image/upload/w_{px},h_{px},c_fill,q_auto,f_auto/{v}";
         }
 
+        /// <summary>
+        /// URL https para un PDF de patrón (raw/upload). Null si falta cloud o el id no es válido.
+        /// </summary>
+        public static string? UrlEntregaArchivo(string? identificador, string? cloudName)
+        {
+            if (string.IsNullOrWhiteSpace(identificador) || !EsValido(identificador))
+                return null;
+
+            var v = identificador.Trim();
+            if (v.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                return v;
+
+            if (string.IsNullOrWhiteSpace(cloudName))
+                return null;
+
+            var cloud = cloudName.Trim();
+            if (cloud.Length == 0 || cloud.IndexOfAny(['/', '\\', ' ', '<', '>', '"']) >= 0)
+                return null;
+
+            return $"https://res.cloudinary.com/{cloud}/raw/upload/{v}";
+        }
+
         public static bool ListaValida(IEnumerable<string>? items) =>
             items == null || items.All(EsValido);
 

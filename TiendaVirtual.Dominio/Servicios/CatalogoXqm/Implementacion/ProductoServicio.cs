@@ -143,7 +143,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
                 var tipo = (TipoProducto)dto.Tipo.Id;
 
-                // Validación del tipo PATRÓN
+                // Validación del tipo PATRÓN: una sola SKU, sin material ni medidas.
                 if (tipo == TipoProducto.Patron)
                 {
                     if (!vendedor.VendePatrones)
@@ -152,6 +152,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     if (string.IsNullOrWhiteSpace(dto.ArchivoPatronUrl))
                         return ResultadoOperacion<ProductoDto>.SetError(
                             "Un producto de tipo PATRÓN debe tener un archivo PDF.");
+                    dto.TieneVariantes = false;
+                    dto.Material = null;
+                    dto.Dimensiones = null;
+                    dto.DiasElaboracion = null;
                 }
 
                 // Validación de precio
@@ -227,14 +231,22 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     var variantes = new List<VarianteProducto>();
                     foreach (var v in dto.Variantes)
                     {
+                        var datos = await ResolverDatosVarianteAsync(v.OpcionVarianteId, v.Nombre);
+                        if (!datos.Ok)
+                            return ResultadoOperacion<ProductoDto>.SetError(datos.Error!);
+
                         var variante = new VarianteProducto
                         {
                             ProductoId = producto.ProductoId,
                             Sku = v.Sku,
-                            Nombre = v.Nombre,
+                            Nombre = datos.Nombre,
+                            OpcionVarianteId = datos.OpcionVarianteId,
                             Precio = v.Precio,
                             PesoGramos = v.PesoGramos,
                             Atributos = v.Atributos,
+                            Material = v.Material,
+                            Dimensiones = v.Dimensiones,
+                            DescripcionCorta = v.DescripcionCorta,
                             Activa = true
                         };
                         _context.VariantesProducto.Add(variante);
@@ -258,7 +270,7 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                     var defaultVariante = new VarianteProducto
                     {
                         ProductoId = producto.ProductoId,
-                        Nombre = "Único",
+                        Nombre = tipo == TipoProducto.Patron ? "Digital" : "Único",
                         Precio = dto.PrecioBase!.Value,
                         Activa = true
                     };
@@ -335,10 +347,10 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 producto.Nombre = dto.Nombre.Trim();
                 producto.Descripcion = dto.Descripcion;
                 producto.DescripcionCorta = dto.DescripcionCorta;
-                producto.Material = dto.Material;
-                producto.Dimensiones = dto.Dimensiones;
-                producto.PrecioBase = dto.PrecioBase;
-                producto.DiasElaboracion = dto.DiasElaboracion;
+                producto.Material = producto.Tipo == TipoProducto.Patron ? null : dto.Material;
+                producto.Dimensiones = producto.Tipo == TipoProducto.Patron ? null : dto.Dimensiones;
+                producto.PrecioBase = dto.PrecioBase ?? producto.PrecioBase;
+                producto.DiasElaboracion = producto.Tipo == TipoProducto.Patron ? null : dto.DiasElaboracion;
                 producto.ArchivoPatronUrl = dto.ArchivoPatronUrl;
 
                 await _context.SaveChangesAsync();
@@ -464,14 +476,26 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 var producto = await ValidarPropiedadProductoAsync(usuarioId, productoId);
                 if (producto == null) return ResultadoOperacion<VarianteProductoDto>.SetError("Producto no encontrado.");
 
+                if (producto.Tipo == TipoProducto.Patron)
+                    return ResultadoOperacion<VarianteProductoDto>.SetError(
+                        "Un patrón digital no admite varias opciones.");
+
+                var datos = await ResolverDatosVarianteAsync(dto.OpcionVarianteId, dto.Nombre);
+                if (!datos.Ok)
+                    return ResultadoOperacion<VarianteProductoDto>.SetError(datos.Error!);
+
                 var variante = new VarianteProducto
                 {
                     ProductoId = productoId,
                     Sku = dto.Sku,
-                    Nombre = dto.Nombre,
+                    Nombre = datos.Nombre,
+                    OpcionVarianteId = datos.OpcionVarianteId,
                     Precio = dto.Precio,
                     PesoGramos = dto.PesoGramos,
                     Atributos = dto.Atributos,
+                    Material = dto.Material,
+                    Dimensiones = dto.Dimensiones,
+                    DescripcionCorta = dto.DescripcionCorta,
                     Activa = true
                 };
                 _context.VariantesProducto.Add(variante);
@@ -525,11 +549,19 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
                 if (vendedor == null || variante.Producto.VendedorId != vendedor.VendedorId)
                     return ResultadoOperacion<VarianteProductoDto>.SetError("No tienes permiso sobre esta variante.");
 
+                var datos = await ResolverDatosVarianteAsync(dto.OpcionVarianteId, dto.Nombre);
+                if (!datos.Ok)
+                    return ResultadoOperacion<VarianteProductoDto>.SetError(datos.Error!);
+
                 variante.Sku = dto.Sku;
-                variante.Nombre = dto.Nombre;
+                variante.Nombre = datos.Nombre;
+                variante.OpcionVarianteId = datos.OpcionVarianteId;
                 variante.Precio = dto.Precio;
                 variante.PesoGramos = dto.PesoGramos;
                 variante.Atributos = dto.Atributos;
+                variante.Material = dto.Material;
+                variante.Dimensiones = dto.Dimensiones;
+                variante.DescripcionCorta = dto.DescripcionCorta;
                 variante.Activa = dto.Activa;
 
                 await _context.SaveChangesAsync();
@@ -1013,6 +1045,24 @@ namespace TiendaVirtual.Dominio.Servicios.CatalogoXqm.Implementacion
 
         private static int LimiteImagenesPorVariantes(int cantidadVariantes) =>
             cantidadVariantes > 3 ? 6 : 4;
+
+        private async Task<(bool Ok, string Nombre, int? OpcionVarianteId, string? Error)> ResolverDatosVarianteAsync(
+            int? opcionVarianteId, string? nombreLibre)
+        {
+            if (opcionVarianteId is int id)
+            {
+                var opcion = await _context.OpcionesVariante.AsNoTracking()
+                    .FirstOrDefaultAsync(o => o.OpcionVarianteId == id && o.Activo);
+                if (opcion == null)
+                    return (false, "", null, "La opción de variante no existe o está inactiva.");
+                return (true, opcion.Nombre, opcion.OpcionVarianteId, null);
+            }
+
+            var nombre = (nombreLibre ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(nombre))
+                return (false, "", null, "Elige una opción de variante.");
+            return (true, nombre, null, null);
+        }
 
         private async Task<Producto?> ValidarPropiedadProductoAsync(Guid usuarioId, int productoId)
         {

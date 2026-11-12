@@ -1194,22 +1194,35 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 Fila("E-mail:", orden.CorreoCliente) +
                 Fila("Teléfono:", telefono)));
 
-            if (direccion != null)
+            var itemsLista = items.ToList();
+            var hayPatron = itemsLista.Any(i => i.TipoProducto == TipoProducto.Patron);
+            var hayFisico = itemsLista.Any(i => i.TipoProducto != TipoProducto.Patron);
+            var tieneDireccion = direccion != null && !string.IsNullOrWhiteSpace(direccion.Direccion);
+
+            if (hayFisico && tieneDireccion)
             {
-                var localidad = string.Join(" - ", new[] { direccion.Distrito, direccion.Provincia, direccion.Departamento }
+                var localidad = string.Join(" - ", new[] { direccion!.Distrito, direccion.Provincia, direccion.Departamento }
                     .Where(s => !string.IsNullOrWhiteSpace(s)));
+                var tipoEnvio = hayPatron
+                    ? "El patrón digital va al correo y se descarga en Mis compras; lo demás se retira en agencia."
+                    : "Agencia. El envío se paga al recoger.";
                 html.Append(Bloque("Envío a domicilio",
-                    Fila("Tipo envío:", "Agencia. El envío se paga al recoger.") +
+                    Fila("Tipo envío:", tipoEnvio) +
                     Fila("A nombre de:", direccion.NombreReceptor) +
                     Fila("Documento:", direccion.DniReceptor) +
                     Fila("Localidad:", localidad) +
                     Fila("Dirección:", direccion.Direccion) +
                     Fila("Obs.:", direccion.Referencia)));
             }
+            else if (!hayFisico)
+            {
+                html.Append(Bloque("Entrega",
+                    Fila("Tipo:", "Patrón digital. El PDF se entrega por correo y también queda en Mis compras.")));
+            }
 
             html.Append("<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin:0 0 4px;border:1px solid #e6e6e6;\">");
             html.Append("<tr><td colspan=\"3\" style=\"padding:9px 12px;background:#f0f0f0;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#222222;\">Artículos</td></tr>");
-            foreach (var item in items)
+            foreach (var item in itemsLista)
             {
                 var variante = string.IsNullOrWhiteSpace(item.NombreVariante)
                     ? ""
@@ -1230,7 +1243,17 @@ namespace TiendaVirtual.Dominio.Servicios.VentaXqm.Implementacion
                 html.Append("</td>");
                 html.Append("<td style=\"padding:12px 8px 12px 0;border-top:1px solid #eeeeee;vertical-align:top;\">")
                     .Append(WebUtility.HtmlEncode(item.NombreProducto)).Append(variante)
-                    .Append("<br><span style=\"color:#777777;\">").Append(item.Cantidad).Append(" uni.</span></td>");
+                    .Append("<br><span style=\"color:#777777;\">").Append(item.Cantidad).Append(" uni.</span>");
+                if (item.TipoProducto == TipoProducto.Patron)
+                {
+                    var urlPdf = IdentificadorMedia.UrlEntregaArchivo(item.ArchivoPatronUrl, _cloudinaryCloudName);
+                    if (urlPdf != null)
+                    {
+                        html.Append("<br><a href=\"").Append(WebUtility.HtmlEncode(urlPdf))
+                            .Append("\" style=\"display:inline-block;margin-top:8px;padding:8px 14px;background:#222222;color:#ffffff;text-decoration:none;font-size:12px;font-weight:700;letter-spacing:0.04em;\">Descargar PDF</a>");
+                    }
+                }
+                html.Append("</td>");
                 html.Append("<td style=\"padding:12px 12px 12px 0;border-top:1px solid #eeeeee;text-align:right;white-space:nowrap;vertical-align:top;font-weight:600;\">S/ ")
                     .Append(item.TotalLinea.ToString("N2")).Append("</td></tr>");
             }

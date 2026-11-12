@@ -22,8 +22,10 @@ namespace TiendaVirtual.Intercambio.Dto.VentaXqm
     /// </summary>
     public class CobrarCarritoDto
     {
-        [Required]
-        public Guid DireccionId { get; set; }
+        /// <summary>
+        /// Obligatoria si hay algún ítem físico. Opcional si el carrito es solo patrones.
+        /// </summary>
+        public Guid? DireccionId { get; set; }
 
         public bool RetiraOtraPersona { get; set; }
 
